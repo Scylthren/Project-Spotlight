@@ -13,7 +13,9 @@ import type { PhotoPicker, PhotoSource, PickPhotoResult } from './photo-picker';
  * `ImageProcessor` downscales and re-encodes every photo before it is stored,
  * and compressing here too would only lose quality twice. `exif: false` only
  * means the EXIF data is not returned to JS; it does not strip anything from
- * the file (Gate 4 verifies metadata removal before any upload).
+ * the picked file, which may still carry GPS. Metadata is removed from the
+ * stored copy by `ImageProcessor` (tested in expo-image-processor.test.ts),
+ * and the picked file is deleted after saving.
  */
 const OPTIONS: ImagePickerOptions = {
   mediaTypes: ['images'],

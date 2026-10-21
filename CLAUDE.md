@@ -4,6 +4,10 @@ Mobile app that builds a digital closet from photos of a user's clothes and gene
 
 Audience for now: the owner and a few friends. A public store release may come later. iOS and Android both matter, so keep the code cross-platform.
 
+## Start here (saves tokens)
+- Read `docs/TIMELINE.md` "Current state" first. It says which gate you're in, what's committed, what's verified, and what's next. Trust it; don't re-explore the repo to rediscover it. Only check what it marks "unverified" or what your task touches.
+- When you finish a slice, a review, or stop mid-task, update `docs/TIMELINE.md` (rules at the top of that file) before reporting. An unfinished task gets an entry too, saying exactly where you stopped, so the next session resumes instead of restarting.
+
 ## Stack
 - Expo (React Native) with TypeScript in strict mode. Use the Expo SDK version the project was created with. Do not upgrade the SDK without asking.
 - Use the routing and structure the Expo default template ships with. Do not swap navigation or state libraries without asking.

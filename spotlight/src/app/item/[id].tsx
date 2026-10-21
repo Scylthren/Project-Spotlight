@@ -61,8 +61,7 @@ function EditItem({ item }: { item: ClothingItem }) {
         keyboardShouldPersistTaps="handled">
         <ItemFormFields
           fields={form.fields}
-          photoUri={form.photoUri}
-          photoHint="Take or choose a photo to replace this one"
+          emptyPhotoHint="Add a photo of the front of the item"
           savedTags={form.savedTags}
           onDeleteSavedTag={form.deleteSavedTag}
           busy={form.busy}

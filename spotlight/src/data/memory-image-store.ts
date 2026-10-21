@@ -1,4 +1,4 @@
-import { hasUriScheme, imageRefFor, type ImageStore } from './image-store';
+import { hasUriScheme, imageRefFor, STRIPPING_SUFFIX, type ImageStore } from './image-store';
 
 /**
  * Mock `ImageStore`. Records copies in memory. Suffixes are a counter
@@ -10,6 +10,10 @@ export class MemoryImageStore implements ImageStore {
   readonly files = new Map<string, string>();
   failNextSave: Error | null = null;
   failNextRemove: Error | null = null;
+  /** Runs between a file's existence check and its delete in `remove`. */
+  betweenCheckAndDelete: ((key: string) => void) | null = null;
+  /** Keys whose delete throws (the file stays). */
+  failDeleteOf = new Set<string>();
   private saves = 0;
 
   async save(sourceUri: string, itemId: string, extension?: string): Promise<string> {
@@ -30,7 +34,29 @@ export class MemoryImageStore implements ImageStore {
       this.failNextRemove = null;
       throw error;
     }
-    this.files.delete(ref);
+    // Same order and tolerance as the real store: the cleanup copy first,
+    // then the photo, which is deleted even if the copy could not be.
+    let pendingError: unknown = null;
+    try {
+      this.deleteIfPresent(ref + STRIPPING_SUFFIX);
+    } catch (error) {
+      pendingError = error;
+    }
+    this.deleteIfPresent(ref);
+    if (pendingError !== null) throw pendingError;
+  }
+
+  /**
+   * Like a file system: check, then delete, which throws if the file is gone.
+   * `betweenCheckAndDelete` runs in the gap, so a test can finish a racing
+   * move there; a file that vanished in the gap is not an error.
+   */
+  private deleteIfPresent(key: string): void {
+    if (!this.files.has(key)) return;
+    this.betweenCheckAndDelete?.(key);
+    if (this.failDeleteOf.has(key)) throw new Error(`cannot delete ${key}`);
+    if (!this.files.has(key)) return;
+    this.files.delete(key);
   }
 
   resolveUri(ref: string): string {

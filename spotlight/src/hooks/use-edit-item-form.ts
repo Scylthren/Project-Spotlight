@@ -1,4 +1,4 @@
-import { itemToFormValues, type ClothingItem, type TagSummary } from '@/core';
+import { draftsFromPhotos, itemToFormValues, type ClothingItem, type TagSummary } from '@/core';
 import { deleteClosetItem } from '@/data/delete-closet-item';
 import { editClosetItem } from '@/data/edit-closet-item';
 
@@ -16,41 +16,41 @@ import { useSingleFlight } from './use-single-flight';
  * controls are locked while saving).
  *
  * A save or delete still running when the screen closes (header or hardware
- * back) runs to completion; the picked photo is deleted only after it settles.
+ * back) runs to completion; the picked photos are deleted only after it settles.
  */
 export function useEditItemForm(item: ClothingItem) {
   const { repository, imageStore, imageProcessor, temporaryFiles } = useClosetServices();
-  const fields = useItemFormFields(itemToFormValues(item));
+  const fields = useItemFormFields(itemToFormValues(item), draftsFromPhotos(item.photos));
   const savedTags = useSavedTags();
   const submit = useSingleFlight();
   const isMounted = useIsMounted();
 
   /** Returns true if the edit was saved, or if there was nothing to save. */
   async function save(): Promise<boolean> {
-    const saved = await submit.run(async () => {
-      const newPhotoUri = fields.photo?.uri ?? null;
-      const result = await fields.whileSavingPhoto(() =>
+    const saved = await submit.run(() => fields.whileSaving(async () => {
+      const photos = fields.photos;
+      const result = await fields.whileSavingPhotos(() =>
         editClosetItem(
           item.id,
-          { ...fields.values, newPhotoUri },
+          { ...fields.values, photos },
           { repository, imageStore, imageProcessor, temporaryFiles },
         ),
       );
       // An unchanged form is a success too (`result.changed` is false, nothing was written).
       if (!result.ok) fields.setErrors(result.errors);
       return result.ok;
-    });
+    }));
     return saved ?? false;
   }
 
   /** Asks `confirm` first, inside the guard, so a double tap shows one dialog. Returns true if deleted. */
   async function remove(confirm: () => Promise<boolean>): Promise<boolean> {
-    const deleted = await submit.run(async () => {
+    const deleted = await submit.run(() => fields.whileSaving(async () => {
       if (!(await confirm())) return false;
       const result = await deleteClosetItem(item.id, { repository, imageStore });
       if (!result.ok) fields.setErrors(result.errors);
       return result.ok;
-    });
+    }));
     return deleted ?? false;
   }
 
@@ -66,7 +66,6 @@ export function useEditItemForm(item: ClothingItem) {
     fields,
     savedTags,
     deleteSavedTag,
-    photoUri: fields.photo?.uri ?? imageStore.resolveUri(item.imageUri),
     busy: submit.busy || savedTags.deleting,
     save,
     remove,

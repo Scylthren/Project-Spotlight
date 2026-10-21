@@ -1,6 +1,7 @@
 /**
  * Core domain types. Plain TypeScript, no React or Expo imports.
  */
+import type { PaletteId } from './palette';
 
 export const CATEGORIES = [
   'top',
@@ -15,19 +16,67 @@ export type Category = (typeof CATEGORIES)[number];
 export const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
 export type Season = (typeof SEASONS)[number];
 
+/**
+ * Which angle a photo shows: the front (required), the back, or a close-up
+ * detail (a label, a print, a texture). Rules for combining them are in
+ * photo-set.ts.
+ */
+export const PHOTO_ROLES = ['front', 'back', 'detail'] as const;
+export type PhotoRole = (typeof PHOTO_ROLES)[number];
+
+/** One photo of an item. */
+export interface ItemPhoto {
+  /** Unique across the whole closet, not just within the item. */
+  id: string;
+  role: PhotoRole;
+  /**
+   * Stored reference relative to app storage (e.g.
+   * `closet-images/<itemId>-<suffix>.jpg`, resolved by `ImageStore.resolveUri`)
+   * or an absolute URI.
+   */
+  path: string;
+  /** Display position within the item: 0, 1, 2, ... matching the array index. */
+  sortOrder: number;
+  /** The photo shown in the grid. Exactly one per item; any role may be primary. */
+  isPrimary: boolean;
+}
+
+/**
+ * Where an item color came from: chosen by the user in the color matrix, or
+ * detected from the photo (slice 4). Any color the user picks or changes is
+ * 'user'.
+ */
+export const COLOR_SOURCES = ['auto', 'user'] as const;
+export type ColorSource = (typeof COLOR_SOURCES)[number];
+
+/** One of an item's colors (rules in color-selection.ts). */
+export interface ItemColor {
+  /** A palette color id (palette.ts). Unique within the item. */
+  paletteId: PaletteId;
+  /**
+   * Uppercase `#RRGGBB`. The palette's reference hex for a color the user
+   * picked; the measured hex for a detected one (or a legacy hex value).
+   */
+  hex: string;
+  source: ColorSource;
+}
+
 /** A single garment in the user's closet. */
 export interface ClothingItem {
   /** Stable unique ID. Outfits reference items by this ID. */
   id: string;
   /**
-   * The item's photo: either a stored reference relative to app storage
-   * (e.g. `closet-images/<id>-<suffix>.jpg`, resolved by `ImageStore.resolveUri`) or
-   * an absolute URI.
+   * The item's photos in display order (see photo-set.ts for the rules:
+   * exactly one front, at most one back, at most two details, at most four
+   * in total, exactly one primary).
    */
-  imageUri: string;
+  photos: ItemPhoto[];
   category: Category;
-  /** Free-form color names, primary color first. At least one. */
-  colors: string[];
+  /**
+   * Palette colors, primary first, then up to two secondaries in order
+   * (1 to MAX_ITEM_COLORS entries, unique palette ids).
+   */
+  colors: ItemColor[];
   /** Seasons the item suits. At least one, no duplicates. */
   seasons: Season[];
   /**

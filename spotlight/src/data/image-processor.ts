@@ -16,9 +16,13 @@ export interface ProcessedImage extends ImageSize {
  * This works on the original photo only. Background-removed cutouts (Gate 2)
  * are a separate image and must not replace the original.
  *
- * Re-encoding is NOT claimed to strip metadata (EXIF, GPS). Photos stay on
- * the device in this gate; Gate 4 must verify in a test that location
- * metadata is gone before anything is uploaded.
+ * The result must be upright and carry no metadata: no Exif (so no GPS or
+ * camera details), XMP, IPTC, comments, or data after the image. Only the
+ * JFIF header, an ICC color profile, and an Adobe APP14 marker may remain.
+ * `ExpoImageProcessor` enforces this with core/jpeg-metadata.ts and rejects
+ * if the check fails; see its tests. Only JPEG output is handled, which is
+ * all this interface produces. The picked source file is not changed and
+ * may still carry GPS until it is discarded.
  *
  * Implementations: `FakeImageProcessor` (tests) and `ExpoImageProcessor`.
  */

@@ -91,3 +91,5 @@ Human check: use the app on Android for a day, then decide on public release.
 - Backend: hosted, defaulting to Supabase. Reconfirm at the start of Gate 2, since free-tier limits and pricing change.
 - Human review at the gates above.
 - Images: keep the original photo and a separate background-removed cutout per item, starting in Gate 2. A 2D mannequin preview comes after the outfit engine (Gate 3.5). Realistic AI try-on is out of scope for the MVP because of cost per render and quality.
+- Color detection (Gate 1, slice 4, option A): a free on-device heuristic (`LocalGarmentIsolator`: 96px decode with jpeg-js, border-model segmentation, k-means in Lab) used only to suggest colors. No cutout is stored; real stored cutouts stay a Gate 2 decision behind `GarmentIsolator`.
+- Camera permission (Gate 1, slice 5): explain-then-prompt modal when entering Add with permission undetermined, at most once per app session; the camera opens only from a "Take photo" tap; denied shows an in-form panel linking to Settings (or the real prompt where the OS can still ask). The photo library is always offered as the alternative.

@@ -25,8 +25,7 @@ export default function AddItemScreen() {
           <ThemedText type="subtitle">Add item</ThemedText>
           <ItemFormFields
             fields={form.fields}
-            photoUri={form.photoUri}
-            photoHint={form.photoUri ? 'Take or choose another photo to change it' : 'Add a photo of the item'}
+            emptyPhotoHint="Add a photo of the front of the item"
             savedTags={form.savedTags}
             onDeleteSavedTag={form.deleteSavedTag}
             busy={form.busy}

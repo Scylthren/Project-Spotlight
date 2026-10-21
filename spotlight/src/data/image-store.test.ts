@@ -59,6 +59,37 @@ describe('MemoryImageStore', () => {
     expect(await store.save('file:///tmp/IMG.HEIC', 'x1', '.jpg')).toBe('closet-images/x1-m2.jpg');
   });
 
+  it('removes the cleanup copy along with the photo', async () => {
+    const store = new MemoryImageStore();
+    const ref = await store.save('file:///tmp/a.jpg', 'x1');
+    store.files.set(`${ref}.stripping`, 'cleanup copy');
+    await store.remove(ref);
+    expect(store.files.size).toBe(0);
+  });
+
+  it('tolerates the cleanup copy vanishing between its check and its delete, and still deletes the photo', async () => {
+    const store = new MemoryImageStore();
+    const ref = await store.save('file:///tmp/a.jpg', 'x1');
+    store.files.set(`${ref}.stripping`, 'cleanup copy');
+    // A racing cleanup move finishes in the gap: the copy replaces the photo.
+    store.betweenCheckAndDelete = (key) => {
+      if (key !== `${ref}.stripping`) return;
+      store.files.set(ref, store.files.get(key)!);
+      store.files.delete(key);
+    };
+    await expect(store.remove(ref)).resolves.toBeUndefined();
+    expect(store.files.size).toBe(0);
+  });
+
+  it('deletes the photo even if the cleanup copy cannot be deleted, then reports the error', async () => {
+    const store = new MemoryImageStore();
+    const ref = await store.save('file:///tmp/a.jpg', 'x1');
+    store.files.set(`${ref}.stripping`, 'cleanup copy');
+    store.failDeleteOf.add(`${ref}.stripping`);
+    await expect(store.remove(ref)).rejects.toThrow(/cannot delete/);
+    expect([...store.files.keys()]).toEqual([`${ref}.stripping`]);
+  });
+
   it('gives every save of the same item its own file', async () => {
     const store = new MemoryImageStore();
     const first = await store.save('file:///tmp/a.jpg', 'x1');

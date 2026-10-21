@@ -1,0 +1,259 @@
+import type { CameraPermission, PhotoTarget } from '@/core';
+
+import { CameraAccessFlow, type CameraFlowPick } from './camera-access-flow';
+import { EntryPromptSession, FakeCameraPermissions } from './camera-permissions';
+import type { PhotoSource } from './photo-picker';
+
+const UNDETERMINED: CameraPermission = { status: 'undetermined', canAskAgain: true };
+const GRANTED: CameraPermission = { status: 'granted', canAskAgain: true };
+const DENIED: CameraPermission = { status: 'denied', canAskAgain: false };
+const DENIED_ASK_AGAIN: CameraPermission = { status: 'denied', canAskAgain: true };
+
+const FRONT: PhotoTarget = { kind: 'add', role: 'front' };
+const BACK: PhotoTarget = { kind: 'add', role: 'back' };
+
+/** Lets pending promise callbacks run. */
+const flush = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+function setup(permission: CameraPermission = UNDETERMINED, { session = new EntryPromptSession() } = {}) {
+  const permissions = new FakeCameraPermissions(permission);
+  const picks: { source: PhotoSource; target: PhotoTarget }[] = [];
+  const pickResults: CameraFlowPick[] = [];
+  const introVisible: boolean[] = [];
+  const flow = new CameraAccessFlow(
+    permissions,
+    session,
+    {
+      pick: async (source, target) => {
+        picks.push({ source, target });
+        return pickResults.shift() ?? { id: `draft-${picks.length}` };
+      },
+      defaultTarget: () => FRONT,
+      onIntroVisible: (visible) => introVisible.push(visible),
+    },
+    { introCloseTimeoutMs: 50 },
+  );
+  return { flow, permissions, picks, pickResults, introVisible, session };
+}
+
+describe('CameraAccessFlow: entering Add', () => {
+  it('shows the intro once per session when undetermined; "Not now" hides it', async () => {
+    const { flow, session, picks } = setup(UNDETERMINED);
+    flow.enter();
+    await flow.check();
+    expect(flow.getState().surface).toBe('intro');
+    expect(session.shown).toBe(true);
+    flow.notNow();
+    expect(flow.getState().surface).toBe('none');
+    // Second visit in the same app session: no prompt.
+    flow.enter();
+    expect(flow.getState().surface).toBe('none');
+    // A new form in the same session (e.g. the screen remounted) shares the session.
+    const again = setup(UNDETERMINED, { session });
+    await again.flow.check();
+    again.flow.enter();
+    expect(again.flow.getState().surface).toBe('none');
+    expect(picks).toEqual([]);
+  });
+
+  it('never opens the camera on entry, even after Allow', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    await flow.check();
+    flow.enter();
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    expect(flow.getState().surface).toBe('none');
+    flow.introClosed();
+    await flush();
+    expect(picks).toEqual([]);
+  });
+
+  it('library from the entry prompt picks into the default target after the modal closes', async () => {
+    const { flow, picks, introVisible } = setup(UNDETERMINED);
+    await flow.check();
+    flow.enter();
+    expect(introVisible).toEqual([true]);
+    flow.chooseLibrary();
+    expect(picks).toEqual([]); // still closing
+    flow.introClosed();
+    await flush();
+    expect(picks).toEqual([{ source: 'library', target: FRONT }]);
+    expect(introVisible).toEqual([true, false]);
+  });
+});
+
+describe('CameraAccessFlow: "Take photo"', () => {
+  it('opens the camera at once when granted', async () => {
+    const { flow, picks } = setup(GRANTED);
+    expect(await flow.takePhoto(BACK)).toBe('draft-1');
+    expect(picks).toEqual([{ source: 'camera', target: BACK }]);
+  });
+
+  it('undetermined: intro, Allow, then the camera once the modal has closed', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(BACK);
+    await flush();
+    expect(flow.getState()).toMatchObject({ surface: 'intro', pendingTake: true });
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    expect(permissions.requestCalls).toBe(1);
+    expect(picks).toEqual([]);
+    flow.introClosed();
+    expect(await taking).toBe('draft-1');
+    expect(picks).toEqual([{ source: 'camera', target: BACK }]);
+  });
+
+  it('opens the camera after a timeout if the modal never reports closing', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    expect(await taking).toBe('draft-1');
+    expect(picks).toHaveLength(1);
+  });
+
+  it('refusing the system prompt shows the denied panel; library from it picks for the tap', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(BACK);
+    await flush();
+    permissions.requests.push(DENIED);
+    await flow.allow();
+    expect(flow.getState()).toMatchObject({ surface: 'denied', pendingTake: true });
+    flow.introClosed();
+    flow.chooseLibrary();
+    expect(await taking).toBe('draft-1');
+    expect(picks).toEqual([{ source: 'library', target: BACK }]);
+  });
+
+  it('denied: the panel opens Settings; coming back with access on closes it without the camera', async () => {
+    const { flow, permissions, picks } = setup(DENIED);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    expect(flow.getState().surface).toBe('denied');
+    await flow.openSettings();
+    expect(permissions.settingsOpened).toBe(1);
+    permissions.current = GRANTED;
+    await flow.check(); // AppState 'active'
+    expect(flow.getState().surface).toBe('none');
+    expect(await taking).toBeNull();
+    expect(picks).toEqual([]);
+  });
+
+  it('Android: the denied panel can ask again and continue to the camera', async () => {
+    const { flow, permissions, picks } = setup(DENIED_ASK_AGAIN);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    expect(await taking).toBe('draft-1'); // no modal was up: no wait
+    expect(picks).toEqual([{ source: 'camera', target: FRONT }]);
+  });
+
+  it('"Not now" ends the tap with null', async () => {
+    const { flow } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    flow.notNow();
+    expect(await taking).toBeNull();
+  });
+
+  it('a second tap replaces a waiting one', async () => {
+    const { flow } = setup(DENIED);
+    const first = flow.takePhoto(FRONT);
+    await flush();
+    const second = flow.takePhoto(BACK);
+    expect(await first).toBeNull();
+    flow.notNow();
+    expect(await second).toBeNull();
+  });
+
+  it('shows the denied panel when the camera itself refuses (changed in Settings meanwhile)', async () => {
+    const { flow, pickResults } = setup(GRANTED);
+    pickResults.push({ id: null, cameraRefused: DENIED });
+    expect(await flow.takePhoto(FRONT)).toBeNull();
+    expect(flow.getState().surface).toBe('denied');
+  });
+
+  it('a pick that throws resolves the tap to null', async () => {
+    const permissions = new FakeCameraPermissions(GRANTED);
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const flow = new CameraAccessFlow(permissions, new EntryPromptSession(), {
+      pick: async () => {
+        throw new Error('boom');
+      },
+      defaultTarget: () => FRONT,
+    });
+    expect(await flow.takePhoto(FRONT)).toBeNull();
+    warn.mockRestore();
+  });
+});
+
+describe('CameraAccessFlow: checks and lifetime', () => {
+  it('a slow older check cannot overwrite a newer one', async () => {
+    const { flow, permissions } = setup(DENIED);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const realCheck = permissions.check.bind(permissions);
+    permissions.check = async () => {
+      const result = await realCheck();
+      if (result.status === 'denied') await gate;
+      return result;
+    };
+    const slow = flow.check();
+    permissions.current = GRANTED;
+    await flow.check();
+    release();
+    await slow;
+    expect(flow.getState().permission).toEqual(GRANTED);
+  });
+
+  it('notifies subscribers and stops after dispose', async () => {
+    const { flow } = setup(DENIED);
+    const listener = jest.fn();
+    const unsubscribe = flow.subscribe(listener);
+    await flow.check();
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+    await flow.check();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispose ends a waiting tap and ignores late results', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    let answer!: (p: CameraPermission) => void;
+    permissions.requests.push(() => new Promise((r) => (answer = r)));
+    const allowing = flow.allow();
+    flow.dispose();
+    expect(await taking).toBeNull();
+    answer(GRANTED);
+    await allowing;
+    await new Promise((r) => setTimeout(r, 60));
+    expect(picks).toEqual([]);
+  });
+
+  it('start after dispose works again (Strict Mode remount)', async () => {
+    const { flow, picks } = setup(GRANTED);
+    flow.dispose();
+    expect(await flow.takePhoto(FRONT)).toBeNull();
+    flow.start();
+    expect(await flow.takePhoto(FRONT)).toBe('draft-1');
+    expect(picks).toHaveLength(1);
+  });
+
+  it('uses the latest host after setHost', async () => {
+    const { flow } = setup(GRANTED);
+    flow.setHost({ pick: async () => ({ id: 'from-new-host' }), defaultTarget: () => FRONT });
+    expect(await flow.takePhoto(FRONT)).toBe('from-new-host');
+  });
+
+  it('ignores Allow and library with nothing on screen', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    await flow.allow();
+    flow.chooseLibrary();
+    expect(permissions.requestCalls).toBe(0);
+    expect(picks).toEqual([]);
+  });
+});

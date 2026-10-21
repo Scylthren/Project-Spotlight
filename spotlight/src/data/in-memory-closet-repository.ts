@@ -34,12 +34,23 @@ export class InMemoryClosetRepository implements ClosetRepository {
     return item ? cloneItem(item) : null;
   }
 
+  /** Rejects photo ids that belong to a different item. */
+  private checkPhotoIds(item: ClothingItem): void {
+    const ids = new Set(item.photos.map((p) => p.id));
+    for (const other of this.items.values()) {
+      if (other.id === item.id) continue;
+      const taken = other.photos.find((p) => ids.has(p.id));
+      if (taken) throw new ClosetRepositoryError('invalid', `photo id ${taken.id} belongs to another item`);
+    }
+  }
+
   async add(item: ClothingItem): Promise<void> {
     const errors = validateClothingItem(item);
     if (errors.length > 0) throw new ClosetRepositoryError('invalid', errors.join('; '));
     if (this.items.has(item.id)) {
       throw new ClosetRepositoryError('duplicate', `item ${item.id} already exists`);
     }
+    this.checkPhotoIds(item);
     this.items.set(item.id, cloneItem(item));
     for (const tag of item.tags) this.tags.add(tag);
   }
@@ -49,6 +60,7 @@ export class InMemoryClosetRepository implements ClosetRepository {
     if (errors.length > 0) throw new ClosetRepositoryError('invalid', errors.join('; '));
     const stored = this.items.get(item.id);
     if (!stored) throw new ClosetRepositoryError('not_found', `item ${item.id} does not exist`);
+    this.checkPhotoIds(item);
     this.items.set(item.id, { ...cloneItem(item), createdAt: stored.createdAt });
     for (const tag of item.tags) this.tags.add(tag);
   }

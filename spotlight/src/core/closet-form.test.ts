@@ -3,33 +3,58 @@ import {
   EMPTY_ITEM_FORM,
   hasDetailChanges,
   itemToFormValues,
-  parseColors,
+  makePrimaryColor,
+  toggleColor,
   toggleSeason,
   type ClothingItem,
+  type ItemColor,
 } from '@/core';
 
-describe('parseColors', () => {
-  it('splits on commas and leaves normalization to createClothingItem', () => {
-    expect(parseColors('Navy, white')).toEqual(['Navy', ' white']);
+const NAVY: ItemColor = { paletteId: 'navy', hex: '#202A60', source: 'user' };
+const WHITE: ItemColor = { paletteId: 'white', hex: '#FFFFFF', source: 'user' };
+
+/** Applies matrix taps in order, as the form does. */
+function tap(colors: ItemColor[], ...ids: string[]): ItemColor[] {
+  for (const id of ids) {
+    const result = toggleColor(colors, id);
+    if (!result.ok) throw new Error(result.problem);
+    colors = result.colors;
+  }
+  return colors;
+}
+
+describe('colors from the color matrix', () => {
+  it('a matrix selection is saved by createClothingItem as is, primary first', () => {
+    let colors = tap([], 'navy', 'white', 'red', 'white');
+    const promoted = makePrimaryColor(colors, 'red');
+    colors = promoted.ok ? promoted.colors : [];
     const result = createClothingItem(
       {
         id: 'x',
-        imageUri: 'closet-images/x.jpg',
+        photos: [{ id: 'p', role: 'front', path: 'closet-images/x.jpg', isPrimary: true }],
         category: 'top',
-        colors: parseColors(' Navy ,white,, NAVY '),
+        colors,
         seasons: ['summer'],
       },
       new Date('2026-01-01T00:00:00.000Z'),
     );
-    expect(result.ok && result.item.colors).toEqual(['navy', 'white']);
+    expect(result.ok && result.item.colors).toEqual([{ paletteId: 'red', hex: '#C8102E', source: 'user' }, NAVY]);
   });
 
-  it('yields no usable colors for blank input, which createClothingItem rejects', () => {
-    const result = createClothingItem(
-      { id: 'x', imageUri: 'a.jpg', category: 'top', colors: parseColors(' , '), seasons: ['summer'] },
-      new Date(),
-    );
-    expect(result.ok).toBe(false);
+  it('an empty selection (nothing chosen, or everything deselected) is rejected by createClothingItem', () => {
+    for (const colors of [[], tap([], 'navy', 'navy')]) {
+      const result = createClothingItem(
+        {
+          id: 'x',
+          photos: [{ id: 'p', role: 'front', path: 'a.jpg', isPrimary: true }],
+          category: 'top',
+          colors,
+          seasons: ['summer'],
+        },
+        new Date(),
+      );
+      expect(result).toEqual({ ok: false, errors: ['colors must be a non-empty array'] });
+    }
   });
 });
 
@@ -43,12 +68,12 @@ describe('toggleSeason', () => {
 });
 
 describe('itemToFormValues', () => {
-  it('prefills from an item and round-trips colors through parseColors', () => {
-    const item = {
+  it('prefills from an item with copies of its colors, and round-trips through createClothingItem', () => {
+    const item: ClothingItem = {
       id: 'x',
-      imageUri: 'closet-images/x.jpg',
+      photos: [{ id: 'p', role: 'front', path: 'closet-images/x.jpg', sortOrder: 0, isPrimary: true }],
       category: 'shoes' as const,
-      colors: ['navy', 'off-white'],
+      colors: [NAVY, { paletteId: 'cream', hex: '#F4EEDD', source: 'auto' }],
       seasons: ['spring' as const, 'autumn' as const],
       tags: ['90s', 'work'],
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -57,23 +82,27 @@ describe('itemToFormValues', () => {
     const values = itemToFormValues(item);
     expect(values).toEqual({
       category: 'shoes',
-      colorsText: 'navy, off-white',
+      colors: [NAVY, { paletteId: 'cream', hex: '#F4EEDD', source: 'auto' }],
       seasons: ['spring', 'autumn'],
       tags: ['90s', 'work'],
     });
     values.seasons.push('winter');
     values.tags.push('emo');
+    values.colors[0].source = 'auto';
+    values.colors.push(WHITE);
     expect(item.seasons).toEqual(['spring', 'autumn']);
     expect(item.tags).toEqual(['90s', 'work']);
+    expect(item.colors).toEqual([NAVY, { paletteId: 'cream', hex: '#F4EEDD', source: 'auto' }]);
+    const fresh = itemToFormValues(item);
     const rebuilt = createClothingItem(
-      { ...item, colors: parseColors(values.colorsText), seasons: item.seasons },
+      { ...item, photos: item.photos.map(({ sortOrder: _, ...p }) => p), colors: fresh.colors },
       new Date(item.createdAt),
     );
     expect(rebuilt).toEqual({ ok: true, item });
   });
 
   it('EMPTY_ITEM_FORM is blank and frozen', () => {
-    expect(EMPTY_ITEM_FORM).toEqual({ category: null, colorsText: '', seasons: [], tags: [] });
+    expect(EMPTY_ITEM_FORM).toEqual({ category: null, colors: [], seasons: [], tags: [] });
     expect(Object.isFrozen(EMPTY_ITEM_FORM)).toBe(true);
   });
 });
@@ -81,19 +110,26 @@ describe('itemToFormValues', () => {
 describe('hasDetailChanges', () => {
   const base: ClothingItem = {
     id: 'x',
-    imageUri: 'closet-images/x.jpg',
+    photos: [{ id: 'p', role: 'front', path: 'closet-images/x.jpg', sortOrder: 0, isPrimary: true }],
     category: 'top',
-    colors: ['navy', 'white'],
+    colors: [NAVY, WHITE],
     seasons: ['spring', 'summer'],
     tags: [],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
 
-  it('is false when only timestamps or the photo differ', () => {
+  it('is false when only timestamps or the photos differ', () => {
     expect(hasDetailChanges(base, { ...base })).toBe(false);
     expect(
-      hasDetailChanges(base, { ...base, imageUri: 'other.jpg', updatedAt: '2026-05-01T00:00:00.000Z' }),
+      hasDetailChanges(base, {
+        ...base,
+        photos: [
+          { id: 'q', role: 'front', path: 'other.jpg', sortOrder: 0, isPrimary: false },
+          { id: 'r', role: 'back', path: 'back.jpg', sortOrder: 1, isPrimary: true },
+        ],
+        updatedAt: '2026-05-01T00:00:00.000Z',
+      }),
     ).toBe(false);
   });
 
@@ -112,10 +148,17 @@ describe('hasDetailChanges', () => {
     expect(hasDetailChanges(base, { ...base, tags: ['work'] })).toBe(true);
   });
 
-  it('detects category and color changes, including color order', () => {
+  it('detects category and color changes, including color order (the primary)', () => {
     expect(hasDetailChanges(base, { ...base, category: 'outerwear' })).toBe(true);
-    expect(hasDetailChanges(base, { ...base, colors: ['white', 'navy'] })).toBe(true);
-    expect(hasDetailChanges(base, { ...base, colors: ['navy'] })).toBe(true);
-    expect(hasDetailChanges(base, { ...base, colors: ['navy', 'cream'] })).toBe(true);
+    expect(hasDetailChanges(base, { ...base, colors: [WHITE, NAVY] })).toBe(true);
+    expect(hasDetailChanges(base, { ...base, colors: [NAVY] })).toBe(true);
+    expect(hasDetailChanges(base, { ...base, colors: [NAVY, { paletteId: 'cream', hex: '#F2EAD6', source: 'user' }] })).toBe(true);
+    expect(hasDetailChanges(base, { ...base, colors: [NAVY, WHITE, { paletteId: 'red', hex: '#C8102E', source: 'user' }] })).toBe(true);
+  });
+
+  it('counts a source or hex change as a change, and equal copies as none', () => {
+    expect(hasDetailChanges(base, { ...base, colors: [{ ...NAVY }, { ...WHITE }] })).toBe(false);
+    expect(hasDetailChanges(base, { ...base, colors: [{ ...NAVY, source: 'auto' }, WHITE] })).toBe(true);
+    expect(hasDetailChanges(base, { ...base, colors: [NAVY, { ...WHITE, hex: '#F4F4F2' }] })).toBe(true);
   });
 });

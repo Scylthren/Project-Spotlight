@@ -1,4 +1,4 @@
-import { makeItem } from './closet-repository.contract';
+import { makeColor, makeItem, makePhoto } from './closet-repository.contract';
 import { editClosetItem } from './edit-closet-item';
 import type { ImageProcessor, ProcessedImage } from './image-processor';
 import { InMemoryClosetRepository } from './in-memory-closet-repository';
@@ -44,7 +44,9 @@ describe('PickedPhotoSlot during a save', () => {
     const cache = new FakeCache(log);
     cache.files.add(PICK);
     const imageProcessor = new BlockedProcessor(cache, log);
-    const repository = new InMemoryClosetRepository([makeItem({ id: 'item-1', imageUri: 'closet-images/old.jpg' })]);
+    const repository = new InMemoryClosetRepository([
+      makeItem({ id: 'item-1', photos: [makePhoto('item-1', { path: 'closet-images/old.jpg' })] }),
+    ]);
     const imageStore = new MemoryImageStore();
     const slot = new PickedPhotoSlot(cache);
     await slot.replace(photo(PICK));
@@ -52,7 +54,13 @@ describe('PickedPhotoSlot during a save', () => {
     const save = slot.whileInUse(() =>
       editClosetItem(
         'item-1',
-        { newPhotoUri: PICK, category: 'top', colorsText: 'red', seasons: ['summer'], tags: [] },
+        {
+          photos: [{ kind: 'picked', id: 'new-front', uri: PICK, role: 'front', isPrimary: true }],
+          category: 'top',
+          colors: [makeColor('red')],
+          seasons: ['summer'],
+          tags: [],
+        },
         { repository, imageStore, imageProcessor, temporaryFiles: cache },
       ),
     );

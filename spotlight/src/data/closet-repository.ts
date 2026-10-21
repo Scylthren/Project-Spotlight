@@ -17,6 +17,19 @@ import type { ClothingItem, TagSummary } from '@/core';
  *   so callers can tell "already gone" apart from success.
  * - Returned items are copies; mutating them does not change stored data.
  *
+ * Photos (rules in core/photo-set.ts, checked by `validateClothingItem`):
+ * - Items round-trip their `photos` in order, with every field.
+ * - Photo ids are unique across the closet. Saving an item with a photo id
+ *   that another item uses is rejected (code 'invalid') and stores nothing.
+ * - `update` replaces the whole photo list; `remove` deletes the item's photos.
+ *   The repository stores references only; image files are the caller's job.
+ *
+ * Colors (rules in core/color-selection.ts, checked by `validateClothingItem`):
+ * - Items round-trip their `colors` in order (primary first), with palette
+ *   id, hex, and source. `update` replaces the whole list; `remove` deletes it.
+ * - An empty list, more than three, a repeated or unknown palette id, a
+ *   non-normalized hex, or an unknown source is rejected (code 'invalid').
+ *
  * Tags (user-defined labels, see core/tags.ts):
  * - Items round-trip their `tags` in order. Saving an item (add or update)
  *   with a tag that is not on the saved list adds it to the list.
@@ -62,5 +75,11 @@ export function compareNewestFirst(a: ClothingItem, b: ClothingItem): number {
 }
 
 export function cloneItem(item: ClothingItem): ClothingItem {
-  return { ...item, colors: [...item.colors], seasons: [...item.seasons], tags: [...item.tags] };
+  return {
+    ...item,
+    photos: item.photos.map((p) => ({ ...p })),
+    colors: item.colors.map((c) => ({ ...c })),
+    seasons: [...item.seasons],
+    tags: [...item.tags],
+  };
 }

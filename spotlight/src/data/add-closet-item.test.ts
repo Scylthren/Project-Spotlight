@@ -1,4 +1,4 @@
-import type { ClothingItem } from '@/core';
+import { userColor, type ClothingItem, type PhotoDraft, type PhotoRole } from '@/core';
 
 import { ADD_ITEM_MESSAGES, addClosetItem, generateItemId, type AddItemForm } from './add-closet-item';
 import { ClosetRepositoryError, type ClosetRepository } from './closet-repository';
@@ -13,8 +13,12 @@ const PICKED = 'file:///cache/ImagePicker/ABC.jpeg';
 /** What FakeImageProcessor returns for its first call. */
 const PROCESSED = 'file:///processed/p1.jpg';
 
+function picked(uri: string, role: PhotoRole = 'front', id = `ph-${role}`, isPrimary = role === 'front'): PhotoDraft {
+  return { kind: 'picked', id, uri, role, isPrimary };
+}
+
 function form(overrides: Partial<AddItemForm> = {}): AddItemForm {
-  return { photoUri: PICKED, category: 'bottom', colorsText: 'Blue, white', seasons: ['summer'], tags: [], ...overrides };
+  return { photos: [picked(PICKED)], category: 'bottom', colors: [userColor('blue'), userColor('white')], seasons: ['summer'], tags: [], ...overrides };
 }
 
 function setup() {
@@ -34,9 +38,12 @@ describe('addClosetItem', () => {
     const expected: ClothingItem = {
       id: 'id-1',
       // Always .jpg: the processor re-encodes to JPEG whatever the source was named.
-      imageUri: 'closet-images/id-1-m1.jpg',
+      photos: [{ id: 'ph-front', role: 'front', path: 'closet-images/id-1-m1.jpg', sortOrder: 0, isPrimary: true }],
       category: 'bottom',
-      colors: ['blue', 'white'],
+      colors: [
+        { paletteId: 'blue', hex: '#2D5DA8', source: 'user' },
+        { paletteId: 'white', hex: '#FFFFFF', source: 'user' },
+      ],
       seasons: ['summer'],
       tags: [],
       createdAt: NOW.toISOString(),
@@ -57,8 +64,8 @@ describe('addClosetItem', () => {
       { status: 'picked', photo: { uri: PICKED, width: 10, height: 10 } },
     ]).pick('library');
     expect(picked.status).toBe('picked');
-    const uri = picked.status === 'picked' ? picked.photo.uri : null;
-    expect((await addClosetItem(form({ photoUri: uri }), deps)).ok).toBe(true);
+    const uri = picked.status === 'picked' ? picked.photo.uri : 'missing';
+    expect((await addClosetItem(form({ photos: [front(uri)] }), deps)).ok).toBe(true);
     expect(await repository.list()).toHaveLength(1);
   });
 
@@ -69,9 +76,9 @@ describe('addClosetItem', () => {
     ]);
     const picked = await camera.pick('camera');
     expect(camera.calls).toEqual(['camera']);
-    const uri = picked.status === 'picked' ? picked.photo.uri : null;
-    const result = await addClosetItem(form({ photoUri: uri }), deps);
-    expect(result.ok && result.item.imageUri).toBe('closet-images/id-1-m1.jpg');
+    const uri = picked.status === 'picked' ? picked.photo.uri : 'missing';
+    const result = await addClosetItem(form({ photos: [front(uri)] }), deps);
+    expect(result.ok && result.item.photos[0].path).toBe('closet-images/id-1-m1.jpg');
     expect([...imageStore.files.keys()]).toEqual(['closet-images/id-1-m1.jpg']);
     expect(await repository.list()).toHaveLength(1);
   });
@@ -80,7 +87,7 @@ describe('addClosetItem', () => {
     const { repository, imageStore, deps } = setup();
     const picked = await new QueuedPhotoPicker([{ status: 'cancelled' }]).pick('camera');
     expect(picked).toEqual({ status: 'cancelled' });
-    const result = await addClosetItem(form({ photoUri: null }), deps);
+    const result = await addClosetItem(form({ photos: [] }), deps);
     expect(result).toEqual({ ok: false, errors: [ADD_ITEM_MESSAGES.noPhoto] });
     expect(imageStore.files.size).toBe(0);
     expect(await repository.list()).toEqual([]);
@@ -89,7 +96,7 @@ describe('addClosetItem', () => {
   it('reports every form problem at once and copies nothing', async () => {
     const { repository, imageStore, imageProcessor, deps } = setup();
     const result = await addClosetItem(
-      { photoUri: null, category: null, colorsText: ' , ', seasons: [], tags: [] },
+      { photos: [], category: null, colors: [], seasons: [], tags: [] },
       deps,
     );
     expect(result).toEqual({
@@ -101,6 +108,15 @@ describe('addClosetItem', () => {
         ADD_ITEM_MESSAGES.noSeasons,
       ],
     });
+    expect(imageProcessor.inputs).toEqual([]);
+    expect(imageStore.files.size).toBe(0);
+    expect(await repository.list()).toEqual([]);
+  });
+
+  it('reports a color list it cannot save (e.g. four colors) with a clear message and copies nothing', async () => {
+    const { repository, imageStore, imageProcessor, deps } = setup();
+    const colors = (['navy', 'white', 'red', 'teal'] as const).map(userColor);
+    expect(await addClosetItem(form({ colors }), deps)).toEqual({ ok: false, errors: [ADD_ITEM_MESSAGES.badColors] });
     expect(imageProcessor.inputs).toEqual([]);
     expect(imageStore.files.size).toBe(0);
     expect(await repository.list()).toEqual([]);
@@ -155,17 +171,21 @@ describe('addClosetItem', () => {
     const first = await addClosetItem(form(), deps);
     expect(first.ok).toBe(true);
     const original = first.ok ? first.item : null;
-    const originalFile = imageStore.files.get(original!.imageUri);
+    const originalRef = original!.photos[0].path;
+    const originalFile = imageStore.files.get(originalRef);
     expect(originalFile).toBe(PROCESSED);
 
     // Same id again (deps.newId always returns 'id-1'): the repository rejects it.
-    const second = await addClosetItem(form({ photoUri: 'file:///cache/OTHER.jpeg', colorsText: 'red' }), deps);
+    const second = await addClosetItem(
+      form({ photos: [picked('file:///cache/OTHER.jpeg', 'front', 'ph-other')], colors: [userColor('red')] }),
+      deps,
+    );
     expect(second).toEqual({ ok: false, errors: [ADD_ITEM_MESSAGES.saveFailed] });
 
     expect(await repository.list()).toEqual([original]);
-    expect(imageStore.files.get(original!.imageUri)).toBe(originalFile);
+    expect(imageStore.files.get(originalRef)).toBe(originalFile);
     // The second call's own copy was cleaned up, and nothing else remains.
-    expect([...imageStore.files.keys()]).toEqual([original!.imageUri]);
+    expect([...imageStore.files.keys()]).toEqual([originalRef]);
   });
 
   it('still reports the save failure if cleanup also fails', async () => {
@@ -262,14 +282,131 @@ describe('addClosetItem temporary files', () => {
 function existingItem(): ClothingItem {
   return {
     id: 'x',
-    imageUri: 'closet-images/x.jpg',
+    photos: [{ id: 'x-front', role: 'front', path: 'closet-images/x.jpg', sortOrder: 0, isPrimary: true }],
     category: 'top',
-    colors: ['red'],
+    colors: [userColor('red')],
     seasons: ['winter'],
     tags: [],
     createdAt: NOW.toISOString(),
     updatedAt: NOW.toISOString(),
   };
+}
+
+const BACK = 'file:///cache/ImagePicker/BACK.jpeg';
+const DETAIL = 'file:///cache/ImagePicker/DETAIL.jpeg';
+
+describe('addClosetItem with several photos', () => {
+  /** Front, back, and a primary detail, in that order. */
+  const threePhotos = () => [picked(PICKED), picked(BACK, 'back'), picked(DETAIL, 'detail')].map((p) => ({
+    ...p,
+    isPrimary: p.role === 'detail',
+  }));
+
+  it('processes and stores each photo, in order, and saves them with their roles and primary', async () => {
+    const { repository, imageStore, imageProcessor, deps } = setup();
+    const result = await addClosetItem(form({ photos: threePhotos() }), deps);
+
+    const photos = [
+      { id: 'ph-front', role: 'front', path: 'closet-images/id-1-m1.jpg', sortOrder: 0, isPrimary: false },
+      { id: 'ph-back', role: 'back', path: 'closet-images/id-1-m2.jpg', sortOrder: 1, isPrimary: false },
+      { id: 'ph-detail', role: 'detail', path: 'closet-images/id-1-m3.jpg', sortOrder: 2, isPrimary: true },
+    ];
+    expect(result.ok && result.item.photos).toEqual(photos);
+    expect((await repository.get('id-1'))?.photos).toEqual(photos);
+    expect(imageProcessor.inputs).toEqual([PICKED, BACK, DETAIL]);
+    // Every stored file is a processed copy of the matching pick.
+    expect([...imageStore.files].map(([ref, processed]) => [ref, imageProcessor.outputs.get(processed)])).toEqual([
+      ['closet-images/id-1-m1.jpg', PICKED],
+      ['closet-images/id-1-m2.jpg', BACK],
+      ['closet-images/id-1-m3.jpg', DETAIL],
+    ]);
+  });
+
+  it('after a successful save, deletes every processed JPEG and every pick', async () => {
+    const { temporaryFiles, deps } = setup();
+    expect((await addClosetItem(form({ photos: threePhotos() }), deps)).ok).toBe(true);
+    expect(temporaryFiles.discarded).toEqual([
+      'file:///processed/p1.jpg',
+      'file:///processed/p2.jpg',
+      'file:///processed/p3.jpg',
+      PICKED,
+      BACK,
+      DETAIL,
+    ]);
+  });
+
+  it('if a later photo fails to process, removes the copies already made and saves nothing', async () => {
+    const { repository, imageStore, imageProcessor, temporaryFiles, deps } = setup();
+    const prepare = imageProcessor.prepareForStorage.bind(imageProcessor);
+    imageProcessor.prepareForStorage = async (uri) => {
+      if (uri === DETAIL) throw new Error('cannot decode');
+      return prepare(uri);
+    };
+    const result = await addClosetItem(form({ photos: threePhotos() }), deps);
+    expect(result).toEqual({ ok: false, errors: [ADD_ITEM_MESSAGES.processFailed] });
+    expect(imageStore.files.size).toBe(0);
+    expect(await repository.list()).toEqual([]);
+    // Processed copies are gone; the picks are kept for a retry.
+    expect(temporaryFiles.discarded).toEqual(['file:///processed/p1.jpg', 'file:///processed/p2.jpg']);
+  });
+
+  it('if a later copy fails, removes the copies already made and saves nothing', async () => {
+    const { repository, imageStore, deps } = setup();
+    const save = imageStore.save.bind(imageStore);
+    let saves = 0;
+    imageStore.save = async (uri, itemId, extension) => {
+      if (++saves === 2) throw new Error('ENOSPC');
+      return save(uri, itemId, extension);
+    };
+    const result = await addClosetItem(form({ photos: threePhotos() }), deps);
+    expect(result).toEqual({ ok: false, errors: [ADD_ITEM_MESSAGES.copyFailed] });
+    expect(imageStore.files.size).toBe(0);
+    expect(await repository.list()).toEqual([]);
+  });
+
+  it('if the repository rejects the item, removes every copy and keeps the picks', async () => {
+    const { repository, imageStore, temporaryFiles, deps } = setup();
+    await repository.add({ ...existingItem(), id: 'id-1' });
+    expect((await addClosetItem(form({ photos: threePhotos() }), deps)).ok).toBe(false);
+    expect(imageStore.files.size).toBe(0);
+    expect(temporaryFiles.discarded).not.toContain(PICKED);
+    expect(temporaryFiles.discarded).not.toContain(BACK);
+  });
+
+  it('refuses sets that break the photo rules before processing anything', async () => {
+    const { repository, imageProcessor, deps } = setup();
+    expect(await addClosetItem(form({ photos: [picked(BACK, 'back', 'b', true)] }), deps)).toEqual({
+      ok: false,
+      errors: [ADD_ITEM_MESSAGES.noPhoto],
+    });
+    const twoBacks = [picked(PICKED), picked(BACK, 'back', 'b1'), picked(DETAIL, 'back', 'b2')];
+    expect(await addClosetItem(form({ photos: twoBacks }), deps)).toEqual({
+      ok: false,
+      errors: [ADD_ITEM_MESSAGES.badPhotos],
+    });
+    const noPrimary = [picked(PICKED, 'front', 'f', false)];
+    expect(await addClosetItem(form({ photos: noPrimary }), deps)).toEqual({
+      ok: false,
+      errors: [ADD_ITEM_MESSAGES.badPhotos],
+    });
+    expect(imageProcessor.inputs).toEqual([]);
+    expect(await repository.list()).toEqual([]);
+  });
+
+  it('refuses a stored photo in a new item (a stale form) and stores nothing', async () => {
+    const { repository, imageProcessor, deps } = setup();
+    const stored: PhotoDraft = { kind: 'stored', id: 's', role: 'front', isPrimary: true, path: 'closet-images/x.jpg' };
+    expect(await addClosetItem(form({ photos: [stored] }), deps)).toEqual({
+      ok: false,
+      errors: [ADD_ITEM_MESSAGES.badPhotos],
+    });
+    expect(imageProcessor.inputs).toEqual([]);
+    expect(await repository.list()).toEqual([]);
+  });
+});
+
+function front(uri: string): PhotoDraft {
+  return picked(uri);
 }
 
 describe('generateItemId', () => {

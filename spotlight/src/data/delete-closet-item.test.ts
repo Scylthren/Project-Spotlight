@@ -1,5 +1,5 @@
 import { CLOSET_ITEM_MESSAGES } from './add-closet-item';
-import { makeItem } from './closet-repository.contract';
+import { makeItem, makePhoto } from './closet-repository.contract';
 import { ClosetRepositoryError, type ClosetRepository } from './closet-repository';
 import { deleteClosetItem } from './delete-closet-item';
 import { InMemoryClosetRepository } from './in-memory-closet-repository';
@@ -9,8 +9,8 @@ const REF = 'closet-images/item-1-abc.jpg';
 const OTHER_REF = 'closet-images/other-def.jpg';
 
 function setup() {
-  const item = makeItem({ imageUri: REF });
-  const other = makeItem({ id: 'other', imageUri: OTHER_REF });
+  const item = makeItem({ photos: [makePhoto('item-1', { path: REF })] });
+  const other = makeItem({ id: 'other', photos: [makePhoto('other', { path: OTHER_REF })] });
   const repository = new InMemoryClosetRepository([item, other]);
   const imageStore = new MemoryImageStore();
   imageStore.files.set(REF, 'file:///a.jpg');
@@ -92,6 +92,57 @@ describe('deleteClosetItem', () => {
     const result = await deleteClosetItem('item-1', { ...deps, repository: racing });
     expect(result).toEqual({ ok: false, errors: [CLOSET_ITEM_MESSAGES.notFound] });
     expect(imageStore.files.has(REF)).toBe(true);
+  });
+
+  it('deletes every photo file of an item with several angles, after the row', async () => {
+    const { other, repository, imageStore, deps } = setup();
+    const refs = ['closet-images/multi-f.jpg', 'closet-images/multi-b.jpg', 'closet-images/multi-d.jpg'];
+    await repository.add(
+      makeItem({
+        id: 'multi',
+        photos: [
+          makePhoto('multi', { path: refs[0] }),
+          makePhoto('multi', { sortOrder: 1, role: 'back', path: refs[1] }),
+          makePhoto('multi', { sortOrder: 2, role: 'detail', path: refs[2] }),
+        ],
+      }),
+    );
+    for (const ref of refs) imageStore.files.set(ref, 'file:///x.jpg');
+    const order: string[] = [];
+    const tracked = withRemove(repository, async (id) => {
+      order.push(`row:${id}`);
+      await repository.remove(id);
+    });
+    const remove = imageStore.remove.bind(imageStore);
+    imageStore.remove = async (ref) => {
+      order.push(`file:${ref}`);
+      await remove(ref);
+    };
+
+    expect(await deleteClosetItem('multi', { ...deps, repository: tracked })).toEqual({ ok: true });
+    expect(order).toEqual(['row:multi', ...refs.map((r) => `file:${r}`)]);
+    expect(await repository.get('multi')).toBeNull();
+    expect((await repository.list()).map((i) => i.id)).toContain(other.id);
+    expect([...imageStore.files.keys()].sort()).toEqual([OTHER_REF, REF].sort());
+  });
+
+  it('if one photo file cannot be deleted, still deletes the others and reports only that one', async () => {
+    const { repository, imageStore, deps, onCleanupError } = setup();
+    const refs = ['closet-images/m-f.jpg', 'closet-images/m-d.jpg'];
+    await repository.add(
+      makeItem({
+        id: 'm',
+        photos: [makePhoto('m', { path: refs[0] }), makePhoto('m', { sortOrder: 1, role: 'detail', path: refs[1] })],
+      }),
+    );
+    for (const ref of refs) imageStore.files.set(ref, 'file:///x.jpg');
+    const cleanupError = new Error('EBUSY');
+    imageStore.failNextRemove = cleanupError;
+
+    expect(await deleteClosetItem('m', deps)).toEqual({ ok: true });
+    expect(onCleanupError.mock.calls).toEqual([[cleanupError, refs[0]]]);
+    expect(imageStore.files.has(refs[0])).toBe(true);
+    expect(imageStore.files.has(refs[1])).toBe(false);
   });
 
   it('a second delete of the same item is reported, not repeated', async () => {

@@ -5,7 +5,7 @@ import { capitalize } from '@/components/chip-group';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
-import type { ClothingItem } from '@/core';
+import { describeItemColors, primaryPhoto, type ClothingItem } from '@/core';
 
 const COLUMNS = 3;
 
@@ -29,25 +29,28 @@ export function ClosetGrid({ items, resolveImageUri, onPressItem, header }: Clos
         <Pressable
           onPress={() => onPressItem(item)}
           accessibilityRole="button"
-          accessibilityLabel={`Edit ${item.colors.join(' ')} ${item.category}`}
+          accessibilityLabel={`Edit ${describeItemColors(item.colors)} ${item.category}`}
           style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
           <ThemedView type="backgroundElement" style={styles.tile}>
-            <Image
-              source={{ uri: resolveImageUri(item.imageUri) }}
-              style={styles.image}
-              contentFit="cover"
-            />
+            <PrimaryImage item={item} resolveImageUri={resolveImageUri} />
           </ThemedView>
           <ThemedText type="small" numberOfLines={1}>
             {capitalize(item.category)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-            {item.colors.join(', ')}
+            {describeItemColors(item.colors)}
           </ThemedText>
         </Pressable>
       )}
     />
   );
+}
+
+/** The item's primary photo (the one picked with "Make primary"; the front by default). */
+function PrimaryImage({ item, resolveImageUri }: { item: ClothingItem; resolveImageUri: (ref: string) => string }) {
+  const photo = primaryPhoto(item.photos);
+  if (!photo) return null;
+  return <Image source={{ uri: resolveImageUri(photo.path) }} style={styles.image} contentFit="cover" />;
 }
 
 const styles = StyleSheet.create({

@@ -1,22 +1,20 @@
-import { Image } from 'expo-image';
-import { Linking, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, StyleSheet } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
+import { ColorField } from '@/components/color-field';
 import { FormButton } from '@/components/form-button';
+import { PhotoSetField } from '@/components/photo-set-field';
 import { TagField } from '@/components/tag-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { CATEGORIES, SEASONS, type TagSummary } from '@/core';
 import type { ItemFormFields as Fields } from '@/hooks/use-item-form-fields';
-import { useTheme } from '@/hooks/use-theme';
 
 interface ItemFormFieldsProps {
   fields: Fields;
-  /** Photo to show: a newly picked one, or the item's stored photo. */
-  photoUri: string | null;
-  /** Short text under the photo (or inside the empty photo area). */
-  photoHint: string;
+  /** Text inside the empty photo area, before the front photo is added. */
+  emptyPhotoHint: string;
   savedTags: { tags: TagSummary[]; error: string | null };
   onDeleteSavedTag: (summary: TagSummary, confirm: () => Promise<boolean>) => void;
   /**
@@ -28,58 +26,21 @@ interface ItemFormFieldsProps {
 }
 
 /**
- * Photo (with Take photo / Choose from library), category, colors, seasons,
- * tags, and errors. Used by Add and Edit.
+ * Photos (see `PhotoSetField`), category, colors, seasons, tags, and errors.
+ * Used by Add and Edit.
  */
 export function ItemFormFields({
   fields,
-  photoUri,
-  photoHint,
+  emptyPhotoHint,
   savedTags,
   onDeleteSavedTag,
   busy,
 }: ItemFormFieldsProps) {
-  const theme = useTheme();
   const { values } = fields;
-  const photoLocked = fields.pickingPhoto || busy;
 
   return (
     <>
-      <ThemedView type="backgroundElement" style={styles.photo}>
-        {photoUri ? (
-          <Image
-            source={{ uri: photoUri }}
-            style={styles.photoImage}
-            contentFit="cover"
-            accessibilityLabel="Item photo"
-          />
-        ) : (
-          <ThemedText themeColor="textSecondary">{photoHint}</ThemedText>
-        )}
-      </ThemedView>
-      {photoUri && (
-        <ThemedText type="small" themeColor="textSecondary">
-          {photoHint}
-        </ThemedText>
-      )}
-      <View style={styles.photoButtons}>
-        <View style={styles.photoButton}>
-          <FormButton
-            label="Take photo"
-            variant="secondary"
-            onPress={() => fields.pickPhoto('camera')}
-            disabled={photoLocked}
-          />
-        </View>
-        <View style={styles.photoButton}>
-          <FormButton
-            label="Choose from library"
-            variant="secondary"
-            onPress={() => fields.pickPhoto('library')}
-            disabled={photoLocked}
-          />
-        </View>
-      </View>
+      <PhotoSetField fields={fields} emptyHint={emptyPhotoHint} busy={busy} />
 
       <ThemedText type="smallBold">Category</ThemedText>
       <ChipGroup
@@ -90,18 +51,7 @@ export function ItemFormFields({
         disabled={busy}
       />
 
-      <ThemedText type="smallBold">Colors (comma separated)</ThemedText>
-      <TextInput
-        value={values.colorsText}
-        onChangeText={fields.setColorsText}
-        placeholder="navy, white"
-        placeholderTextColor={theme.textSecondary}
-        autoCapitalize="none"
-        autoCorrect={false}
-        editable={!busy}
-        accessibilityLabel="Colors"
-        style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
-      />
+      <ColorField fields={fields} disabled={busy} />
 
       <ThemedText type="smallBold">Seasons</ThemedText>
       <ChipGroup
@@ -131,17 +81,6 @@ export function ItemFormFields({
 }
 
 const styles = StyleSheet.create({
-  photo: {
-    aspectRatio: 1,
-    borderRadius: Spacing.three,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  photoImage: { width: '100%', height: '100%' },
-  photoButtons: { flexDirection: 'row', gap: Spacing.two },
-  photoButton: { flex: 1 },
-  input: { borderRadius: Spacing.two, padding: Spacing.three, fontSize: 16 },
   errors: { gap: Spacing.one },
   errorText: { color: '#d93025' },
 });

@@ -11,6 +11,11 @@ const mockFs = {
   createCalls: [] as { uri: string; options: unknown }[],
   copyCalls: [] as { from: string; to: string; options: unknown }[],
   failCopy: false,
+  deleted: [] as string[],
+  /** Runs at the start of File.delete, after the caller's exists check. */
+  beforeDelete: null as ((uri: string) => void) | null,
+  /** URIs whose delete throws and leaves the file. */
+  failDelete: new Set<string>(),
 };
 
 jest.mock('expo-file-system', () => {
@@ -44,6 +49,10 @@ jest.mock('expo-file-system', () => {
       mockFs.files.add(dest.uri);
     }
     delete() {
+      mockFs.beforeDelete?.(this.uri);
+      // Like expo-file-system, deleting a missing file throws.
+      if (!mockFs.files.has(this.uri) || mockFs.failDelete.has(this.uri)) throw new Error(`cannot delete ${this.uri}`);
+      mockFs.deleted.push(this.uri);
       mockFs.files.delete(this.uri);
     }
   }
@@ -56,6 +65,9 @@ beforeEach(() => {
   mockFs.createCalls = [];
   mockFs.copyCalls = [];
   mockFs.failCopy = false;
+  mockFs.deleted = [];
+  mockFs.beforeDelete = null;
+  mockFs.failDelete = new Set();
 });
 
 describe('ExpoImageStore', () => {
@@ -118,6 +130,45 @@ describe('ExpoImageStore', () => {
     await store.remove(ref);
     expect(mockFs.files.has('file:///docs/closet-images/a-r1.jpg')).toBe(false);
     await expect(store.remove(ref)).resolves.toBeUndefined();
+  });
+
+  it('deletes the cleanup copy before the photo, so a racing cleanup swap cannot bring it back', async () => {
+    const store = new ExpoImageStore(() => 'r1');
+    const ref = await store.save('file:///cache/p.jpg', 'a');
+    const photo = 'file:///docs/closet-images/a-r1.jpg';
+    mockFs.files.add(`${photo}.stripping`);
+    mockFs.deleted = [];
+    await store.remove(ref);
+    expect(mockFs.deleted).toEqual([`${photo}.stripping`, photo]);
+    expect(mockFs.files.size).toBe(0);
+  });
+
+  it('still deletes the photo when the cleanup move finishes between the copy\'s exists check and its delete', async () => {
+    const store = new ExpoImageStore(() => 'r1');
+    const ref = await store.save('file:///cache/p.jpg', 'a');
+    const photo = 'file:///docs/closet-images/a-r1.jpg';
+    mockFs.files.add(`${photo}.stripping`);
+    // The native rename completes in the gap: the copy becomes the photo.
+    mockFs.beforeDelete = (uri) => {
+      if (uri !== `${photo}.stripping`) return;
+      mockFs.beforeDelete = null;
+      mockFs.files.delete(uri);
+      mockFs.files.add(photo);
+    };
+    await expect(store.remove(ref)).resolves.toBeUndefined();
+    expect(mockFs.files.size).toBe(0);
+    expect(mockFs.deleted).toEqual([photo]);
+  });
+
+  it('deletes the photo even if the cleanup copy cannot be deleted, then reports the error', async () => {
+    const store = new ExpoImageStore(() => 'r1');
+    const ref = await store.save('file:///cache/p.jpg', 'a');
+    const photo = 'file:///docs/closet-images/a-r1.jpg';
+    mockFs.files.add(`${photo}.stripping`);
+    mockFs.failDelete.add(`${photo}.stripping`);
+    await expect(store.remove(ref)).rejects.toThrow(/cannot delete/);
+    expect(mockFs.files.has(photo)).toBe(false);
+    expect(mockFs.files.has(`${photo}.stripping`)).toBe(true);
   });
 
   it('passes absolute URIs through resolveUri unchanged', () => {

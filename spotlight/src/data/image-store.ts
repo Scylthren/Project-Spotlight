@@ -21,13 +21,25 @@ export interface ImageStore {
    * knows it; otherwise it is taken from `sourceUri`.
    */
   save(sourceUri: string, itemId: string, extension?: string): Promise<string>;
-  /** Deletes a stored image. No-op if it does not exist. */
+  /**
+   * Deletes a stored image. No-op if it does not exist. Deletes the
+   * maintenance copy `<ref>.stripping` (see photo-metadata-backfill.ts)
+   * first, then `ref`, so a photo-cleanup swap racing with this call can
+   * never bring the photo back: either the swap finds no source, or this
+   * delete removes what it moved into place.
+   */
   remove(ref: string): Promise<void>;
   /** Turns a stored reference into a URI an <Image> can load. */
   resolveUri(ref: string): string;
 }
 
 export const IMAGE_DIRECTORY = 'closet-images';
+
+/**
+ * Suffix of the temporary copy the photo-metadata cleanup writes next to a
+ * stored photo before swapping it in. Never a stored ref itself.
+ */
+export const STRIPPING_SUFFIX = '.stripping';
 
 const URI_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
 const SAFE_EXTENSION = /^\.[a-z0-9]{1,5}$/i;

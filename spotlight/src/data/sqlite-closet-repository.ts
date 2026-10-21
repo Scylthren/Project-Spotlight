@@ -11,9 +11,7 @@ import type { SqlDatabase } from './sql-database';
 
 interface ClothingItemRow {
   id: string;
-  image_uri: string;
   category: string;
-  colors: string;
   seasons: string;
   created_at: string;
   updated_at: string;
@@ -24,7 +22,62 @@ interface ItemTagRow {
   tag_name: string;
 }
 
-const COLUMNS = 'id, image_uri, category, colors, seasons, created_at, updated_at';
+interface ItemColorRow {
+  item_id: string;
+  rank: number;
+  palette_id: string;
+  hex: string;
+  source: string;
+}
+
+interface ItemPhotoRow {
+  id: string;
+  item_id: string;
+  role: string;
+  storage_path: string;
+  sort_order: number;
+  is_primary: number;
+}
+
+const COLUMNS = 'id, category, seasons, created_at, updated_at';
+const PHOTO_COLUMNS = 'id, item_id, role, storage_path, sort_order, is_primary';
+const COLOR_COLUMNS = 'item_id, rank, palette_id, hex, source';
+
+/**
+ * Maps an item's color rows (in rank order) to unvalidated colors. Ranks must
+ * be 0, 1, 2, ... with no gap: a gap (say, no primary) yields a null entry,
+ * which fails validation, so the item is reported as unreadable.
+ */
+function rowsToColors(rows: ItemColorRow[]): unknown[] {
+  return rows.map((row, index) =>
+    row.rank === index ? { paletteId: row.palette_id, hex: row.hex, source: row.source } : null,
+  );
+}
+
+/**
+ * Maps a photo row to an unvalidated photo; `rowToItem` validates it with the
+ * item. An `is_primary` other than 0 or 1 (the table's CHECK refuses those)
+ * stays a number, which fails validation.
+ */
+function rowToPhoto(row: ItemPhotoRow): unknown {
+  return {
+    id: row.id,
+    role: row.role,
+    path: row.storage_path,
+    sortOrder: row.sort_order,
+    isPrimary: row.is_primary === 1 ? true : row.is_primary === 0 ? false : row.is_primary,
+  };
+}
+
+function groupByItem<T>(rows: T[], itemId: (row: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const list = map.get(itemId(row));
+    if (list) list.push(row);
+    else map.set(itemId(row), [row]);
+  }
+  return map;
+}
 
 function parseJsonArray(text: string): unknown {
   try {
@@ -34,13 +87,21 @@ function parseJsonArray(text: string): unknown {
   }
 }
 
-/** Maps a row and its tags to an item, or returns null if the stored data is not a valid item. */
-export function rowToItem(row: ClothingItemRow, tags: string[] = []): ClothingItem | null {
+/**
+ * Maps a row, its photos (in sort order), colors (in rank order), and tags to
+ * an item, or returns null if the stored data is not a valid item.
+ */
+export function rowToItem(
+  row: ClothingItemRow,
+  photos: unknown[] = [],
+  tags: string[] = [],
+  colors: unknown[] = [],
+): ClothingItem | null {
   const candidate = {
     id: row.id,
-    imageUri: row.image_uri,
+    photos,
     category: row.category,
-    colors: parseJsonArray(row.colors),
+    colors,
     seasons: parseJsonArray(row.seasons),
     tags,
     createdAt: row.created_at,
@@ -104,13 +165,65 @@ export class SqliteClosetRepository implements ClosetRepository {
        ORDER BY item_id, position`,
       itemId === undefined ? [] : [itemId],
     );
-    const map = new Map<string, string[]>();
-    for (const row of rows) {
-      const list = map.get(row.item_id);
-      if (list) list.push(row.tag_name);
-      else map.set(row.item_id, [row.tag_name]);
+    const grouped = groupByItem(rows, (r) => r.item_id);
+    return new Map([...grouped].map(([id, list]) => [id, list.map((r) => r.tag_name)]));
+  }
+
+  private async photosByItem(itemId?: string): Promise<Map<string, unknown[]>> {
+    const rows = await this.db.getAllAsync<ItemPhotoRow>(
+      `SELECT ${PHOTO_COLUMNS} FROM item_photos ${itemId === undefined ? '' : 'WHERE item_id = ?'}
+       ORDER BY item_id, sort_order`,
+      itemId === undefined ? [] : [itemId],
+    );
+    const grouped = groupByItem(rows, (r) => r.item_id);
+    return new Map([...grouped].map(([id, list]) => [id, list.map(rowToPhoto)]));
+  }
+
+  private async colorsByItem(itemId?: string): Promise<Map<string, unknown[]>> {
+    const rows = await this.db.getAllAsync<ItemColorRow>(
+      `SELECT ${COLOR_COLUMNS} FROM item_colors ${itemId === undefined ? '' : 'WHERE item_id = ?'}
+       ORDER BY item_id, rank`,
+      itemId === undefined ? [] : [itemId],
+    );
+    const grouped = groupByItem(rows, (r) => r.item_id);
+    return new Map([...grouped].map(([id, list]) => [id, rowsToColors(list)]));
+  }
+
+  /** Replaces the item's color rows; rank is the position in `item.colors`. */
+  private async writeColors(item: ClothingItem): Promise<void> {
+    await this.db.runAsync('DELETE FROM item_colors WHERE item_id = ?', [item.id]);
+    for (const [rank, color] of item.colors.entries()) {
+      await this.db.runAsync(`INSERT INTO item_colors (${COLOR_COLUMNS}) VALUES (?, ?, ?, ?, ?)`, [
+        item.id,
+        rank,
+        color.paletteId,
+        color.hex,
+        color.source,
+      ]);
     }
-    return map;
+  }
+
+  /**
+   * Replaces the item's photo rows. Rejects (code 'invalid') a photo id that
+   * another item uses, rather than letting the primary key error escape.
+   */
+  private async writePhotos(item: ClothingItem): Promise<void> {
+    for (const photo of item.photos) {
+      const owner = await this.db.getFirstAsync<{ item_id: string }>(
+        'SELECT item_id FROM item_photos WHERE id = ?',
+        [photo.id],
+      );
+      if (owner && owner.item_id !== item.id) {
+        throw new ClosetRepositoryError('invalid', `photo id ${photo.id} belongs to another item`);
+      }
+    }
+    await this.db.runAsync('DELETE FROM item_photos WHERE item_id = ?', [item.id]);
+    for (const photo of item.photos) {
+      await this.db.runAsync(
+        `INSERT INTO item_photos (${PHOTO_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?)`,
+        [photo.id, item.id, photo.role, photo.path, photo.sortOrder, photo.isPrimary ? 1 : 0],
+      );
+    }
   }
 
   private async writeTags(item: ClothingItem): Promise<void> {
@@ -131,10 +244,12 @@ export class SqliteClosetRepository implements ClosetRepository {
         `SELECT ${COLUMNS} FROM clothing_items ORDER BY julianday(created_at) DESC, id ASC`,
         [],
       );
+      const photos = await this.photosByItem();
       const tags = await this.tagsByItem();
+      const colors = await this.colorsByItem();
       const items: ClothingItem[] = [];
       for (const row of rows) {
-        const item = rowToItem(row, tags.get(row.id));
+        const item = rowToItem(row, photos.get(row.id), tags.get(row.id), colors.get(row.id));
         if (item) items.push(item);
         else this.onCorruptRow(row.id);
       }
@@ -149,7 +264,12 @@ export class SqliteClosetRepository implements ClosetRepository {
         [id],
       );
       if (!row) return null;
-      const item = rowToItem(row, (await this.tagsByItem(id)).get(id));
+      const item = rowToItem(
+        row,
+        (await this.photosByItem(id)).get(id),
+        (await this.tagsByItem(id)).get(id),
+        (await this.colorsByItem(id)).get(id),
+      );
       if (!item) this.onCorruptRow(row.id);
       return item;
     });
@@ -161,20 +281,14 @@ export class SqliteClosetRepository implements ClosetRepository {
     await this.transaction(async () => {
       // INSERT OR IGNORE + changes avoids parsing driver-specific constraint errors.
       const result = await this.db.runAsync(
-        `INSERT OR IGNORE INTO clothing_items (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          item.id,
-          item.imageUri,
-          item.category,
-          JSON.stringify(item.colors),
-          JSON.stringify(item.seasons),
-          item.createdAt,
-          item.updatedAt,
-        ],
+        `INSERT OR IGNORE INTO clothing_items (${COLUMNS}) VALUES (?, ?, ?, ?, ?)`,
+        [item.id, item.category, JSON.stringify(item.seasons), item.createdAt, item.updatedAt],
       );
       if (result.changes === 0) {
         throw new ClosetRepositoryError('duplicate', `item ${item.id} already exists`);
       }
+      await this.writePhotos(item);
+      await this.writeColors(item);
       await this.writeTags(item);
     });
   }
@@ -186,20 +300,15 @@ export class SqliteClosetRepository implements ClosetRepository {
       // created_at is deliberately not in the SET list: it never changes.
       const result = await this.db.runAsync(
         `UPDATE clothing_items
-           SET image_uri = ?, category = ?, colors = ?, seasons = ?, updated_at = ?
+           SET category = ?, seasons = ?, updated_at = ?
          WHERE id = ?`,
-        [
-          item.imageUri,
-          item.category,
-          JSON.stringify(item.colors),
-          JSON.stringify(item.seasons),
-          item.updatedAt,
-          item.id,
-        ],
+        [item.category, JSON.stringify(item.seasons), item.updatedAt, item.id],
       );
       if (result.changes === 0) {
         throw new ClosetRepositoryError('not_found', `item ${item.id} does not exist`);
       }
+      await this.writePhotos(item);
+      await this.writeColors(item);
       await this.writeTags(item);
     });
   }
@@ -210,6 +319,8 @@ export class SqliteClosetRepository implements ClosetRepository {
       // connection without foreign keys from leaving links that a later item
       // with the same id would inherit.
       await this.db.runAsync('DELETE FROM item_tags WHERE item_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM item_photos WHERE item_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM item_colors WHERE item_id = ?', [id]);
       const result = await this.db.runAsync('DELETE FROM clothing_items WHERE id = ?', [id]);
       if (result.changes === 0) {
         throw new ClosetRepositoryError('not_found', `item ${id} does not exist`);

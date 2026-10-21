@@ -11,22 +11,23 @@ import { useSingleFlight } from './use-single-flight';
  * Form state for the Add item screen. Logic lives in `addClosetItem`.
  * `busy` is true while saving or while a saved tag is being deleted, so
  * neither can start while the other runs. A save still running when the
- * screen unmounts runs to completion; the picked photo is deleted after it.
+ * screen unmounts runs to completion; the picked photos are deleted after it.
  */
 export function useAddItemForm() {
   const { repository, imageStore, imageProcessor, temporaryFiles } = useClosetServices();
-  const fields = useItemFormFields();
+  // Entering Add (the scan flow) shows the camera intro when access is undetermined.
+  const fields = useItemFormFields(undefined, undefined, { cameraPromptOnEntry: true });
   const savedTags = useSavedTags();
   const submit = useSingleFlight();
   const isMounted = useIsMounted();
 
   /** Returns true if the item was saved. A second tap while saving is ignored. */
   async function save(): Promise<boolean> {
-    const saved = await submit.run(async () => {
-      const photoUri = fields.photo?.uri ?? null;
-      const result = await fields.whileSavingPhoto(() =>
+    const saved = await submit.run(() => fields.whileSaving(async () => {
+      const photos = fields.photos;
+      const result = await fields.whileSavingPhotos(() =>
         addClosetItem(
-          { ...fields.values, photoUri },
+          { ...fields.values, photos },
           { repository, imageStore, imageProcessor, temporaryFiles, newId: () => generateItemId() },
         ),
       );
@@ -34,12 +35,12 @@ export function useAddItemForm() {
         fields.setErrors(result.errors);
         return false;
       }
-      // After the photo is released: reset clears the slot, which waits for saves.
+      // After the photos are released: reset clears the picked set, which waits for saves.
       fields.reset();
       // New tags were added to the saved list by the save.
       if (isMounted()) await savedTags.reload();
       return true;
-    });
+    }));
     return saved ?? false;
   }
 
@@ -52,7 +53,6 @@ export function useAddItemForm() {
     fields,
     savedTags,
     deleteSavedTag,
-    photoUri: fields.photo?.uri ?? null,
     saving: submit.busy,
     busy: submit.busy || savedTags.deleting,
     save,
