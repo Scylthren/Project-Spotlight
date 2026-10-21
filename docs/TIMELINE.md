@@ -10,20 +10,23 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-21 by orchestrator (Gate 1 review PASS; report sent, awaiting human device check)_
+_Last updated: 2026-10-21 by orchestrator (Gate 1 approved by the human, tagged `gate-1`)_
 
-- **Gate:** 1 (Local closet, no AI). Not approved by the human yet. Gate 0 is done.
-- **Last commit:** "Gate 1 checkpoint 3" (slices 1-6; human-requested checkpoint, not gate approval). Slice 6 committed before its review.
-- **Committed in `21bd742`:** slice 1 multi-photo (migration 3); slice 2/2b JPEG metadata stripping + backfill (migration 4); slice 3 palette colors, CIEDE2000, color matrix (migration 5); slice 4 color detection; slice 5 camera permission flow + slice 4 review fixes. Slices 1-5 reviewed PASS.
-- **Slice 6 (in checkpoint 3, reviewed PASS):** keyboard handling on Add and Edit (the tag box is the only `TextInput` in the app). `core/keyboard.ts` (`tagReturnKeyAction`, `keyboardAvoidanceFor`), `components/keyboard-aware-scroll-view.tsx`, `components/keyboard-dismiss-area.tsx`. Plus the slice 5 review fixes in `data/camera-access-flow.ts` and the iOS announcement in `CameraDeniedPanel`. Decision recorded in ROADMAP.
-- **Slice 4/5 pieces:** see ROADMAP decisions; color detection in `data/form-color-detection.ts`; camera flow in `core/camera-access.ts`, `data/camera-access-flow.ts`, `hooks/use-camera-access.ts`.
-- **Verified 2026-10-21 (macOS):** `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 41 suites, 742 tests pass; `CI=1 npx expo export` ios and android both succeed.
-- **Unverified (needs a device):** all keyboard behavior (avoidance, scroll-into-view, dismissal, return key) on iPhone SE size and Android; the whole camera permission flow; camera opening after the intro closes on iOS; detection quality and Hermes speed; VoiceOver announcements. No simulator on this Mac (Command Line Tools only, no Xcode).
-- **Next step:** human device check of Gate 1 (checklist in the gate report). Then the human approves Gate 1 or asks for changes. Do not start Gate 2 until approved. Open small item: a new "Take photo" tap during the iOS intro close can open two pickers (cancel `afterIntro` in `takePhoto`).
-- **Open questions:** detection thresholds need tuning on real photos; whether to show detected chips more prominently; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode (check on device). Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist.
+- **Gate:** 1 (Local closet, no AI) **approved by the human 2026-10-21** after the device check. Tagged `gate-1`. Gates 0 and 1 are done.
+- **Committed:** slices 1-6 in `2e6bf13` (checkpoint 3), all reviewed PASS. Gate review PASS (see log).
+- **Gate 1 pieces:** see ROADMAP decisions; color detection in `data/form-color-detection.ts`; camera flow in `core/camera-access.ts`, `data/camera-access-flow.ts`, `hooks/use-camera-access.ts`; keyboard in `core/keyboard.ts`, `components/keyboard-aware-scroll-view.tsx`, `components/keyboard-dismiss-area.tsx`.
+- **Verified 2026-10-21 (macOS):** `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 41 suites, 742 tests pass; `CI=1 npx expo export` ios and android both succeed. Device check done by the human (approval).
+- **Known issues (for later):** a new "Take photo" tap while the iOS camera intro is closing can open two pickers (fix: cancel `afterIntro` in `takePhoto`).
+- **Next step:** a design gate (Gate 1.5) before Gate 2. Do not start Gate 2.
+- **Open questions:** detection thresholds need tuning on real photos; whether to show detected chips more prominently; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode. Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist.
 
 ## Log
 Newest first.
+
+### 2026-10-21 — Gate 1 approved
+- The human finished the device check and approved Gate 1. Tagged `gate-1`.
+- Known issue carried forward: double "Take photo" tap during the iOS intro close can open two pickers.
+- Next: plan the design gate (Gate 1.5).
 
 ### 2026-10-21 — Review: slice 6 + Gate 1 sweep
 - architect-reviewer: PASS, no blocking issues. Keyboard approach sound (one mechanism per platform, offsets correct, `handled` + touch-end dismiss keeps first taps); camera-flow fixes correct and tested.
