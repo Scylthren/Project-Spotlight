@@ -13,3 +13,4 @@ export * from './jpeg-metadata';
 export * from './garment-segmentation';
 export * from './garment-colors';
 export * from './camera-access';
+export * from './keyboard';

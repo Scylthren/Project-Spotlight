@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
@@ -5,7 +6,7 @@ import { confirmDelete } from '@/components/confirm-delete';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
-import { describeTagDeletion, filterTags, TAG_MAX_LENGTH, type TagSummary } from '@/core';
+import { describeTagDeletion, filterTags, TAG_MAX_LENGTH, tagReturnKeyAction, type TagSummary } from '@/core';
 import type { ItemFormFields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -22,12 +23,22 @@ const asIs = (tag: string) => tag;
  * The item's tags (tap to remove), a box to type a new one (Add or the return
  * key), and the saved tag list filtered by what is typed: tap to toggle a tag
  * on this item, long-press to delete it from the list after confirming.
+ *
+ * Keyboard: "Done" with text adds the tag and keeps the keyboard up for the
+ * next one; "Done" on an empty box closes it (`tagReturnKeyAction`). Taps on
+ * the chips and "Add" keep it up too; taps elsewhere in the form close it.
  */
 export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagFieldProps) {
   const theme = useTheme();
   const itemTags = fields.values.tags;
   const matches = filterTags(savedTags.tags, fields.tagText);
   const byName = new Map(savedTags.tags.map((t) => [t.name, t]));
+  const input = useRef<TextInput>(null);
+
+  function onReturnKey() {
+    if (tagReturnKeyAction(fields.tagText) === 'close-keyboard') input.current?.blur();
+    else fields.addTypedTag();
+  }
 
   function askDelete(name: string) {
     const summary = byName.get(name);
@@ -55,9 +66,11 @@ export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagF
       )}
       <View style={styles.inputRow}>
         <TextInput
+          ref={input}
           value={fields.tagText}
           onChangeText={fields.setTagText}
-          onSubmitEditing={fields.addTypedTag}
+          onSubmitEditing={onReturnKey}
+          // Keep focus on return; `onReturnKey` blurs when the box is empty.
           submitBehavior="submit"
           returnKeyType="done"
           placeholder="New tag"

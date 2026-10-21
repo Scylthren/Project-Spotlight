@@ -40,6 +40,12 @@ interface PendingTake {
   resolve: (id: string | null) => void;
 }
 
+/** A picker waiting for the intro to finish closing, and the tap it answers (if any). */
+interface AfterIntro {
+  open: () => void;
+  take: PendingTake | null;
+}
+
 /**
  * Runs the camera permission flow (rules in core/camera-access.ts) for one
  * form. Screens subscribe to `getState`; buttons call the methods. Never
@@ -55,10 +61,12 @@ export class CameraAccessFlow {
   private pending: PendingTake | null = null;
   /** Bumped by every check, so an older check finishing late is ignored. */
   private checkSeq = 0;
+  /** Bumped by every "Take photo" tap, so an older tap still checking gives way to a newer one. */
+  private takeSeq = 0;
   /** True from the intro appearing until it has finished closing. */
   private introOnScreen = false;
   /** Work waiting for the intro to finish closing. */
-  private afterIntro: (() => void) | null = null;
+  private afterIntro: AfterIntro | null = null;
   private introTimer: ReturnType<typeof setTimeout> | null = null;
   private disposed = false;
   private readonly introCloseTimeoutMs: number;
@@ -95,9 +103,12 @@ export class CameraAccessFlow {
   /** "Take photo" for `target`. */
   async takePhoto(target: PhotoTarget): Promise<string | null> {
     this.endPending();
+    const seq = ++this.takeSeq;
     this.checkSeq++; // a check still running is older than this one; drop it
     const permission = await this.permissions.check();
-    if (this.disposed) return null;
+    // A newer tap started while this one was checking: it wins, this one ends.
+    if (this.disposed || seq !== this.takeSeq) return null;
+    this.endPending();
     return new Promise<string | null>((resolve) => {
       this.pending = { target, resolve };
       this.dispatch({ type: 'take-tapped', permission });
@@ -150,8 +161,8 @@ export class CameraAccessFlow {
     this.disposed = true;
     if (this.introTimer) clearTimeout(this.introTimer);
     this.introTimer = null;
-    this.afterIntro = null;
     this.introOnScreen = false;
+    this.cancelAfterIntro();
     this.endPending();
   }
 
@@ -161,6 +172,12 @@ export class CameraAccessFlow {
     const step = cameraAccessReducer(this.state, event);
     this.state = step.state;
     const after = this.state.surface;
+    if (after === 'intro' && before !== 'intro') {
+      // Shown again while still closing: the old close (and what waited for it) no longer applies.
+      if (this.introTimer) clearTimeout(this.introTimer);
+      this.introTimer = null;
+      this.cancelAfterIntro();
+    }
     if (after === 'intro' && !this.introOnScreen) {
       this.introOnScreen = true;
       this.host.onIntroVisible?.(true);
@@ -188,7 +205,7 @@ export class CameraAccessFlow {
         this.pending = null;
         const target = take?.target ?? this.host.defaultTarget();
         const open = () => void this.pick(source, target, take);
-        if (afterIntroCloses) this.afterIntro = open;
+        if (afterIntroCloses) this.afterIntro = { open, take };
         else open();
         return;
       }
@@ -216,13 +233,25 @@ export class CameraAccessFlow {
   private finishIntroClose(): void {
     if (this.introTimer) clearTimeout(this.introTimer);
     this.introTimer = null;
-    if (!this.introOnScreen) return;
+    if (!this.introOnScreen || this.state.surface === 'intro') return;
     this.introOnScreen = false;
     const action = this.afterIntro;
     this.afterIntro = null;
-    if (this.disposed) return;
+    if (this.disposed) {
+      action?.take?.resolve(null);
+      return;
+    }
+    // Open the picker first: it takes the 'picker' hold synchronously, so a
+    // color notice waiting on the intro cannot open the matrix over it.
+    action?.open();
     this.host.onIntroVisible?.(false);
-    action?.();
+  }
+
+  /** Drops a picker that was waiting for the intro to close; its tap ends with null. */
+  private cancelAfterIntro(): void {
+    const action = this.afterIntro;
+    this.afterIntro = null;
+    action?.take?.resolve(null);
   }
 
   private endPending(): void {

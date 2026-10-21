@@ -1,9 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { confirmDelete } from '@/components/confirm-delete';
 import { FormButton } from '@/components/form-button';
 import { ItemFormFields } from '@/components/item-form-fields';
+import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
+import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -44,6 +47,8 @@ function EditItem({ item }: { item: ClothingItem }) {
   const form = useEditItemForm(item);
   // The user may go back while a save or delete runs; it finishes, but must not navigate again.
   const isMounted = useIsMounted();
+  // The screen sits below the stack header (Android keyboard padding needs this).
+  const headerHeight = useHeaderHeight();
 
   async function onSave() {
     if ((await form.save()) && isMounted()) leaveScreen();
@@ -55,10 +60,10 @@ function EditItem({ item }: { item: ClothingItem }) {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView
+      <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
         contentInsetAdjustmentBehavior="automatic"
-        keyboardShouldPersistTaps="handled">
+        keyboardVerticalOffset={headerHeight}>
         <ItemFormFields
           fields={form.fields}
           emptyPhotoHint="Add a photo of the front of the item"
@@ -66,13 +71,15 @@ function EditItem({ item }: { item: ClothingItem }) {
           onDeleteSavedTag={form.deleteSavedTag}
           busy={form.busy}
         />
-        <FormButton
-          label={form.busy ? 'Working...' : 'Save changes'}
-          onPress={onSave}
-          disabled={form.busy || form.fields.pickingPhoto}
-        />
-        <FormButton label="Delete item" variant="destructive" onPress={onDelete} disabled={form.busy} />
-      </ScrollView>
+        <KeyboardDismissArea style={styles.buttons}>
+          <FormButton
+            label={form.busy ? 'Working...' : 'Save changes'}
+            onPress={onSave}
+            disabled={form.busy || form.fields.pickingPhoto}
+          />
+          <FormButton label="Delete item" variant="destructive" onPress={onDelete} disabled={form.busy} />
+        </KeyboardDismissArea>
+      </KeyboardAwareScrollView>
     </ThemedView>
   );
 }
@@ -80,6 +87,7 @@ function EditItem({ item }: { item: ClothingItem }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: Spacing.four, paddingBottom: Spacing.six, gap: Spacing.three },
+  buttons: { gap: Spacing.three },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.three },
   message: { textAlign: 'center' },
   backButton: { alignSelf: 'stretch' },

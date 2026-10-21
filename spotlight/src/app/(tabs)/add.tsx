@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormButton } from '@/components/form-button';
 import { ItemFormFields } from '@/components/item-form-fields';
+import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
+import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -21,7 +23,8 @@ export default function AddItemScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Under the tabs the screen starts at the top of the window: no offset. */}
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardVerticalOffset={0}>
           <ThemedText type="subtitle">Add item</ThemedText>
           <ItemFormFields
             fields={form.fields}
@@ -30,12 +33,14 @@ export default function AddItemScreen() {
             onDeleteSavedTag={form.deleteSavedTag}
             busy={form.busy}
           />
-          <FormButton
-            label={form.saving ? 'Saving...' : 'Save item'}
-            onPress={onSave}
-            disabled={form.busy || form.fields.pickingPhoto}
-          />
-        </ScrollView>
+          <KeyboardDismissArea>
+            <FormButton
+              label={form.saving ? 'Saving...' : 'Save item'}
+              onPress={onSave}
+              disabled={form.busy || form.fields.pickingPhoto}
+            />
+          </KeyboardDismissArea>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </ThemedView>
   );

@@ -10,20 +10,38 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-21 by implementer-tester (slice 5 done, not yet reviewed)_
+_Last updated: 2026-10-21 by orchestrator (slice 6 committed as Gate 1 checkpoint 3; Gate 1 review running)_
 
 - **Gate:** 1 (Local closet, no AI). Not approved by the human yet. Gate 0 is done.
-- **Last commit:** `39dc607` "Gate 1 checkpoint". Everything below is uncommitted on top of it.
-- **Uncommitted work:** slice 1 multi-photo (migration 3); slice 2/2b JPEG metadata stripping + backfill (migration 4); slice 3 palette colors, CIEDE2000, color matrix (migration 5); slice 4 color detection (no migration); slice 5 camera permission flow + slice 4 review fixes (no migration). Slices 1-4 reviewed PASS; slice 5 awaits architect-reviewer. Slice 6 (keyboard) not started.
-- **Slice 4:** on-device color detection (option A): `GarmentIsolator` (`NoGarmentIsolator`, `FakeGarmentIsolator`, `LocalGarmentIsolator` with jpeg-js, now pinned `~0.4.4`), `core/garment-segmentation.ts`, `core/garment-colors.ts`, `applyDetectedColors`, `data/detect-item-colors.ts`. Form-level logic now in `data/form-color-detection.ts`.
-- **Slice 5:** pure reducer `core/camera-access.ts`; `CameraPermissions` (`FakeCameraPermissions`, `ExpoCameraPermissions`), runner `data/camera-access-flow.ts`, hook `hooks/use-camera-access.ts` (AppState re-check), `CameraIntroModal`, `CameraDeniedPanel`. Entry prompt on Add at most once per app session; camera opens only from a "Take photo" tap.
-- **Verified 2026-10-21 (macOS):** `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 40 suites, 728 tests pass; `CI=1 npx expo export` ios and android both succeed.
-- **Unverified (needs a device):** whole permission flow (intro, system prompt, denied panel, Settings round trip), camera opening after the intro closes on iOS, detection quality and Hermes speed, matrix not opening over the picker, VoiceOver announcements. Usage strings only show in a dev/store build (Expo Go shows its own).
-- **Next step:** architect-reviewer on slice 5, then slice 6 (keyboard), then the Gate 1 report and the human's device check. Commit only when the human says so.
-- **Open questions:** detection thresholds need tuning on real photos; whether to show detected chips more prominently; whether the intro's "Allow" should continue straight to the camera (implemented: yes, only when a "Take photo" tap opened it).
+- **Last commit:** "Gate 1 checkpoint 3" (slices 1-6; human-requested checkpoint, not gate approval). Slice 6 committed before its review.
+- **Committed in `21bd742`:** slice 1 multi-photo (migration 3); slice 2/2b JPEG metadata stripping + backfill (migration 4); slice 3 palette colors, CIEDE2000, color matrix (migration 5); slice 4 color detection; slice 5 camera permission flow + slice 4 review fixes. Slices 1-5 reviewed PASS.
+- **Slice 6 (in checkpoint 3, review pending):** keyboard handling on Add and Edit (the tag box is the only `TextInput` in the app). `core/keyboard.ts` (`tagReturnKeyAction`, `keyboardAvoidanceFor`), `components/keyboard-aware-scroll-view.tsx`, `components/keyboard-dismiss-area.tsx`. Plus the slice 5 review fixes in `data/camera-access-flow.ts` and the iOS announcement in `CameraDeniedPanel`. Decision recorded in ROADMAP.
+- **Slice 4/5 pieces:** see ROADMAP decisions; color detection in `data/form-color-detection.ts`; camera flow in `core/camera-access.ts`, `data/camera-access-flow.ts`, `hooks/use-camera-access.ts`.
+- **Verified 2026-10-21 (macOS):** `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 41 suites, 742 tests pass; `CI=1 npx expo export` ios and android both succeed.
+- **Unverified (needs a device):** all keyboard behavior (avoidance, scroll-into-view, dismissal, return key) on iPhone SE size and Android; the whole camera permission flow; camera opening after the intro closes on iOS; detection quality and Hermes speed; VoiceOver announcements. No simulator on this Mac (Command Line Tools only, no Xcode).
+- **Next step:** finish the gate-level architect-reviewer pass (covers slice 6 + all of Gate 1), fix anything blocking, then the Gate 1 report and the human's device check. Gate approval and the next gate wait for the human.
+- **Open questions:** detection thresholds need tuning on real photos; whether to show detected chips more prominently; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode (check on device). Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist.
 
 ## Log
 Newest first.
+
+### 2026-10-21 — Checkpoint 3 committed; Gate 1 review started
+- Orchestrator re-ran on the slice 6 tree: tsc pass, lint pass, 41 suites / 742 tests pass; package.json unchanged since `21bd742`.
+- Committed slices 1-6 state as "Gate 1 checkpoint 3" at the human's request (not gate approval; slice 6 unreviewed at commit time).
+- Gate-level architect-reviewer pass is running (slice 6 + every Gate 1 criterion and spec item, platform-specific code list, known issues).
+- Next: review result, then the Gate 1 report with the hand-test checklist.
+
+### 2026-10-21 — Slice 6: keyboard handling (+ slice 5 review fixes)
+- Add/Edit use `KeyboardAwareScrollView`: iOS scroll insets (native, scrolls the focused field into view; verified in RN 0.86 source), Android `KeyboardAvoidingView` padding offset by `useHeaderHeight` (from `expo-router/react-navigation`, no new dep). `on-drag` dismissal; `handled` taps; `KeyboardDismissArea` closes the keyboard on touch end outside the tag area.
+- Tag box: `submitBehavior="submit"`, Done adds the tag and keeps focus; Done on an empty box blurs (`tagReturnKeyAction`).
+- Camera flow: intro reappearing clears the old timer and ends the waiting pick; close never finishes while the intro is shown; picker opens before the 'camera-intro' hold is released; double "Take photo" settles the older tap; dispose settles a tap waiting for the close (was left hanging). iOS announces the denied panel.
+- Evidence: tsc, lint pass; 41 suites / 742 tests (6 new flow tests fail on the old flow); ios/android export pass. No simulator (no Xcode). Next: architect-reviewer.
+
+### 2026-10-21 — Review: slice 5 (camera permission flow + slice 4 fixes)
+- architect-reviewer: PASS, no blocking issues. No fake deny button, library offered in every state, no camera on entry, AppState listener cleaned up, onDismiss/timer can't launch twice or after unmount; replaced color test is legitimate (intended rule change).
+- Orchestrator re-ran before commit: tsc pass, lint pass, 40 suites / 728 tests pass. Committed as `21bd742` "Gate 1 checkpoint 2" (human asked; not gate approval; slice 5 committed before review).
+- Suggestions folded into slice 6: clear the old close timer when the intro reappears; tests for onDismiss-then-timer and dispose-while-closing; settle the first tap's promise on a double tap; launch the picker before releasing the matrix hold; iOS announcement for the denied panel.
+- Next: slice 6 (keyboard), then the Gate 1 report and the device check.
 
 ### 2026-10-21 — Slice 5: camera permission flow (+ slice 4 review fixes)
 - Intro modal on entering Add when undetermined (once per app session; "Not now" hides it until restart; "Take photo" shows it any time, also on Edit). One button triggers the real prompt; no fake "Don't Allow". Denied: inline panel with Settings (or the real prompt when `canAskAgain`, Android). Library offered on every surface. Re-check on AppState 'active'.

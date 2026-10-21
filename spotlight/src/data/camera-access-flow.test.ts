@@ -2,6 +2,8 @@ import type { CameraPermission, PhotoTarget } from '@/core';
 
 import { CameraAccessFlow, type CameraFlowPick } from './camera-access-flow';
 import { EntryPromptSession, FakeCameraPermissions } from './camera-permissions';
+import { FormColorDetection } from './form-color-detection';
+import { NoGarmentIsolator } from './garment-isolator';
 import type { PhotoSource } from './photo-picker';
 
 const UNDETERMINED: CameraPermission = { status: 'undetermined', canAskAgain: true };
@@ -186,6 +188,167 @@ describe('CameraAccessFlow: "Take photo"', () => {
     });
     expect(await flow.takePhoto(FRONT)).toBeNull();
     warn.mockRestore();
+  });
+});
+
+describe('CameraAccessFlow: closing the intro (slice 5 review)', () => {
+  it('introClosed and then the timeout: exactly one pick', async () => {
+    const { flow, permissions, picks, introVisible } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    flow.introClosed();
+    expect(await taking).toBe('draft-1');
+    await new Promise((r) => setTimeout(r, 80)); // past the 50 ms timeout
+    flow.introClosed(); // a late onDismiss too
+    await flush();
+    expect(picks).toHaveLength(1);
+    expect(introVisible).toEqual([true, false]);
+  });
+
+  it('dispose after Allow but before the intro has closed: no pick, the tap ends with null', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    permissions.requests.push(GRANTED);
+    await flow.allow(); // camera is now waiting for the close
+    flow.dispose();
+    expect(await taking).toBeNull();
+    flow.introClosed();
+    await new Promise((r) => setTimeout(r, 80));
+    expect(picks).toEqual([]);
+  });
+
+  it('the intro shown again while closing: the old close timer cannot hide it, and the old wait ends', async () => {
+    const { flow, permissions, picks, introVisible } = setup(UNDETERMINED);
+    const first = flow.takePhoto(FRONT);
+    await flush();
+    flow.chooseLibrary(); // intro closing, library waits for it
+    const second = flow.takePhoto(BACK); // before the close finished
+    await flush();
+    expect(flow.getState().surface).toBe('intro');
+    expect(await first).toBeNull(); // replaced by the second tap
+    await new Promise((r) => setTimeout(r, 80)); // the old timer would have fired here
+    expect(flow.getState().surface).toBe('intro');
+    expect(introVisible).toEqual([true]); // never reported closed while on screen
+    flow.introClosed(); // ignored: still on screen
+    expect(introVisible).toEqual([true]);
+    expect(picks).toEqual([]);
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    flow.introClosed();
+    expect(await second).toBe('draft-1');
+    expect(picks).toEqual([{ source: 'camera', target: BACK }]);
+    expect(introVisible).toEqual([true, false]);
+  });
+
+  it('opens the picker before reporting the intro closed (the picker hold comes first)', async () => {
+    const events: string[] = [];
+    const permissions = new FakeCameraPermissions(UNDETERMINED);
+    const flow = new CameraAccessFlow(
+      permissions,
+      new EntryPromptSession(),
+      {
+        pick: async (source) => {
+          events.push(`pick ${source}`);
+          return { id: 'draft' };
+        },
+        defaultTarget: () => FRONT,
+        onIntroVisible: (visible) => events.push(visible ? 'intro shown' : 'intro closed'),
+      },
+      { introCloseTimeoutMs: 50 },
+    );
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    flow.introClosed();
+    expect(await taking).toBe('draft');
+    expect(events).toEqual(['intro shown', 'pick camera', 'intro closed']);
+  });
+
+  it('with the real notice holds: a held color notice does not open the matrix over the camera', async () => {
+    const opened: string[] = [];
+    const detection = new FormColorDetection(new NoGarmentIsolator(), {
+      colors: () => [],
+      frontPhotoId: () => null,
+      setColors: () => undefined,
+      openMatrix: (notice) => opened.push(notice),
+      setDetecting: () => undefined,
+      isActive: () => true,
+    });
+    let finishPick!: (pick: CameraFlowPick) => void;
+    const permissions = new FakeCameraPermissions(UNDETERMINED);
+    const flow = new CameraAccessFlow(
+      permissions,
+      new EntryPromptSession(),
+      {
+        // Like the form: the picker hold is taken synchronously when the pick starts.
+        pick: (): Promise<CameraFlowPick> => {
+          detection.hold('picker');
+          return new Promise((resolve) => (finishPick = resolve));
+        },
+        defaultTarget: () => FRONT,
+        onIntroVisible: (visible) => (visible ? detection.hold('camera-intro') : detection.release('camera-intro')),
+      },
+      { introCloseTimeoutMs: 50 },
+    );
+    const taking = flow.takePhoto(FRONT);
+    await flush();
+    detection.apply([], 'Check the colors'); // a notice arrives while the intro is up
+    permissions.requests.push(GRANTED);
+    await flow.allow();
+    flow.introClosed();
+    expect(opened).toEqual([]); // camera is open: still held
+    detection.release('picker');
+    finishPick({ id: 'draft' });
+    expect(await taking).toBe('draft');
+    expect(opened).toEqual(['Check the colors']);
+  });
+});
+
+describe('CameraAccessFlow: double taps', () => {
+  it('two quick taps both checking: the first ends with null, the second goes on', async () => {
+    const { flow, permissions, picks } = setup(GRANTED);
+    const releases: (() => void)[] = [];
+    const realCheck = permissions.check.bind(permissions);
+    permissions.check = async () => {
+      const result = await realCheck();
+      await new Promise<void>((r) => releases.push(r));
+      return result;
+    };
+    const first = flow.takePhoto(FRONT);
+    const second = flow.takePhoto(BACK);
+    await flush();
+    expect(releases).toHaveLength(2);
+    releases[0]();
+    expect(await first).toBeNull();
+    releases[1]();
+    expect(await second).toBe('draft-1');
+    expect(picks).toEqual([{ source: 'camera', target: BACK }]);
+  });
+
+  it('two quick taps, checks finishing in reverse order: neither promise is left hanging', async () => {
+    const { flow, permissions } = setup(DENIED);
+    const releases: (() => void)[] = [];
+    const realCheck = permissions.check.bind(permissions);
+    permissions.check = async () => {
+      const result = await realCheck();
+      await new Promise<void>((r) => releases.push(r));
+      return result;
+    };
+    const first = flow.takePhoto(FRONT);
+    const second = flow.takePhoto(BACK);
+    await flush();
+    releases[1]();
+    await flush();
+    expect(flow.getState().surface).toBe('denied');
+    releases[0]();
+    expect(await first).toBeNull();
+    expect(flow.getState()).toMatchObject({ surface: 'denied', pendingTake: true });
+    flow.notNow();
+    expect(await second).toBeNull();
   });
 });
 

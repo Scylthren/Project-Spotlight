@@ -3,6 +3,7 @@ import { Linking, StyleSheet } from 'react-native';
 import { ChipGroup } from '@/components/chip-group';
 import { ColorField } from '@/components/color-field';
 import { FormButton } from '@/components/form-button';
+import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
 import { PhotoSetField } from '@/components/photo-set-field';
 import { TagField } from '@/components/tag-field';
 import { ThemedText } from '@/components/themed-text';
@@ -27,7 +28,9 @@ interface ItemFormFieldsProps {
 
 /**
  * Photos (see `PhotoSetField`), category, colors, seasons, tags, and errors.
- * Used by Add and Edit.
+ * Used by Add and Edit. Taps outside the tag area close the keyboard
+ * (`KeyboardDismissArea`). The parent's content container uses the same gap
+ * as `styles.section`, so the wrappers do not change the layout.
  */
 export function ItemFormFields({
   fields,
@@ -40,47 +43,53 @@ export function ItemFormFields({
 
   return (
     <>
-      <PhotoSetField fields={fields} emptyHint={emptyPhotoHint} busy={busy} />
+      <KeyboardDismissArea style={styles.section}>
+        <PhotoSetField fields={fields} emptyHint={emptyPhotoHint} busy={busy} />
 
-      <ThemedText type="smallBold">Category</ThemedText>
-      <ChipGroup
-        accessibilityLabel="Category"
-        options={CATEGORIES}
-        isSelected={(c) => c === values.category}
-        onPress={fields.setCategory}
-        disabled={busy}
-      />
+        <ThemedText type="smallBold">Category</ThemedText>
+        <ChipGroup
+          accessibilityLabel="Category"
+          options={CATEGORIES}
+          isSelected={(c) => c === values.category}
+          onPress={fields.setCategory}
+          disabled={busy}
+        />
 
-      <ColorField fields={fields} disabled={busy} />
+        <ColorField fields={fields} disabled={busy} />
 
-      <ThemedText type="smallBold">Seasons</ThemedText>
-      <ChipGroup
-        accessibilityLabel="Seasons"
-        options={SEASONS}
-        isSelected={(s) => values.seasons.includes(s)}
-        onPress={fields.toggleSeason}
-        disabled={busy}
-      />
+        <ThemedText type="smallBold">Seasons</ThemedText>
+        <ChipGroup
+          accessibilityLabel="Seasons"
+          options={SEASONS}
+          isSelected={(s) => values.seasons.includes(s)}
+          onPress={fields.toggleSeason}
+          disabled={busy}
+        />
+      </KeyboardDismissArea>
 
       <TagField fields={fields} savedTags={savedTags} onDeleteSavedTag={onDeleteSavedTag} disabled={busy} />
 
       {fields.errors.length > 0 && (
-        <ThemedView accessibilityLiveRegion="polite" style={styles.errors}>
-          {fields.errors.map((e) => (
-            <ThemedText key={e} type="small" style={styles.errorText}>
-              {e}
-            </ThemedText>
-          ))}
-          {fields.suggestSettings && (
-            <FormButton label="Open Settings" variant="secondary" onPress={() => void Linking.openSettings()} />
-          )}
-        </ThemedView>
+        <KeyboardDismissArea>
+          <ThemedView accessibilityLiveRegion="polite" style={styles.errors}>
+            {fields.errors.map((e) => (
+              <ThemedText key={e} type="small" style={styles.errorText}>
+                {e}
+              </ThemedText>
+            ))}
+            {fields.suggestSettings && (
+              <FormButton label="Open Settings" variant="secondary" onPress={() => void Linking.openSettings()} />
+            )}
+          </ThemedView>
+        </KeyboardDismissArea>
       )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  // Same gap as the screens' content containers.
+  section: { gap: Spacing.three },
   errors: { gap: Spacing.one },
   errorText: { color: '#d93025' },
 });
