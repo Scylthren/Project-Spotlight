@@ -10,78 +10,40 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-21 by orchestrator (Gate 1 approved by the human, tagged `gate-1`)_
+_Last updated: 2026-10-21 by orchestrator (Gate 1.5 planned; waiting for the human's answers)_
 
-- **Gate:** 1 (Local closet, no AI) **approved by the human 2026-10-21** after the device check. Tagged `gate-1`. Gates 0 and 1 are done.
-- **Committed:** slices 1-6 in `2e6bf13` (checkpoint 3), all reviewed PASS. Gate review PASS (see log).
-- **Gate 1 pieces:** see ROADMAP decisions; color detection in `data/form-color-detection.ts`; camera flow in `core/camera-access.ts`, `data/camera-access-flow.ts`, `hooks/use-camera-access.ts`; keyboard in `core/keyboard.ts`, `components/keyboard-aware-scroll-view.tsx`, `components/keyboard-dismiss-area.tsx`.
-- **Verified 2026-10-21 (macOS):** `npx tsc --noEmit` pass; `npm run lint` pass; `npm test` 41 suites, 742 tests pass; `CI=1 npx expo export` ios and android both succeed. Device check done by the human (approval).
+- **Gate:** 1.5 (Design foundation), **not started**. Plan below needs the human's approval and answers to the open decisions. No app code written for it. Gates 0 and 1 are approved (tag `gate-1` on `e889592`).
+- **Committed:** Gate 1 in `2e6bf13`; approval in `e889592`; Gate 1.5 plan docs (ROADMAP Gate 1.5, Design lines, Polish, "Proposed, not approved", design decision; CLAUDE.md design line; `docs/design/`) in the commit after it.
+- **Verified 2026-10-21 (macOS, Gate 1 tree):** tsc pass; lint pass; `npm test` 41 suites, 742 tests pass; ios/android export pass. Device check done by the human. Nothing re-run since (docs-only changes).
 - **Known issues (for later):** a new "Take photo" tap while the iOS camera intro is closing can open two pickers (fix: cancel `afterIntro` in `takePhoto`).
-- **Next step:** a design gate (Gate 1.5) before Gate 2. Do not start Gate 2.
-- **Open questions:** detection thresholds need tuning on real photos; whether to show detected chips more prominently; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode. Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist.
+- **Next step:** human answers the decisions in the plan. Then each slice is its own session: implementer-tester, architect-reviewer, update this file. Stop at the Gate 1.5 report. Do not start Gate 2.
+- **Open questions:** detection thresholds need tuning on real photos; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode. Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist.
+
+## Gate 1.5 plan (proposed, not approved)
+Each slice keeps the existing tests passing unchanged. The token guard starts with an allowlist of not-yet-restyled files; each slice removes its files from it, and slice 5 leaves it empty.
+1. **Theme tokens and fonts.** `src/theme/` (tokens: light/dark colors, fonts, type scale in pt, letter spacing converted from em, spacing, borders) replacing `constants/theme.ts`; font loading in the root layout behind the splash (if fonts approved); `use-theme` returns the new tokens; token guard (ESLint `no-restricted-syntax` for hex/rgb strings and numeric `fontSize` outside `src/theme/` and `core/palette.ts`, plus a Jest test scanning the same files). Tests: token completeness (every light key has a dark key), contrast of text on background, guard catches a planted raw color.
+2. **Appearance setting, navigation and tab bar.** `core/appearance.ts` (preference type, resolve against system), an `AppearanceStore` interface with a mock and a real one (`expo-sqlite/kv-store`, already in the installed expo-sqlite; no new dependency), provider in the root layout feeding the navigation theme, `StatusBar` style and the tabs. Tab bar per the decision below, plus a "Me" tab holding only the Appearance control (Profile mockup). Tests: persistence, System follows the OS, resolution.
+3. **Shared components and dev gallery.** `components/ui/`: Button (primary, outline, text), Chip (plain, selected, serif style tag, dashed "add"), labeled TextInput (underline and boxed), SectionLabel, ScreenHeader (masthead with 2 pt rule and the step header variant), Swatch (circle plus text label), SegmentedControl (used by Appearance and the matrix Primary/Secondary if adopted). Dev screen `app/dev/components.tsx` with a light/dark toggle, redirecting away when `!__DEV__`. Tests: roles, states, labels, 44 pt hit areas.
+4. **Closet grid and item screen.** Restyle `app/(tabs)/index.tsx` and `closet-grid.tsx` (masthead with count, 2-column grid, photo-background tiles, serif labels). Item screen per the decision below. No search or filters unless approved.
+5. **Add/Edit form, photo set, color matrix, camera intro, denied panel.** Restyle `add.tsx`, `item-form-fields.tsx`, `photo-set-field.tsx`, `color-field.tsx`, `color-matrix.tsx`, `camera-intro-modal.tsx`, `camera-denied-panel.tsx`, `tag-field.tsx`, `chip-group.tsx`, `form-button.tsx`. Keyboard handling and camera flow logic untouched. Empty the guard allowlist. Gate review, gate report, device checklist (Gate 1 checklist re-run plus both themes per screen).
+
+Decisions needed before slice 1 (see the session report for detail): fonts dependency; tab bar; item screen read-only detail or not; dark values the README doesn't give; closet search/filters; single form vs two-step add; color matrix interaction; copy changes.
 
 ## Log
 Newest first.
+
+### 2026-10-21 — Gate 1.5 planned
+- Read `docs/design/README.md` and all 14 mockups. Added Gate 1.5 to ROADMAP with criteria, Design lines on Gates 2-4, a Polish item (Loading), a "Proposed, not approved" list, and the design decision. Added the design line to CLAUDE.md Workflow.
+- Slice plan above. Conflicts and decisions sent to the human. No app code changed.
+- Next: human answers, then slice 1.
 
 ### 2026-10-21 — Gate 1 approved
 - The human finished the device check and approved Gate 1. Tagged `gate-1`.
 - Known issue carried forward: double "Take photo" tap during the iOS intro close can open two pickers.
 - Next: plan the design gate (Gate 1.5).
 
-### 2026-10-21 — Review: slice 6 + Gate 1 sweep
-- architect-reviewer: PASS, no blocking issues. Keyboard approach sound (one mechanism per platform, offsets correct, `handled` + touch-end dismiss keeps first taps); camera-flow fixes correct and tested.
-- Gate sweep: every spec item maps to tests except UI, keyboard and camera behavior, which are device-only; no secrets or `EXPO_PUBLIC_`; `.env*` and native dirs ignored; deps approved. Platform-specific list compiled for the gate report.
-- Suggestions: cancel the waiting intro pick on a new tap; check the iOS/Android keyboard gaps and tag-box scroll on device.
-- Gate 1 report sent to the human. Next: human device check.
-
-### 2026-10-21 — Checkpoint 3 committed; Gate 1 review started
-- Orchestrator re-ran on the slice 6 tree: tsc pass, lint pass, 41 suites / 742 tests pass; package.json unchanged since `21bd742`.
-- Committed slices 1-6 state as "Gate 1 checkpoint 3" at the human's request (not gate approval; slice 6 unreviewed at commit time).
-- Gate-level architect-reviewer pass is running (slice 6 + every Gate 1 criterion and spec item, platform-specific code list, known issues).
-- Next: review result, then the Gate 1 report with the hand-test checklist.
-
-### 2026-10-21 — Slice 6: keyboard handling (+ slice 5 review fixes)
-- Add/Edit use `KeyboardAwareScrollView`: iOS scroll insets (native, scrolls the focused field into view; verified in RN 0.86 source), Android `KeyboardAvoidingView` padding offset by `useHeaderHeight` (from `expo-router/react-navigation`, no new dep). `on-drag` dismissal; `handled` taps; `KeyboardDismissArea` closes the keyboard on touch end outside the tag area.
-- Tag box: `submitBehavior="submit"`, Done adds the tag and keeps focus; Done on an empty box blurs (`tagReturnKeyAction`).
-- Camera flow: intro reappearing clears the old timer and ends the waiting pick; close never finishes while the intro is shown; picker opens before the 'camera-intro' hold is released; double "Take photo" settles the older tap; dispose settles a tap waiting for the close (was left hanging). iOS announces the denied panel.
-- Evidence: tsc, lint pass; 41 suites / 742 tests (6 new flow tests fail on the old flow); ios/android export pass. No simulator (no Xcode). Next: architect-reviewer.
-
-### 2026-10-21 — Review: slice 5 (camera permission flow + slice 4 fixes)
-- architect-reviewer: PASS, no blocking issues. No fake deny button, library offered in every state, no camera on entry, AppState listener cleaned up, onDismiss/timer can't launch twice or after unmount; replaced color test is legitimate (intended rule change).
-- Orchestrator re-ran before commit: tsc pass, lint pass, 40 suites / 728 tests pass. Committed as `21bd742` "Gate 1 checkpoint 2" (human asked; not gate approval; slice 5 committed before review).
-- Suggestions folded into slice 6: clear the old close timer when the intro reappears; tests for onDismiss-then-timer and dispose-while-closing; settle the first tap's promise on a double tap; launch the picker before releasing the matrix hold; iOS announcement for the denied panel.
-- Next: slice 6 (keyboard), then the Gate 1 report and the device check.
-
-### 2026-10-21 — Slice 5: camera permission flow (+ slice 4 review fixes)
-- Intro modal on entering Add when undetermined (once per app session; "Not now" hides it until restart; "Take photo" shows it any time, also on Edit). One button triggers the real prompt; no fake "Don't Allow". Denied: inline panel with Settings (or the real prompt when `canAskAgain`, Android). Library offered on every surface. Re-check on AppState 'active'.
-- SDK 57 docs checked: `getCameraPermissionsAsync` / `requestCameraPermissionsAsync`; library needs no permission for images. app.json usage strings already specific; unchanged.
-- Review fixes: user color touch blocks a running detection; failed detection clears stale auto colors (test changed to the new rule); detection logic moved to `FormColorDetection` (tested); matrix never opens during a save (notice dropped on success, shown on failure); jpeg-js `~0.4.4`.
-- Evidence: tsc, lint pass; 40 suites / 728 tests; ios/android export pass. Next: architect-reviewer.
-
-### 2026-10-21 — Review: slice 4 (color detection)
-- architect-reviewer: PASS, no blocking issues. Temp-file cleanup, stale-result guards, matrix can't trap the user, jpeg-js in dependencies.
-- Orchestrator re-ran: tsc pass, lint pass, 36 suites / 664 tests pass; package.json vs 39dc607 adds only jpeg-js since the last approved list.
-- Suggestions folded into slice 5: a user deselect can be undone by a running detection; stale auto colors stay after a failed detection; hook detection logic untested; don't open the matrix during a save; pin jpeg-js with `~`.
-- Next: slice 5 (camera permission modal), then slice 6 (keyboard), then the Gate 1 report.
-
-### 2026-10-21 — Slice 4: color detection from the front photo
-- Added jpeg-js 0.4.4 (BSD-3-Clause, pure JS, ships types). Decoding verified with `Buffer` removed (Hermes has none).
-- Segmentation: border colors clustered in Lab (CIE76), flood fill (deltaE 12, shading 1.5x with step < 3), largest component, holes filled, alpha < 128 ignored. Confidence from garment share, separation, border uniformity, border touch.
-- Colors: k-means++ (k=5, seed fixed), merge centers < 10 CIEDE2000, palette match, secondaries >= 10%. Prefill threshold stays 0.6.
-- Folded in slice 3 review notes: iOS announcement of refused taps, header roles instead of labels on plain Views, color taps read the latest colors (ref), `setDetectedColors`, backfill leak comment.
-- Evidence: tsc, lint, 664 tests, ios/android export all pass. Next: architect-reviewer.
-
-### 2026-10-21 — Timeline set up
-- Added this file and pointers to it in `CLAUDE.md` and both agent definitions. No code changed.
-- Verified typecheck and 608 tests on the uncommitted tree. Found the lint environment issue above.
-
-### 2026-10-21 (approx. 07:00–10:55) — Gate 1 follow-on work, uncommitted
-- Multi-photo items, metadata stripping and backfill, palette colors and color matrix (details in Current state). Schema now through migration 5.
-- Test count went from 234 to 608.
-
-### 2026-10-21 06:52 — Gate 1 checkpoint (`39dc607`)
-- Add, edit, and delete items from the photo library or camera, stored in SQLite.
-- Photos downscaled to 1600px JPEG, temp files cleaned up. User-defined style tags with a reusable list. 234 unit tests.
+### Earlier — Gate 1 (2026-10-21)
+- Slices 1-6 (multi-photo items, metadata stripping, palette colors and matrix, color detection, camera permission flow, keyboard handling), each reviewed PASS; checkpoints `39dc607`, `21bd742`, `2e6bf13`; gate review PASS; 742 tests. Details in ROADMAP decisions and commit messages.
 
 ### 2026-10-20 18:07 — Gate 0 (`a0cc043`)
 - Expo skeleton, ESLint, Jest (`jest-expo`), `ClothingItem` type with a strict validator, 16 tests. Working commands recorded in `CLAUDE.md`.

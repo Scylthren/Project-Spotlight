@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotlight — camera access</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0E0E0E}a:hover{color:#C8102E}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #1A1A1A; font-family: 'Archivo', sans-serif; color: #0E0E0E">
+  <div aria-hidden="true" style="position: absolute; left: 45px; top: 170px; width: 300px; height: 380px; border: 1px dashed #4A4A4A"></div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0,0,0,0.6)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="perm-title" style="position: absolute; left: 20px; right: 20px; top: 150px; background: #FFFFFF; padding: 28px 24px 20px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <svg role="img" aria-label="Camera" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#0E0E0E" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+      <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; color: #C8102E">Before we start</span>
+    </div>
+    <h2 id="perm-title" style="margin: 4px 0 0; font-family: 'Bodoni Moda', serif; font-weight: 600; font-size: 32px; line-height: 1.05; letter-spacing: -0.5px">Let's see<br><span style="font-style: italic; font-weight: 500">your closet.</span></h2>
+    <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #3F3E3A">Spotlight uses your camera to photograph each piece, so it can read the colors, cuts and textures it's styling with.</p>
+    <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #5E5C58">You can change this anytime in Settings.</p>
+    <a href="Camera.dc.html" style="margin-top: 8px; height: 52px; display: flex; align-items: center; justify-content: center; background: #0E0E0E; color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase">Allow camera</a>
+    <a href="Angles.dc.html" style="height: 48px; display: flex; align-items: center; justify-content: center; border: 1px solid #0E0E0E; color: #0E0E0E; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase">Use photo library instead</a>
+    <a href="Closet.dc.html" style="height: 44px; display: flex; align-items: center; justify-content: center; color: #4A4945; font-size: 14px">Not now</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotlight — closet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0E0E0E}a:hover{color:#C8102E}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: 'Archivo', sans-serif; color: #0E0E0E; display: flex; flex-direction: column">
+  <div style="padding: 28px 20px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0E0E0E; padding-bottom: 8px">
+      <h1 style="margin: 0; font-family: 'Bodoni Moda', serif; font-weight: 700; font-size: 48px; line-height: 1; letter-spacing: -1px">Closet</h1>
+      <span style="font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 15px; padding-bottom: 6px">24 pieces</span>
+    </div>
+    <div style="position: relative">
+      <label for="closet-search" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Search your closet</label>
+      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5E5C58" stroke-width="1.6" stroke-linecap="round" style="position: absolute; left: 12px; top: 13px"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+      <input id="closet-search" type="search" placeholder="Search by color, piece or vibe" style="width: 100%; height: 44px; box-sizing: border-box; border: 1px solid #B9B6AF; padding: 0 12px 0 38px; font-family: 'Archivo', sans-serif; font-size: 14px; color: #0E0E0E; background: #FFFFFF">
+    </div>
+    <div style="display: flex; gap: 8px; overflow-x: auto; margin: 0 -20px; padding: 0 20px 2px">
+      <button type="button" style="flex-shrink: 0; height: 36px; padding: 0 14px; border: 1px solid #0E0E0E; background: #0E0E0E; color: #FFFFFF; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase">All</button>
+      <button type="button" style="flex-shrink: 0; height: 36px; padding: 0 14px; border: 1px solid #B9B6AF; background: #FFFFFF; color: #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase">Tops</button>
+      <button type="button" style="flex-shrink: 0; height: 36px; padding: 0 14px; border: 1px solid #B9B6AF; background: #FFFFFF; color: #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase">Bottoms</button>
+      <button type="button" style="flex-shrink: 0; height: 36px; padding: 0 14px; border: 1px solid #B9B6AF; background: #FFFFFF; color: #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase">Outerwear</button>
+      <button type="button" style="flex-shrink: 0; height: 36px; padding: 0 14px; border: 1px solid #B9B6AF; background: #FFFFFF; color: #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase">Shoes</button>
+    </div>
+  </div>
+  <div style="flex: 1; overflow-y: auto; padding: 16px 20px 20px">
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 12px">
+      <sc-for list="{{ items }}" as="item" hint-placeholder-count="6">
+        <a href="ItemDetail.dc.html" style="display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: #0E0E0E">
+          <span style="height: 200px; background: {{ item.bg }}; display: flex; align-items: center; justify-content: center">
+            <svg aria-hidden="true" viewBox="0 0 100 100" style="width: 130px; height: 150px"><path d="{{ item.path }}" fill="{{ item.fill }}" stroke="{{ item.stroke }}" stroke-width="0.8"></path></svg>
+          </span>
+          <span style="font-family: 'Bodoni Moda', serif; font-size: 17px; line-height: 1.15">{{ item.name }}</span>
+          <span style="font-size: 12px; color: #5E5C58">{{ item.meta }}</span>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+  <nav aria-label="Main" style="height: 84px; border-top: 1px solid #0E0E0E; display: flex; align-items: center; justify-content: space-around; padding: 0 8px 14px; box-sizing: border-box; background: #FFFFFF">
+    <a href="Closet.dc.html" aria-current="page" style="min-width: 56px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #C8102E; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16M12 3v18M4 21h16"></path></svg>Closet</a>
+    <a href="StylePrompt.dc.html" style="min-width: 56px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #0E0E0E; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20L14 10M16 3v3M19.5 5.5l-2 2M21 10h-3M11 5l.8 1.7L13.5 7.5l-1.7.8L11 10l-.8-1.7L8.5 7.5l1.7-.8z"></path></svg>Style</a>
+    <a href="Camera.dc.html" aria-label="Scan a piece" style="width: 54px; height: 54px; border-radius: 50%; background: #0E0E0E; color: #FFFFFF; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></a>
+    <a href="Lookbook.dc.html" style="min-width: 56px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #0E0E0E; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>Looks</a>
+    <a href="Profile.dc.html" style="min-width: 56px; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #0E0E0E; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Me</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const HOODIE = 'M34 16 Q50 4 66 16 L84 30 L90 82 L78 82 L74 44 L72 92 L28 92 L26 44 L22 82 L10 82 L16 30 Z';
+    const JEANS = 'M30 8 L70 8 L75 94 L56 94 L50 40 L44 94 L25 94 Z';
+    const SWEATER = 'M32 14 L42 10 Q50 16 58 10 L68 14 L86 30 L90 80 L78 80 L74 40 L72 90 L28 90 L26 40 L22 80 L10 80 L14 30 Z';
+    const SNEAKER = 'M8 62 Q10 50 22 52 L40 54 L54 42 Q62 40 66 46 L86 58 Q94 62 92 70 L92 76 L8 76 Z';
+    const SKIRT = 'M36 14 L64 14 L66 26 L82 90 L18 90 L34 26 Z';
+    return {
+      items: [
+        { name: 'Black band hoodie', meta: 'Hoodie · Black', path: HOODIE, fill: '#111111', stroke: 'none', bg: '#EDEBE7' },
+        { name: 'Washed denim', meta: 'Jeans · Denim', path: JEANS, fill: '#3E5F8A', stroke: 'none', bg: '#EDEBE7' },
+        { name: 'Cream cable knit', meta: 'Sweater · Cream', path: SWEATER, fill: '#EFE6D2', stroke: '#B9B6AF', bg: '#E4E1DB' },
+        { name: 'Olive field jacket', meta: 'Jacket · Olive', path: SWEATER, fill: '#6B6B2A', stroke: 'none', bg: '#EDEBE7' },
+        { name: 'White court sneakers', meta: 'Sneakers · White', path: SNEAKER, fill: '#FFFFFF', stroke: '#8E8E8E', bg: '#E4E1DB' },
+        { name: 'Burgundy slip skirt', meta: 'Skirt · Burgundy', path: SKIRT, fill: '#6D1A2B', stroke: 'none', bg: '#EDEBE7' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

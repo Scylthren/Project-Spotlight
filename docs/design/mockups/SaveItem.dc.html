@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotlight — save piece</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0E0E0E}a:hover{color:#C8102E}
+</style>
+</helmet>
+<div style="width: 390px; height: 1080px; box-sizing: border-box; background: #FFFFFF; font-family: 'Archivo', sans-serif; color: #0E0E0E; display: flex; flex-direction: column">
+  <div style="height: 64px; padding: 12px 16px 0; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #0E0E0E">
+    <a href="Angles.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600">New piece</span>
+    <span style="width: 44px; text-align: right; font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 15px">2/2</span>
+  </div>
+  <div style="padding: 20px 24px 0; display: flex; flex-direction: column; gap: 22px; flex: 1">
+    <div style="display: flex; gap: 16px; align-items: flex-end">
+      <div style="width: 116px; height: 146px; flex-shrink: 0; position: relative; background-color: #FFFFFF; background-image: linear-gradient(45deg, #F1EFEB 25%, transparent 25%, transparent 75%, #F1EFEB 75%), linear-gradient(45deg, #F1EFEB 25%, transparent 25%, transparent 75%, #F1EFEB 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px; border: 1px solid #DAD7D0">
+        <svg aria-hidden="true" viewBox="0 0 100 100" style="position: absolute; left: 10px; top: 14px; width: 96px; height: 118px"><path d="M34 16 Q50 4 66 16 L84 30 L90 82 L78 82 L74 44 L72 92 L28 92 L26 44 L22 82 L10 82 L16 30 Z" fill="#111111"></path></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; color: #C8102E">Background removed</span>
+        <h1 style="margin: 0; font-family: 'Bodoni Moda', serif; font-weight: 600; font-size: 28px; line-height: 1.05">Black band<br>hoodie</h1>
+        <span style="font-size: 13px; color: #5E5C58">Tops · Hoodie</span>
+      </div>
+    </div>
+
+    <section aria-labelledby="colors-h" style="display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <h2 id="colors-h" style="margin: 0; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Colors</h2>
+        <span style="font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 13px; color: #5E5C58">Detected from the photo</span>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <a href="ColorMatrix.dc.html" style="height: 40px; padding: 0 12px 0 6px; display: flex; align-items: center; gap: 8px; border: 1.5px solid #0E0E0E; text-decoration: none; color: #0E0E0E; font-size: 13px; font-weight: 600"><span style="width: 26px; height: 26px; border-radius: 50%; background: #111111"></span>Black<span style="font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #5E5C58">Primary</span></a>
+        <a href="ColorMatrix.dc.html" style="height: 40px; padding: 0 12px 0 6px; display: flex; align-items: center; gap: 8px; border: 1px solid #B9B6AF; text-decoration: none; color: #0E0E0E; font-size: 13px"><span style="width: 26px; height: 26px; border-radius: 50%; background: #3B3B3B"></span>Charcoal</a>
+        <a href="ColorMatrix.dc.html" style="height: 40px; padding: 0 12px 0 6px; display: flex; align-items: center; gap: 8px; border: 1px solid #B9B6AF; text-decoration: none; color: #0E0E0E; font-size: 13px"><span style="width: 26px; height: 26px; border-radius: 50%; background: #C8102E"></span>Red</a>
+        <a href="ColorMatrix.dc.html" style="height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 6px; border: 1px dashed #0E0E0E; text-decoration: none; color: #0E0E0E; font-size: 13px; font-weight: 600">Edit colors</a>
+      </div>
+    </section>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <label for="item-name" style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Name</label>
+      <input id="item-name" type="text" value="Black band hoodie" style="height: 46px; border: 0; border-bottom: 1px solid #0E0E0E; font-family: 'Bodoni Moda', serif; font-size: 20px; padding: 0; background: transparent; color: #0E0E0E">
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="f-pattern" style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Pattern</label>
+        <input id="f-pattern" type="text" value="Graphic print" style="height: 42px; border: 1px solid #B9B6AF; padding: 0 10px; font-family: 'Archivo', sans-serif; font-size: 14px; color: #0E0E0E">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="f-material" style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Material</label>
+        <input id="f-material" type="text" value="Cotton fleece" style="height: 42px; border: 1px solid #B9B6AF; padding: 0 10px; font-family: 'Archivo', sans-serif; font-size: 14px; color: #0E0E0E">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="f-fit" style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Fit</label>
+        <input id="f-fit" type="text" value="Oversized" style="height: 42px; border: 1px solid #B9B6AF; padding: 0 10px; font-family: 'Archivo', sans-serif; font-size: 14px; color: #0E0E0E">
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <label for="f-cat" style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Category</label>
+        <input id="f-cat" type="text" value="Hoodie" style="height: 42px; border: 1px solid #B9B6AF; padding: 0 10px; font-family: 'Archivo', sans-serif; font-size: 14px; color: #0E0E0E">
+      </div>
+    </div>
+
+    <fieldset style="margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 8px">
+      <legend style="padding: 0; margin-bottom: 8px; font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Formality</legend>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid #0E0E0E">
+        <button type="button" style="height: 42px; background: #0E0E0E; color: #FFFFFF; border: 0; font-family: 'Archivo', sans-serif; font-size: 13px; font-weight: 600">Casual</button>
+        <button type="button" style="height: 42px; background: #FFFFFF; color: #0E0E0E; border: 0; border-left: 1px solid #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 13px">Smart</button>
+        <button type="button" style="height: 42px; background: #FFFFFF; color: #0E0E0E; border: 0; border-left: 1px solid #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 13px">Formal</button>
+      </div>
+    </fieldset>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Seasons</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #B9B6AF; background: #FFFFFF; font-family: 'Archivo', sans-serif; font-size: 13px; color: #0E0E0E">Spring</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #B9B6AF; background: #FFFFFF; font-family: 'Archivo', sans-serif; font-size: 13px; color: #0E0E0E">Summer</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #0E0E0E; background: #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 13px; color: #FFFFFF">Fall</button>
+        <button type="button" style="height: 36px; padding: 0 14px; border: 1px solid #0E0E0E; background: #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 13px; color: #FFFFFF">Winter</button>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700">Style</span>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <span style="height: 36px; padding: 0 14px; display: flex; align-items: center; border: 1px solid #0E0E0E; font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 15px">Grunge</span>
+        <span style="height: 36px; padding: 0 14px; display: flex; align-items: center; border: 1px solid #0E0E0E; font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 15px">Streetwear</span>
+        <span style="height: 36px; padding: 0 14px; display: flex; align-items: center; border: 1px solid #0E0E0E; font-family: 'Bodoni Moda', serif; font-style: italic; font-size: 15px">Emo</span>
+        <button type="button" style="height: 36px; padding: 0 14px; border: 1px dashed #0E0E0E; background: #FFFFFF; font-family: 'Archivo', sans-serif; font-size: 13px; font-weight: 600; color: #0E0E0E">+ Add</button>
+      </div>
+    </div>
+  </div>
+  <div style="padding: 16px 24px 32px; border-top: 1px solid #E2DFD8">
+    <a href="Closet.dc.html" style="height: 52px; display: flex; align-items: center; justify-content: center; background: #0E0E0E; color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase">Save to closet</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

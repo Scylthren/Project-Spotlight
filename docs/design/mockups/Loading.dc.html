@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotlight — loading</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#F2F0EB}a:hover{color:#FFFFFF}
+@keyframes sl-glow{0%,100%{text-shadow:0 0 4px rgba(255,248,230,.9),0 0 14px rgba(255,228,170,.65),0 0 34px rgba(255,214,140,.35)}50%{text-shadow:0 0 8px #FFFFFF,0 0 24px rgba(255,232,180,.95),0 0 64px rgba(255,214,140,.6)}}
+@keyframes sl-dim{0%{opacity:0}100%{opacity:1}}
+@keyframes sl-halo{0%,100%{transform:translate(-50%,-50%) scale(.88);opacity:.7}50%{transform:translate(-50%,-50%) scale(1.08);opacity:1}}
+@keyframes sl-load{0%{width:8%}100%{width:100%}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #050505; font-family: 'Archivo', sans-serif; color: #F2F0EB; display: flex; flex-direction: column; align-items: center; justify-content: center">
+  <div role="img" aria-label="Spotlight" style="display: flex; align-items: center; gap: 4px; font-family: 'Bodoni Moda', serif; font-weight: 700; font-size: 46px; line-height: 1; letter-spacing: 1px">
+    <span aria-hidden="true" style="position: relative; z-index: 1">S</span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">P</span>
+    <span aria-hidden="true" style="position: relative; display: flex; align-items: center; justify-content: center">
+      <span style="position: absolute; left: 50%; top: 50%; width: 1400px; height: 1400px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(5,5,5,0) 0px, rgba(5,5,5,0) 60px, rgba(5,5,5,0.6) 140px, rgba(5,5,5,0.95) 280px); z-index: 2; animation: sl-dim 2.4s ease-in-out infinite alternate"></span>
+      <span style="position: absolute; left: 50%; top: 50%; width: 170px; height: 170px; border-radius: 50%; background: radial-gradient(circle, rgba(255,238,200,0.30) 0%, rgba(255,238,200,0.10) 40%, rgba(255,238,200,0) 70%); z-index: 3; animation: sl-halo 2.4s ease-in-out infinite"></span>
+      <span style="position: relative; z-index: 4; color: #FFF8E6; animation: sl-glow 2.4s ease-in-out infinite">O</span>
+    </span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">T</span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">L</span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">I</span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">G</span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">H</span>
+    <span aria-hidden="true" style="position: relative; z-index: 1">T</span>
+  </div>
+  <div style="position: absolute; left: 0; right: 0; bottom: 72px; display: flex; flex-direction: column; align-items: center; gap: 14px; z-index: 5">
+    <div style="width: 120px; height: 2px; background: #2A2A2A; overflow: hidden">
+      <div style="height: 2px; background: {{accent}}; animation: sl-load 2.4s ease-in-out infinite"></div>
+    </div>
+    <div style="font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #9A9890">Setting the stage</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#C8102E","options":["#C8102E","#FFF6DD","#D4A017"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#C8102E' };
+  }
+}
+</script>
+</body>
+</html>

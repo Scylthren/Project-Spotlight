@@ -25,6 +25,19 @@ Done when:
 
 Human check: add 5 real items on your phone. Is the flow tolerable?
 
+## Gate 1.5: Design foundation
+The look from `docs/design/` applied to what Gate 1 built. No new features.
+
+Done when:
+- A theme module holds light and dark tokens from `docs/design/README.md`: colors, fonts, type scale, spacing, borders. Screens and components use no raw colors or font sizes outside the theme, and a lint rule or test fails when one is added (palette swatch colors are item data, not theme, and are exempt).
+- An Appearance setting (Light / Dark / System) persists across restarts and applies app-wide, including navigation (headers, tab bar) and the status bar.
+- Shared components match the mockups: Button (primary, outline, text), Chip, labeled TextInput, SectionLabel, ScreenHeader, Swatch. Every touch target is at least 44 pt (visual size may be smaller, with hit slop). Accessibility labels, roles and states are kept.
+- The Gate 1 screens are restyled to match their mockups: Closet grid (`Closet`), Add/Edit form (`SaveItem`, Gate 1 fields only), photo set (`Angles`), color matrix (`ColorMatrix`), camera intro modal (`Permission`), item screen (`ItemDetail`, Gate 1 content only).
+- All Gate 1 behavior is unchanged: the existing tests still pass, none are weakened or deleted, and the Gate 1 device checklist is re-run.
+- A dev-only screen shows every shared component in light and dark. It is not reachable in a production build.
+
+Human check: compare each restyled screen on your phone to its mockup, in both themes.
+
 ## Gate 2: Backend skeleton and tagging
 Done when:
 - A Supabase edge function receives an image and returns structured tags (type, colors, pattern, material, formality, season). The provider key exists only as a backend secret. A scan of the repo and the app's environment variables finds no provider or secret key.
@@ -37,6 +50,7 @@ Done when:
 - Cutout check: on 10 of the eval photos, at least 8 cutouts are clean enough to use on a mannequin, judged by you.
 
 Human check: scan 10 items on your phone. Review the eval report and the tag-correction flow.
+Design: `SaveItem.dc.html` adds the tag fields (pattern, material, fit, formality) and the cutout display with the "Background removed" label to the save screen. Built with the theme and shared components from Gate 1.5.
 
 ## Gate 3: Outfit engine
 Done when:
@@ -47,6 +61,7 @@ Done when:
 - Loading and failure states exist for slow or failed AI calls.
 
 Human check: run your own 10 requests on your own closet and rate them.
+Design: `StylePrompt.dc.html` (request), `Results.dc.html` (outfits with rationale), `Lookbook.dc.html` (saved outfits). Only the parts in the criteria above; the mockups' extras are listed under "Proposed, not approved".
 
 ## Gate 3.5: Outfit preview on a mannequin
 Done when:
@@ -67,6 +82,7 @@ Done when:
 - Images are downscaled and re-encoded before upload, with a test showing location metadata is gone.
 
 Human check: sign in on your phone, delete the account, and confirm the data is gone.
+Design: `Welcome.dc.html` (sign in, create account) and the account parts of `Profile.dc.html` (name, email, password, log out, delete account).
 
 ## Gate 5: Friends beta
 Done when:
@@ -85,6 +101,18 @@ Done when:
 
 Human check: use the app on Android for a day, then decide on public release.
 
+## Polish (no gate yet)
+- Loading animation from `Loading.dc.html` (glowing "O" in SPOTLIGHT, rest of the screen dims) in `AnimatedSplashOverlay`. The native splash stays a static black screen with the wordmark.
+
+## Proposed, not approved
+Shown in the mockups but not in any gate. The human decides; agents don't build these.
+- "Look of the day" (`Today.dc.html`): weather-based and random ("Surprise me") modes plus Shuffle. Also its entry point on `StylePrompt.dc.html` ("Match today's weather", "Look of the day") and the Profile notification toggles ("Look of the day, 7:30 AM", "Use local weather"). Weather needs location and a weather service.
+- "Pairs well with" on `ItemDetail.dc.html`.
+- From `Results.dc.html`: "Swap piece" and "Restyle". From `Lookbook.dc.html`: filtering saved looks by occasion ("Night out", "Everyday").
+- From `ItemDetail.dc.html`: "Style this piece" (starts a Gate 3 request from one item).
+- From `Profile.dc.html`: the stats row (pieces, saved looks, days styled), "Sizes & fit", "Style preferences", "Export my closet", "Help & feedback", avatar and @username.
+- A custom in-app camera (`Camera.dc.html`), which would need `expo-camera`.
+
 ## Decisions so far
 - Stack: Expo (React Native) and TypeScript. Swift was considered first and dropped for easier agent iteration and a single codebase for iOS and Android.
 - Audience: owner and friends first, public release possibly later.
@@ -94,3 +122,4 @@ Human check: use the app on Android for a day, then decide on public release.
 - Color detection (Gate 1, slice 4, option A): a free on-device heuristic (`LocalGarmentIsolator`: 96px decode with jpeg-js, border-model segmentation, k-means in Lab) used only to suggest colors. No cutout is stored; real stored cutouts stay a Gate 2 decision behind `GarmentIsolator`.
 - Camera permission (Gate 1, slice 5): explain-then-prompt modal when entering Add with permission undetermined, at most once per app session; the camera opens only from a "Take photo" tap; denied shows an in-form panel linking to Settings (or the real prompt where the OS can still ask). The photo library is always offered as the alternative.
 - Keyboard (Gate 1, slice 6): no keyboard library (would need a dev build). Forms use `KeyboardAwareScrollView`: iOS `automaticallyAdjustKeyboardInsets` (also scrolls the focused field into view), Android `KeyboardAvoidingView` padding with the header height as offset; never both. Drag dismisses (`on-drag`, both platforms); taps outside the tag area dismiss after the press (`KeyboardDismissArea`); the tag box's Done adds the tag and keeps the keyboard, or closes it when empty.
+- Design direction (2026-10-21): the editorial look in `docs/design/` (black ink on white, one red accent, Bodoni Moda display serif, Archivo UI text, tracked uppercase labels, square corners, 1 px rules) with a matching dark theme. Applied in Gate 1.5 before Gate 2; every later screen is built styled from the start. The mockups are a visual spec, not code. `CLAUDE.md`, this roadmap and recorded decisions win over the mockups, and conflicts are flagged to the human. Mockups for later gates set their look but add no scope.

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotlight — look of the day</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0E0E0E}a:hover{color:#C8102E}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #FFFFFF; font-family: 'Archivo', sans-serif; color: #0E0E0E; display: flex; flex-direction: column">
+  <div style="padding: 16px 16px 0; display: flex; align-items: center; justify-content: space-between">
+    <a href="StylePrompt.dc.html" aria-label="Back" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center"><svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"></path></svg></a>
+    <span style="font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600">Wed, Oct 21 · 54°F overcast</span>
+    <span style="width: 44px"></span>
+  </div>
+  <div style="flex: 1; overflow-y: auto; padding: 4px 20px 0; display: flex; flex-direction: column; gap: 14px">
+    <div style="border-bottom: 2px solid #0E0E0E; padding-bottom: 8px">
+      <span style="font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 700; color: #C8102E">{{ modeLabel }}</span>
+      <h1 style="margin: 2px 0 0; font-family: 'Bodoni Moda', serif; font-weight: 700; font-size: 40px; line-height: 1; letter-spacing: -1px">Look of the day</h1>
+    </div>
+    <div role="radiogroup" aria-label="How to pick" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #0E0E0E">
+      <button type="button" role="radio" aria-checked="{{ weatherChecked }}" onClick="{{ useWeather }}" style="height: 40px; border: 0; background: {{ weatherBg }}; color: {{ weatherFg }}; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer">For today</button>
+      <button type="button" role="radio" aria-checked="{{ randomChecked }}" onClick="{{ useRandom }}" style="height: 40px; border: 0; border-left: 1px solid #0E0E0E; background: {{ randomBg }}; color: {{ randomFg }}; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; cursor: pointer">Surprise me</button>
+    </div>
+    <div style="height: 300px; background: {{ look.bg }}; position: relative; overflow: hidden">
+      <span style="position: absolute; right: 12px; top: 8px; font-family: 'Bodoni Moda', serif; font-weight: 700; font-size: 44px; color: #C8102E">{{ look.num }}</span>
+      <svg aria-hidden="true" viewBox="0 0 100 100" style="position: absolute; left: 20px; top: 20px; width: 170px; height: 180px; transform: rotate(-6deg)"><path d="{{ look.topPath }}" fill="{{ look.topFill }}" stroke="{{ look.topStroke }}" stroke-width="0.8"></path></svg>
+      <svg aria-hidden="true" viewBox="0 0 100 100" style="position: absolute; left: 180px; top: 50px; width: 140px; height: 240px; transform: rotate(4deg)"><path d="{{ look.bottomPath }}" fill="{{ look.bottomFill }}"></path></svg>
+      <svg aria-hidden="true" viewBox="0 0 100 100" style="position: absolute; left: 36px; top: 186px; width: 130px; height: 130px; transform: rotate(-3deg)"><path d="M8 62 Q10 50 22 52 L40 54 L54 42 Q62 40 66 46 L86 58 Q94 62 92 70 L92 76 L8 76 Z" fill="{{ look.shoeFill }}" stroke="#8E8E8E" stroke-width="0.8"></path></svg>
+    </div>
+    <div>
+      <h2 style="margin: 0; font-family: 'Bodoni Moda', serif; font-style: italic; font-weight: 500; font-size: 28px; line-height: 1.05">{{ look.title }}</h2>
+      <p style="margin: 6px 0 0; font-size: 13px; line-height: 1.5; color: #4A4945">{{ look.why }}</p>
+    </div>
+    <div style="display: flex; flex-direction: column">
+      <sc-for list="{{ look.pieces }}" as="p" hint-placeholder-count="3">
+        <a href="ItemDetail.dc.html" style="min-height: 44px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #E2DFD8; text-decoration: none; font-size: 14px"><span style="width: 14px; height: 14px; border-radius: 50%; background: {{ p.hex }}; border: 1px solid #B9B6AF"></span><span style="flex: 1">{{ p.name }}</span><span style="color: #5E5C58">›</span></a>
+      </sc-for>
+    </div>
+  </div>
+  <div style="padding: 14px 20px 30px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; border-top: 1px solid #E2DFD8">
+    <button type="button" onClick="{{ shuffle }}" style="height: 52px; border: 1px solid #0E0E0E; background: #FFFFFF; color: #0E0E0E; display: flex; align-items: center; justify-content: center; gap: 8px; font-family: 'Archivo', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h3c4 0 6 10 10 10h5M18 14l3 3-3 3M3 17h3c1.6 0 2.8-1.6 3.9-3.5M13.1 9.5C14.2 7.6 15.4 7 16 7h5M18 4l3 3-3 3"></path></svg>Shuffle</button>
+    <a href="Lookbook.dc.html" style="height: 52px; display: flex; align-items: center; justify-content: center; background: #0E0E0E; color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase">Wear this</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { i: 0, mode: 'weather' };
+  }
+  renderVals() {
+    const HOODIE = 'M34 16 Q50 4 66 16 L84 30 L90 82 L78 82 L74 44 L72 92 L28 92 L26 44 L22 82 L10 82 L16 30 Z';
+    const SWEATER = 'M32 14 L42 10 Q50 16 58 10 L68 14 L86 30 L90 80 L78 80 L74 40 L72 90 L28 90 L26 40 L22 80 L10 80 L14 30 Z';
+    const JEANS = 'M30 8 L70 8 L75 94 L56 94 L50 40 L44 94 L25 94 Z';
+    const SKIRT = 'M36 14 L64 14 L66 26 L82 90 L18 90 L34 26 Z';
+    const weatherLooks = [
+      { num: '01', title: 'Quiet layers', why: 'A chunky knit over denim handles a cool, grey morning; white sneakers keep it light.', bg: '#E4E1DB', topPath: SWEATER, topFill: '#EFE6D2', topStroke: '#B9B6AF', bottomPath: JEANS, bottomFill: '#3E5F8A', shoeFill: '#FFFFFF',
+        pieces: [{ name: 'Cream cable knit', hex: '#EFE6D2' }, { name: 'Washed denim', hex: '#3E5F8A' }, { name: 'White court sneakers', hex: '#FFFFFF' }] },
+      { num: '02', title: 'Field day', why: 'The olive jacket is a shell for drizzle; brown boots ground the denim.', bg: '#EDEBE7', topPath: SWEATER, topFill: '#6B6B2A', topStroke: 'none', bottomPath: JEANS, bottomFill: '#2B3F5C', shoeFill: '#6B4423',
+        pieces: [{ name: 'Olive field jacket', hex: '#6B6B2A' }, { name: 'Dark rinse denim', hex: '#2B3F5C' }, { name: 'Brown boots', hex: '#6B4423' }] }
+    ];
+    const randomLooks = [
+      { num: '??', title: 'Wildcard: after dark', why: 'Picked at random from your closet: the hoodie and slip skirt are an unexpected, very wearable clash.', bg: '#EDEBE7', topPath: HOODIE, topFill: '#111111', topStroke: 'none', bottomPath: SKIRT, bottomFill: '#6D1A2B', shoeFill: '#111111',
+        pieces: [{ name: 'Black band hoodie', hex: '#111111' }, { name: 'Burgundy slip skirt', hex: '#6D1A2B' }, { name: 'Black high-tops', hex: '#111111' }] },
+      { num: '??', title: 'Wildcard: soft grunge', why: 'Random pull: cream knit, burgundy skirt and white sneakers. Softer than you would pick, still you.', bg: '#E4E1DB', topPath: SWEATER, topFill: '#EFE6D2', topStroke: '#B9B6AF', bottomPath: SKIRT, bottomFill: '#6D1A2B', shoeFill: '#FFFFFF',
+        pieces: [{ name: 'Cream cable knit', hex: '#EFE6D2' }, { name: 'Burgundy slip skirt', hex: '#6D1A2B' }, { name: 'White court sneakers', hex: '#FFFFFF' }] }
+    ];
+    const { i, mode } = this.state;
+    const list = mode === 'weather' ? weatherLooks : randomLooks;
+    const look = list[i % list.length];
+    const isW = mode === 'weather';
+    return {
+      look,
+      modeLabel: isW ? 'Picked for the weather' : 'Picked at random',
+      weatherChecked: isW ? 'true' : 'false',
+      randomChecked: isW ? 'false' : 'true',
+      weatherBg: isW ? '#0E0E0E' : '#FFFFFF', weatherFg: isW ? '#FFFFFF' : '#0E0E0E',
+      randomBg: isW ? '#FFFFFF' : '#0E0E0E', randomFg: isW ? '#0E0E0E' : '#FFFFFF',
+      useWeather: () => this.setState({ mode: 'weather', i: 0 }),
+      useRandom: () => this.setState({ mode: 'random', i: 0 }),
+      shuffle: () => this.setState({ i: this.state.i + 1 })
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spotlight — pick colors</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..900;1,6..96,400..900&amp;family=Archivo:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#0E0E0E}a:hover{color:#C8102E}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; background: #8A8884; font-family: 'Archivo', sans-serif; color: #0E0E0E">
+  <div aria-hidden="true" style="position: absolute; left: 24px; top: 90px; width: 116px; height: 146px; background: #D6D3CD"></div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0,0,0,0.35)"></div>
+  <div role="dialog" aria-modal="true" aria-labelledby="cm-title" style="position: absolute; left: 0; right: 0; bottom: 0; height: 720px; background: #FFFFFF; padding: 10px 20px 28px; box-sizing: border-box; display: flex; flex-direction: column; gap: 14px">
+    <span aria-hidden="true" style="align-self: center; width: 40px; height: 4px; background: #B9B6AF; border-radius: 2px"></span>
+    <div style="display: flex; justify-content: space-between; align-items: baseline">
+      <h2 id="cm-title" style="margin: 0; font-family: 'Bodoni Moda', serif; font-weight: 600; font-size: 30px; line-height: 1">Pick colors</h2>
+      <span style="font-size: 13px; color: #4A4945">{{summary}}</span>
+    </div>
+    <p style="margin: 0; font-size: 13px; line-height: 1.45; color: #4A4945">We weren't sure about this one. Tap the closest match.</p>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #0E0E0E">
+      <button type="button" onClick="{{ setPrimary }}" style="height: 40px; border: 0; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; background: {{primaryBg}}; color: {{primaryFg}}; cursor: pointer">Primary</button>
+      <button type="button" onClick="{{ setSecondary }}" style="height: 40px; border: 0; border-left: 1px solid #0E0E0E; font-family: 'Archivo', sans-serif; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; background: {{secondaryBg}}; color: {{secondaryFg}}; cursor: pointer">Secondary</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px 6px">
+      <sc-for list="{{ swatches }}" as="s" hint-placeholder-count="25">
+        <button type="button" onClick="{{ s.pick }}" aria-pressed="{{ s.pressed }}" style="background: none; border: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; font-family: 'Archivo', sans-serif">
+          <span style="width: 46px; height: 46px; border-radius: 50%; background: {{ s.hex }}; border: 1px solid #CFCCC5; box-sizing: border-box; outline: {{ s.ring }}; outline-offset: 3px"></span>
+          <span style="font-size: 11px; color: #0E0E0E; font-weight: {{ s.weight }}">{{ s.name }}</span>
+        </button>
+      </sc-for>
+    </div>
+    <a href="SaveItem.dc.html" style="margin-top: auto; height: 52px; display: flex; align-items: center; justify-content: center; background: #0E0E0E; color: #FFFFFF; text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase">Done</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'primary', primary: 'Black', secondary: ['Red'] };
+  }
+  renderVals() {
+    const palette = [
+      ['Black', '#111111'], ['Charcoal', '#3B3B3B'], ['Grey', '#8E8E8E'], ['White', '#FFFFFF'], ['Cream', '#EFE6D2'],
+      ['Tan', '#C8A97E'], ['Camel', '#B07A45'], ['Brown', '#6B4423'], ['Burgundy', '#6D1A2B'], ['Red', '#C8102E'],
+      ['Coral', '#F07A5F'], ['Orange', '#E8762B'], ['Mustard', '#D4A017'], ['Yellow', '#F2D74B'], ['Olive', '#6B6B2A'],
+      ['Sage', '#9CAF88'], ['Forest', '#2F4A35'], ['Teal', '#1F6F6B'], ['Sky', '#8CB8E0'], ['Denim', '#3E5F8A'],
+      ['Navy', '#1C2541'], ['Lavender', '#B8A6D9'], ['Purple', '#5B2A6E'], ['Pink', '#F2B5C4'], ['Hot pink', '#D63A7A']
+    ];
+    const { mode, primary, secondary } = this.state;
+    const swatches = palette.map(([name, hex]) => {
+      const isPrimary = primary === name;
+      const isSecondary = secondary.indexOf(name) !== -1;
+      const on = mode === 'primary' ? isPrimary : isSecondary;
+      return {
+        name, hex,
+        pressed: on ? 'true' : 'false',
+        ring: on ? '2px solid #0E0E0E' : (isPrimary || isSecondary ? '1px dashed #8E8E8E' : '0 solid transparent'),
+        weight: on ? '700' : '400',
+        pick: () => {
+          if (this.state.mode === 'primary') {
+            this.setState({ primary: name, secondary: this.state.secondary.filter((n) => n !== name) });
+          } else if (name !== this.state.primary) {
+            const cur = this.state.secondary;
+            const next = cur.indexOf(name) !== -1 ? cur.filter((n) => n !== name) : cur.concat([name]).slice(-2);
+            this.setState({ secondary: next });
+          }
+        }
+      };
+    });
+    const summary = primary + (secondary.length ? ' + ' + secondary.join(', ') : '');
+    return {
+      swatches, summary,
+      primaryBg: mode === 'primary' ? '#0E0E0E' : '#FFFFFF',
+      primaryFg: mode === 'primary' ? '#FFFFFF' : '#0E0E0E',
+      secondaryBg: mode === 'secondary' ? '#0E0E0E' : '#FFFFFF',
+      secondaryFg: mode === 'secondary' ? '#FFFFFF' : '#0E0E0E',
+      setPrimary: () => this.setState({ mode: 'primary' }),
+      setSecondary: () => this.setState({ mode: 'secondary' })
+    };
+  }
+}
+</script>
+</body>
+</html>
