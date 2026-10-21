@@ -31,6 +31,7 @@ describe('createClothingItem', () => {
         category: 'top',
         colors: ['black'],
         seasons: ['summer'],
+        tags: [],
         createdAt: '2026-01-15T10:00:00.000Z',
         updatedAt: '2026-01-15T10:00:00.000Z',
       },
@@ -75,6 +76,21 @@ describe('createClothingItem', () => {
     expect(result.ok && isValidClothingItem(result.item)).toBe(true);
   });
 
+  it('defaults to no tags, and normalizes given tags: trims, collapses, lowercases, dedupes, drops blanks', () => {
+    const untagged = createClothingItem(input(), NOW);
+    expect(untagged.ok && untagged.item.tags).toEqual([]);
+    const result = createClothingItem(input({ tags: [' 90S ', 'Office   Casual', '90s', '  ', 'emo'] }), NOW);
+    expect(result.ok && result.item.tags).toEqual(['90s', 'office casual', 'emo']);
+  });
+
+  it('rejects too-long tags and too many tags instead of cutting them', () => {
+    const long = createClothingItem(input({ tags: ['x'.repeat(31)] }), NOW);
+    expect(!long.ok && long.errors.join()).toMatch(/at most 30 characters/);
+    const many = createClothingItem(input({ tags: Array.from({ length: 11 }, (_, i) => `t${i}`) }), NOW);
+    expect(!many.ok && many.errors).toEqual(['tags must have at most 10 entries']);
+    expect(createClothingItem(input({ tags: Array.from({ length: 10 }, (_, i) => `t${i}`) }), NOW).ok).toBe(true);
+  });
+
   it('rejects a blank id and imageUri and reports both', () => {
     const result = createClothingItem(input({ id: '  ', imageUri: '' }), NOW);
     expect(!result.ok && result.errors).toEqual([
@@ -91,6 +107,7 @@ describe('validateClothingItem / isValidClothingItem', () => {
     category: 'shoes',
     colors: ['red'],
     seasons: ['spring', 'autumn'],
+    tags: [],
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
   };
@@ -145,6 +162,16 @@ describe('validateClothingItem / isValidClothingItem', () => {
     expect(validateClothingItem({ ...valid, imageUri: 'file:///a.jpg ' })).toEqual([
       'imageUri must not have leading or trailing whitespace',
     ]);
+  });
+
+  it('requires tags to be a normalized, unique array', () => {
+    expect(validateClothingItem({ ...valid, tags: ['90s', 'office casual'] })).toEqual([]);
+    expect(validateClothingItem({ ...valid, tags: undefined })).toEqual(['tags must be an array']);
+    expect(validateClothingItem({ ...valid, tags: ['90S'] })[0]).toMatch(/^tags must be lowercase/);
+    expect(validateClothingItem({ ...valid, tags: [' emo'] })[0]).toMatch(/^tags must be lowercase/);
+    expect(validateClothingItem({ ...valid, tags: [''] })[0]).toMatch(/^tags must be lowercase/);
+    expect(validateClothingItem({ ...valid, tags: [7] })[0]).toMatch(/^tags must be lowercase/);
+    expect(validateClothingItem({ ...valid, tags: ['emo', 'emo'] })).toEqual(['tags must not contain duplicates']);
   });
 
   it('rejects non-string colors', () => {

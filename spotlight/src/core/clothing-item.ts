@@ -5,6 +5,7 @@ import {
   type ClothingItem,
   type Season,
 } from './types';
+import { canonicalTagText, isNormalizedTag, MAX_TAGS_PER_ITEM, TAG_MAX_LENGTH } from './tags';
 
 export interface NewClothingItemInput {
   id: string;
@@ -12,6 +13,8 @@ export interface NewClothingItemInput {
   category: Category;
   colors: string[];
   seasons: Season[];
+  /** Raw tags; normalized by `createClothingItem`. Missing means no tags. */
+  tags?: string[];
 }
 
 export type ValidationResult =
@@ -85,6 +88,16 @@ export function validateClothingItem(value: unknown): string[] {
     errors.push('seasons must not contain duplicates');
   }
 
+  if (!Array.isArray(v.tags)) {
+    errors.push('tags must be an array');
+  } else if (!v.tags.every(isNormalizedTag)) {
+    errors.push(`tags must be lowercase, trimmed, non-empty, and at most ${TAG_MAX_LENGTH} characters`);
+  } else if (new Set(v.tags).size !== v.tags.length) {
+    errors.push('tags must not contain duplicates');
+  } else if (v.tags.length > MAX_TAGS_PER_ITEM) {
+    errors.push(`tags must have at most ${MAX_TAGS_PER_ITEM} entries`);
+  }
+
   if (!isIsoDate(v.createdAt)) errors.push('createdAt must be an ISO date string');
   if (!isIsoDate(v.updatedAt)) errors.push('updatedAt must be an ISO date string');
 
@@ -97,7 +110,9 @@ export function isValidClothingItem(value: unknown): value is ClothingItem {
 
 /**
  * Builds a ClothingItem from user input. Trims id and imageUri, trims and lowercases colors,
- * drops empty and duplicate colors, and sets both timestamps to `now`.
+ * drops empty and duplicate colors, normalizes tags (see `canonicalTagText`) and drops
+ * blank and duplicate ones (too-long tags or too many tags are rejected, not cut), and
+ * sets both timestamps to `now`.
  */
 export function createClothingItem(
   input: NewClothingItemInput,
@@ -121,6 +136,7 @@ export function createClothingItem(
     category: input.category,
     colors,
     seasons: input.seasons,
+    tags: normalizeTagInput(input.tags),
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -129,4 +145,16 @@ export function createClothingItem(
   return errors.length === 0
     ? { ok: true, item: candidate as ClothingItem }
     : { ok: false, errors };
+}
+
+function normalizeTagInput(tags: unknown): unknown {
+  if (tags === undefined) return [];
+  if (!Array.isArray(tags)) return tags;
+  return Array.from(
+    new Set(
+      tags
+        .map((t) => (typeof t === 'string' ? canonicalTagText(t) : t))
+        .filter((t) => t !== ''),
+    ),
+  );
 }

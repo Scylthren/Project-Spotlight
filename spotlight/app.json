@@ -32,7 +32,16 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Spotlight uses your photos so you can add clothing items to your closet. Photos stay on this device.",
+          "cameraPermission": "Spotlight uses your camera so you can photograph clothing items for your closet. Photos stay on this device.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -15,7 +15,8 @@ Audience for now: the owner and a few friends. A public store release may come l
 
 ## Architecture rules
 - Screens stay thin. Logic lives in plain TypeScript modules under `src/` (for example `src/core` for types and rules, `src/data` for repositories, `src/ai` for clients).
-- Anything backed by a service sits behind an interface: `ClosetRepository`, `ClosetTagger`, `OutfitGenerator`. Each has a mock and a real implementation. Tests use the mocks.
+- Anything backed by a service sits behind an interface: `ClosetRepository`, `ClosetTagger`, `GarmentIsolator`, `OutfitGenerator`. Each has a mock and a real implementation. Tests use the mocks.
+- Every closet item keeps its original photo and, separately, an optional cutout (the garment with the background removed, as a PNG with transparency). Never overwrite the original. Wherever a cutout is missing, the UI falls back to the original. Background removal is a step in the add-item flow behind `GarmentIsolator`. Its mock returns no cutout, and a failure there must never block saving the item.
 - Prompts, closet prefiltering, and outfit validation live in edge functions, not in the app. The app renders results and caches data.
 - Document the API in `docs/api/` and update it in the same change as the endpoint. Request and response types live in one place. If sharing them between the app and the functions is awkward, keep copies and add a test that fails when they drift.
 - Outfit output is JSON referencing closet item IDs. Reject any ID that is not in the user's closet.
@@ -30,7 +31,7 @@ Audience for now: the owner and a few friends. A public store release may come l
 - Account deletion must remove database rows and stored images.
 
 ## Commands
-Run all of these from the `spotlight/` folder (the Expo app), not the repo root.
+Run all of these from the `spotlight/` folder (the Expo app), not the repo root. Requires Node 22.13 or newer (the SQLite repository tests use Node's built-in `node:sqlite`).
 - Dev server: `npx expo start`
 - Typecheck: `npx tsc --noEmit` (also `npm run typecheck`)
 - Lint: `npm run lint` (runs `expo lint`, ESLint flat config in `eslint.config.js`)
@@ -48,4 +49,4 @@ Run all of these from the `spotlight/` folder (the Expo app), not the repo root.
 - Stop at each gate. Do not start the next gate until the human approves. At a gate, report what was built, the measured numbers against the criteria, and known issues.
 
 ## Non-goals for the MVP
-Social features, shopping or recommendations for items the user does not own, a web client, and sync across devices before Gate 4.
+Social features, shopping or recommendations for items the user does not own, a web client, and sync across devices before Gate 4. Realistic virtual try-on (AI-rendered clothes on a body) is a possible post-launch stretch. The MVP preview is the 2D mannequin in Gate 3.5.

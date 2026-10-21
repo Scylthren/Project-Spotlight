@@ -32,7 +32,9 @@ Done when:
 - The app uses the real `ClosetTagger`. The mock still works.
 - Tagging eval: 30 of your own clothing photos with hand-labeled answers in `evals/tagging/`. Proposed targets: category correct in at least 90 percent, primary color correct in at least 85 percent.
 - The user can correct tags quickly, and multi-select import from the photo library works.
-- Open decision, not required to pass: whether to isolate garments from the background. The agent proposes two options with cost and effort, and you choose.
+- Background removal: each item stores its original photo plus an optional cutout (garment only, transparent background). Migrate the existing local items so they keep working with no cutout. Background removal runs behind a `GarmentIsolator` interface during add-item and multi-select import. If it fails, the item is still saved with no cutout. The grid shows the cutout when one exists.
+- Decide at the start of this gate: the agent proposes two background-removal options (for example a hosted API called from an edge function, or on-device segmentation, which needs a development build), with cost per image, effort, and quality. You choose one. The tagging function receives the original photo unless the eval shows that cutouts tag better.
+- Cutout check: on 10 of the eval photos, at least 8 cutouts are clean enough to use on a mannequin, judged by you.
 
 Human check: scan 10 items on your phone. Review the eval report and the tag-correction flow.
 
@@ -45,6 +47,15 @@ Done when:
 - Loading and failure states exist for slow or failed AI calls.
 
 Human check: run your own 10 requests on your own closet and rate them.
+
+## Gate 3.5: Outfit preview on a mannequin
+Done when:
+- A generated or saved outfit can be shown on a 2D mannequin. Cutouts are layered by category (outerwear over top over bottom, shoes at the feet) and scaled to fit fixed slots on the figure.
+- Items with no cutout show as a card beside the mannequin instead of on it.
+- The user can nudge or resize an item on the mannequin, and the adjustment is saved per item.
+- Works in Expo Go, with no AI call and no per-render cost.
+
+Human check: view 5 of your own outfits on the mannequin. Does it look good enough to show a friend?
 
 ## Gate 4: Accounts, sync, privacy
 Done when:
@@ -79,3 +90,4 @@ Human check: use the app on Android for a day, then decide on public release.
 - Audience: owner and friends first, public release possibly later.
 - Backend: hosted, defaulting to Supabase. Reconfirm at the start of Gate 2, since free-tier limits and pricing change.
 - Human review at the gates above.
+- Images: keep the original photo and a separate background-removed cutout per item, starting in Gate 2. A 2D mannequin preview comes after the outfit engine (Gate 3.5). Realistic AI try-on is out of scope for the MVP because of cost per render and quality.
