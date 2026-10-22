@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# The example env file is committed (no secrets in it)
+!.env.example

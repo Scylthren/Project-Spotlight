@@ -14,6 +14,7 @@ import {
 type PassThrough = Pick<
   TextInputProps,
   | 'autoCapitalize'
+  | 'autoComplete'
   | 'autoCorrect'
   | 'autoFocus'
   | 'keyboardType'
@@ -23,7 +24,9 @@ type PassThrough = Pick<
   | 'onSubmitEditing'
   | 'placeholder'
   | 'returnKeyType'
+  | 'secureTextEntry'
   | 'submitBehavior'
+  | 'textContentType'
 >;
 
 interface TextFieldProps extends PassThrough {

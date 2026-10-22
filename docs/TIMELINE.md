@@ -10,28 +10,36 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-22 by orchestrator (Gate 2 plan proposed)_
+_Last updated: 2026-10-22 by orchestrator (Gate 2 slice 1 reviewed and committed)_
 
-- **Gate:** 1.5 (Design foundation) approved by the human 2026-10-22 after the device checklist (no problems found); tagged `gate-1.5`. Gates 0 and 1 approved (tag `gate-1` on `e889592`). Gate 2 not started.
-- **Slice 5 contents:** Add/Edit form restyled from SaveItem/Angles (single form, Gate 1 fields plus name; order: photos, colors, name, category, seasons, style tags). Add tab has a "New piece" step header (no back, no step count) and "Save to closet"; Edit keeps the native "Edit item" header. Photo area: 330 pt photo-background preview (`contain`) with a "Front · Primary" badge, three-column angle tiles plus a dashed "Add another angle" tile (opens the role panel), stacked Take photo / Choose from library, text buttons for Make primary / Remove photo. Colors: swatch chips (primary 2 pt outline + "Primary"), dashed "+ Choose colors" / "Edit colors" chip, italic "Detected from the photo" note. Chips via the shared look (`casing="sentence"` for category, seasons, angle, "+ Add"; style tags italic serif). Tag box is a boxed `TextField` (`inputBorder`). Color matrix: "Pick colors" serif title, five columns of 46 pt swatches with a 2 pt ink ring, chosen colors as hairline rows, Done pinned at the bottom. Camera intro: square card on a scrim, serif title, Continue / library / Not now (copy unchanged). Denied panel: ink-outlined box. FormButton wraps the shared button look (destructive = danger outline).
-- **Item name (human-approved addition):** `ClothingItem.name?` (absent = no name, never ""), trimmed, at most 60 characters counted as code points (`core/item-name.ts`); validator, `createClothingItem`, form values, `hasDetailChanges`, SQLite migration 6 (`ALTER TABLE clothing_items ADD COLUMN name TEXT`, NULL = no name), both repositories, closet tile (name, meta "Top · Navy, White" when named), item screen title (name, category line under it when named), search (also matches the name), delete confirmation. Fallback to the category everywhere.
-- **Spec-changed tests:** `sqlite-closet-repository.test.ts` migration 5 tests hard-coded "latest = version 5"; they now migrate with `CLOSET_MIGRATIONS.slice(0, 5)` (and run the rest of the chain before using the repository), like the migration 4 tests already did. `token-guard.test.ts` `MAX_ALLOWLIST` 10 -> 0 (the test's own comment said slice 5 sets it to 0). No other existing test changed; none deleted.
-- **Token guard:** allowlist empty (`TOKEN_GUARD_ALLOWLIST = []`). `themed-text.tsx` and `themed-view.tsx` deleted (no users left); `database-error-boundary.tsx`, `app-tabs.web.tsx` and `animated-icon.tsx` (overlay on `colors.background`, unused `AnimatedIcon` on `colors.surface`, template gradient removed) use tokens. New tokens: `colors.scrim` (#000000 both), `opacity.scrim` 0.6, `sizes.formPhotoHeight` 330, `angleTileHeight` 120, `formSwatchSize` 26, `matrixSwatchSize` 46, `chosenSwatchSize` 28.
-- **Known issue fixed:** `CameraAccessFlow.takePhoto` cancels a picker waiting for the intro to close, so a tap during the iOS close opens one picker; after the gate review, the replacing picker also waits until the intro has closed (or the 1 s timeout), so none is presented over the closing modal (2 tests, tightened).
-- **Verified 2026-10-22 (macOS):** orchestrator re-ran tsc pass, lint pass, `npm test` 66 suites, 981 tests after the review fix; implementer: tsc pass; lint pass; `npm test` 66 suites, 981 tests (was 64/935); `expo export` ios and android pass. Not verified: anything on a device.
-- **Device checks added by slice 5:** Add and Edit in both themes against SaveItem/Angles (preview contain fit, badge, angle tiles and dashed tile, stacked buttons); name field: type, 60-character cap, keyboard over it (iOS insets, Android padding), tap into it while the tag keyboard is up; save a named item, closet tile and item screen show it, search finds it; clear the name, falls back to the category; an existing (pre-migration) closet opens with no names; color chips and matrix (five columns, ring, Done at the bottom, pageSheet on iOS); camera intro on the scrim and the denied panel; double "Take photo" tap during the iOS intro close opens one picker; destructive Delete outline; database error screen (hard to trigger; unverified); web tabs (web is not a target, unverified); plus the slice 2-4 checks still pending.
-- **Known issues (for later):** Switching to System while a forced scheme is active may show the old scheme for a frame (unverified on device). `hanger` needs iOS 16+. 1.2 em serif lines may still clip accented capitals. Guard gaps listed in `token-guard-rules.js`. Typed routes (`.expo/types`, gitignored) only regenerate on `expo start`. Dashed borders on Android unverified (now also the add-angle tile and add chips). Gallery `!__DEV__` redirect unverified on a release build. npm audit: no action until the next SDK upgrade (ROADMAP).
-- **Mockup differences (slice 5):** approved by the human 2026-10-22 (copy changes, named-item meta lines, form photo `contain`); see ROADMAP.
-- **Review notes still deferred:** slice 5: name `maxLength={60}` counts UTF-16 units while the validator counts code points (emoji names stop at 30 in the box; safe direction); photo thumbnails stay pressable while the form is busy (only changes the selected photo). slice 4: item screen shows only a spinner while loading; screen wiring has no rendered test (device checklist); a fresh checkout needs `expo start` once before tsc sees `/item/[id]/edit`. Earlier: radios report both `checked` and `selected`; swatch sizes 26/40 and chevron stroke are raw numbers outside `src/theme/`.
-- **Next step:** the human answers the decisions in `docs/plans/gate-2.md` (D1, D4, D5 before slice 1). Then Gate 2 slice 1. Do not start Gate 2 before the plan is approved.
-- **Open questions:** Detection thresholds need tuning on real photos; Android keyboard padding relies on `useHeaderHeight`. Gate 2: reword "Photos stay on this device" once uploads exist.
+- **Gate:** 2 in progress (plan `docs/plans/gate-2.md`; D1, D4, D5 answered, see ROADMAP). Gate 1.5 approved and tagged `gate-1.5`; Gates 0 and 1 approved.
+- **Slice 1 (backend skeleton with stub), reviewed (PASS WITH NOTES) and committed:** `supabase/` at the repo root (`supabase init`, linked to `lithblsvhrxfdkjhnhdy`, no database password used). Function `tag-item` (`verify_jwt = false`): checks `Authorization: Bearer` against the `DEV_TOKEN` secret (constant-time compare, fails closed with 500 if the secret is missing or short), 405 non-POST, 401 bad token, 400 bad or oversized body, 200 with a fixed schema-valid stub. Logic in plain TS (`supabase/functions/_shared/`, `tag-item/handler.ts`); `index.ts` is a thin Deno adapter. Deployed with `--use-api`. API doc `docs/api/tag-item.md`.
+- **Contract:** `supabase/functions/_shared/tag-item-contract.ts` is the source of truth; `spotlight/src/ai/tag-item-contract.ts` is a byte-identical copy with a Jest drift test (also vocabulary vs `CATEGORIES`/`PALETTE_IDS`/`SEASONS`, limits vs the doc). Request `{ imageBase64, contentType: "image/jpeg" }`, body max 2,100,000 bytes; response `{ apiVersion: 1, tags: { category, colors, seasons }, stub }` (D6 fields come in slice 2).
+- **App:** `ClosetTagger` (`src/ai/closet-tagger.ts`: `MockClosetTagger`, `FakeClosetTagger`), `RemoteClosetTagger` (plain fetch, 20 s AbortController timeout, never throws; failures not-configured / no-token / unauthorized / rejected / server / offline / timeout / invalid-response). `DevTokenStore` with `SecureStoreDevTokenStore` (expo-secure-store, `WHEN_UNLOCKED_THIS_DEVICE_ONLY`) and `InMemoryDevTokenStore`. Me tab: `__DEV__`-only Backend section (secure token field, save/clear, Test connection with status text). URL from `EXPO_PUBLIC_SUPABASE_URL` (`spotlight/.env`, gitignored; `.env.example` committed via `!.env.example`). The tagger is not used by the add-item flow yet (slice 2/3).
+- **Config changes:** `expo-secure-store` ~57.0.4 (approved; plugin with `faceIDPermission: false`); tsconfig `allowImportingTsExtensions` (Deno-style `.ts` imports in function code reached by tests); Jest `moduleDirectories` adds `<rootDir>/node_modules` (function files outside `spotlight/`); `TextField` passes `secureTextEntry`, `autoComplete`, `textContentType`.
+- **Security tests:** `src/security/secret-scan.test.ts` scans every committable file under `spotlight/` and `supabase/` for provider keys, Supabase secret keys, service-role JWTs and 64-hex tokens (planted-file test; a planted literal was confirmed to fail it); checks `.env*` ignored, `.env.example` not; only allowed `EXPO_PUBLIC_` names. Dev token lives only in `~/.config/spotlight/dev-token` (600) and the `DEV_TOKEN` secret.
+- **Found and fixed on the deployed function:** answering before the body was read (401, Content-Length precheck) left large uploads hanging, then 503. The adapter now drains the unread body before replying (`finishBody`): at most 8 MB or 5 s, then cancel; a declared Content-Length over 8 MB is cancelled at once (those clients see a hang, by design; the app never sends over 2.1 MB).
+- **Review fixes (architect-reviewer):** drain byte cap plus time budget; a missing or malformed Authorization header gets 401 even when the secret is misconfigured (500 only for a well-formed bearer); the secret scan covers every committable file in the repo (git, falling back to a directory walk) and the EXPO_PUBLIC_ check also covers `.md`, `.env*` and `app.config.*`.
+- **Verified 2026-10-22 (macOS, implementer, after review fixes):** tsc pass; lint pass; `npm test` 75 suites, 1154 tests (was 66/981); ios and android export pass before the fixes (bundles contain the URL, not the token). curl on the redeployed function: no token 401, Basic header 401, wrong token 401, GET 405, OPTIONS 405, valid 200 with stub, malformed JSON 400, not a JPEG 400, 2.15 MB 400, chunked 2.2 MB 400, 1.9 MB valid 200, 1.9 MB without token 401, 9 MB (with and without token) no answer within 90 s (cancelled by design), 300 KB at 20 KB/s 401 / 200 after about 15 s, 1.9 MB at 100 KB/s without token 401 after the full upload (about 18.6 s). The 5 s drain budget is unit-tested only; from the client the whole upload completed either way. Not verified: anything on a device.
+- **Device checks added by slice 1:** Me tab Backend section in both themes; paste the token (secure field, paste works); Test connection: OK with the token, "Wrong token" after saving a wrong one, "Offline" in airplane mode; token survives an app restart; Clear works; section absent in a release build (unverified); web shows "Secure storage is not available" (web not a target).
+- **Known issues (for later):** Backend section code is in the release bundle (render gated by `__DEV__`). No rate limit on the function, and unauthenticated invocations are not rate-limited either (each can make it read up to 8 MB or 5 s). The drift test's doc check only looks for the limit numbers in `docs/api/tag-item.md`, not the shapes. `supabase/functions/tag-item/index.ts` is not Deno type-checked and the Deno files are not linted (outside ESLint's base path; handler and shared files are type-checked through the tests); run `deno check` in slice 3 if Deno is available via the CLI. Earlier: forced-scheme flash; `hanger` needs iOS 16+; serif accent clipping; token-guard gaps; typed routes regenerate only on `expo start`; dashed borders on Android unverified; gallery `!__DEV__` redirect unverified; npm audit deferred to the next SDK upgrade.
+- **Review notes still deferred:** slice 5: name `maxLength` counts UTF-16 units; thumbnails pressable while busy. slice 4: item screen spinner-only loading; no rendered test of screen wiring. Earlier: radios report `checked` and `selected`; swatch sizes 26/40 and chevron stroke raw numbers.
+- **Next step:** the human puts the token on the phone and runs the slice 1 device checks, and answers D6 and D7. Then slice 2.
+- **Open questions:** whether to record the slice 1 decisions (contract copy + drift test, `apiVersion`, drain, 400 for oversized) in ROADMAP; detection thresholds need tuning on real photos; reword "Photos stay on this device" once uploads exist (slice 3).
 
 ## Gate plans
 - Gate 1.5 (approved 2026-10-21, done): five slices, see `git log` and ROADMAP decisions.
-- Gate 2: proposed in `docs/plans/gate-2.md`, not approved.
+- Gate 2: `docs/plans/gate-2.md`; D1, D4, D5 answered; slice 1 implemented.
 
 ## Log
 Newest first.
+
+### 2026-10-22 — Gate 2 slice 1 implemented (backend skeleton, stub)
+- `supabase/` linked; `tag-item` deployed (dev token check, stub answer); dev token generated outside the repo and set as `DEV_TOKEN`. App: `ClosetTagger` with mock, fake and `RemoteClosetTagger`; `DevTokenStore` on expo-secure-store; dev-only Backend section on the Me tab; `docs/api/tag-item.md`; secret scan and env tests.
+- Fix found by curl: early replies to large uploads hung (503); the function now drains the body first.
+- Evidence: tsc pass; lint pass; `npm test` 75 suites, 1138 tests; ios and android export pass; curl codes in Current state.
+- Review fixes applied (drain time budget and Content-Length cancel, 401 before 500, repo-wide secret scan, EXPO_PUBLIC_ check over docs/config); redeployed; tests 75 suites, 1154 tests.
+- architect-reviewer (Sonnet): PASS WITH NOTES, no blocking issues; all four notes applied (above). A body declared over 8 MB is cancelled at once, so such a client gets no answer (abusive requests only; the app sends at most 2.1 MB). Orchestrator re-ran tsc, lint, `npm test` 75 suites, 1154 tests; token absent from the diff and untracked files. Committed. Next: device check, D6/D7.
 
 ### 2026-10-22 — Gate 2 plan proposed
 - Wrote `docs/plans/gate-2.md`: 7 slices (skeleton with stub, tags with mock, real tagging, eval, cutouts, multi-select import, gate review), edge cases per slice, decisions D1-D11 with recommendations. No app code changed.
@@ -56,76 +64,8 @@ Newest first.
 - Evidence: tsc pass; lint pass; `npm test` 66 suites, 981 tests; ios and android export pass. Spec-changed tests listed in Current state.
 - Not reviewed, not committed. Next: architect-reviewer (Opus), commit, Gate 1.5 report.
 
-### 2026-10-22 — Slice 4 mockup decisions
-- Human: keep the masthead count, no search icon, 26/36 pt sizes, later-gate sections stay out. Tiles crop to fill: closet grid switched to `contentFit="cover"`. New: an item name field, to build in slice 5. Recorded in ROADMAP.
-- Evidence: tsc pass; lint pass; `npm test` 64 suites, 935 tests.
-- Next: slice 5.
-
-### 2026-10-22 — Gate 1.5 slice 4 reviewed and committed
-- architect-reviewer (Sonnet): PASS WITH NOTES, no blocking issues. `dismissTo('/')` checked against the expo-router StackRouter source: it pops past the item screen, and on a deep link it replaces the edit screen with the closet. The spec-changed tests match the human decisions.
-- Orchestrator: `git diff` on the test files shows only restructured loops (now also over casings) and the error-in-label change; nothing weakened. Review note about an empty seasons box dropped, because the validator requires at least one season. Other notes deferred (Current state).
-- Evidence (orchestrator): tsc pass; lint pass; `npm test` 64 suites, 935 tests.
-- Next: human answers on the mockup differences, then slice 5.
-
-### 2026-10-22 — Gate 1.5 slice 4 implemented (closet grid, filters, item screen)
-- Closet masthead, search and category chips (logic in `core/closet-filter.ts`), 2-column photo tiles; read-only item screen at `item/[id]` with angle tabs, Edit opens the unchanged form at `item/[id]/edit` (delete now returns to the closet).
-- Human decisions: chip 14 pt padding token and `casing` prop; TextField error in the accessibility label and announced on appearance. Spec-changed tests listed in Current state.
-- Evidence: tsc pass; lint pass; `npm test` 64 suites, 935 tests; ios and android export pass.
-- Not reviewed, not committed. Next: architect-reviewer, commit, then slice 5.
-
-### 2026-10-22 — npm audit checked; slice 4 decisions
-- Audit: 61 warnings trace to 5 root advisories, 4 dev/build-only, 1 (`decode-uri-component` via expo-router) likely in the app as a local DoS. No safe fix within SDK 57. Human: no action, revisit at the next SDK upgrade.
-- Human decisions for slice 4: chips follow the mockup (14 pt padding, mockup casing); fix TextField error announcements. Recorded in ROADMAP and Current state.
-- Next: slice 4.
-
-### 2026-10-22 — Gate 1.5 slice 3 reviewed and committed
-- architect-reviewer (Sonnet): PASS WITH NOTES, no blocking issues. Applied: allowlist comment for `themed-text.tsx`; ROADMAP decision (inputBorder values, chip border, testing-library approval); TextField uses `error || hint` for both the visible message and the spoken hint; testing-library pinned to `~14.1.0`. Also untracked `.DS_Store` (human request) and committed its `.gitignore` line.
-- Deferred review notes listed in Current state.
-- Evidence (orchestrator): tsc pass; lint pass; `npm test` 60 suites, 885 tests.
-- Next: slice 4.
-
-### 2026-10-22 — Gate 1.5 slice 3 implemented (shared components, dev gallery)
-- Added `components/ui/` (Button, Chip, TextField, SectionLabel, ScreenHeader, Swatch, SegmentedControl) with tested style/accessibility modules; AppearanceControl now uses SegmentedControl; dev gallery with a local ThemeOverride; dev-only Me row. Tokens `inputBorder`, `inputSerif`, `headerLabel`, `opacity.disabled`.
-- New devDependency `@testing-library/react-native` 14.1.0 (human-approved, installed by the orchestrator); rendered tests for every interactive ui component and AppearanceControl.
-- Evidence: tsc pass; lint pass; `npm test` 60 suites, 885 tests; ios and android export pass.
-- Not reviewed, not committed. Next: architect-reviewer, commit, then slice 4.
-
-### 2026-10-22 — Gate 1.5 slice 2 follow-ups (human feedback)
-- Human: keep the native override; keep ADD with a mockup-like round plus icon; Closet icon a hanger; Me title clipped at the top on device. Recorded in ROADMAP.
-- Fix: Bodoni Moda (capHeight 0.75 em, descent 0.4 em) clipped in 1.0 em line boxes; serif variants now use ceil(1.2 em). Expected display/title/headline line heights updated in `theme.test.ts` (spec change) plus a new test enforcing the 1.2 em floor.
-- architect-reviewer (Sonnet): PASS WITH NOTES (accents can still clip at 1.2 em; `hanger` needs iOS 16).
-- Evidence: tsc pass; lint pass; `npm test` 49 suites, 807 tests. Also committed the human's CLAUDE.md and architect-reviewer.md edits.
-- Next: device check of the fixes, then slice 3.
-
-### 2026-10-21 — Gate 1.5 slice 2 reviewed and committed
-- architect-reviewer (Sonnet): PASS WITH NOTES, no blocking issues. Native override checked against RN 0.86 source: 'unspecified' is valid; System recovery relies on native `appearanceChanged` (unverified on device).
-- Applied: override now runs in `useLayoutEffect` (before paint). Not applied: ROADMAP entry for the override (needs human approval).
-- Evidence (orchestrator): tsc pass; lint pass; `npm test` 49 suites, 806 tests.
-- Next: human decisions above, then slice 3.
-
-### 2026-10-21 — Gate 1.5 slice 2 implemented (Appearance, navigation, tab bar)
-- Appearance preference (core), `AppearanceStore` mock + kv-store implementation, `AppearanceSettings` controller, provider in the root layout feeding `useTheme()`, the navigation theme, StatusBar and RN's native override. NativeTabs restyled (Closet, Add, Me); new Me tab with the Appearance control.
-- Evidence: tsc pass; lint pass; `npm test` 49 suites, 806 tests; ios and android export pass.
-- Not committed, not reviewed. Next: architect-reviewer, then commit, then slice 3.
-
-### 2026-10-21 — Gate 1.5 slice 1 done (theme tokens and fonts)
-- Added `src/theme/`, fonts (`@expo-google-fonts/bodoni-moda`, `@expo-google-fonts/archivo`) and the token guard; removed `constants/theme.ts` and `global.css`; screens mapped to tokens without restyling.
-- architect-reviewer (Sonnet): PASS WITH NOTES. Follow-ups applied: allowlist cap, guard test loads real ESLint config (removing the guard block fails 8 tests), named-color selector, narrower test exemption, serif title tracking from mockup px.
-- Human approved the 5 dark values and both suggestions (ROADMAP "Gate 1.5 dark values").
-- Evidence (orchestrator re-run): tsc pass; lint pass; `npm test` 45 suites, 772 tests; ios and android export pass.
-- Next: slice 2 in a new session.
-
-### 2026-10-21 — Gate 1.5 plan approved
-- Human: fonts approved, keep NativeTabs, adopt read-only detail, agent proposes dark values, add closet search and category filters, keep "autumn". Other conflicts take the defaults. Recorded in ROADMAP (criteria and decisions) and the plan above.
-- Next: slice 1 (theme tokens and fonts) in a new session.
-
-### 2026-10-21 — Reviewer model
-- `architect-reviewer` now runs on Sonnet for slice reviews (frontmatter `model: sonnet`). Gate-closing reviews are spawned with an Opus override. Rule recorded in CLAUDE.md Workflow.
-
-### 2026-10-21 — Gate 1.5 planned
-- Read `docs/design/README.md` and all 14 mockups. Added Gate 1.5 to ROADMAP with criteria, Design lines on Gates 2-4, a Polish item (Loading), a "Proposed, not approved" list, and the design decision. Added the design line to CLAUDE.md Workflow.
-- Slice plan above. Conflicts and decisions sent to the human. No app code changed.
-- Next: human answers, then slice 1.
+### Earlier — Gate 1.5 slices 1-4 (2026-10-21 to 2026-10-22)
+- Plan approved; slice 1 theme tokens, fonts and token guard; slice 2 Appearance, navigation, tab bar (serif 1.2 em line floor); slice 3 `components/ui/` and dev gallery (testing-library added); slice 4 closet grid, filters, item screen; npm audit deferred; reviewer runs on Sonnet. Each reviewed PASS WITH NOTES and committed; 935 tests at slice 4. Details in ROADMAP decisions and commit messages.
 
 ### 2026-10-21 — Gate 1 approved
 - The human finished the device check and approved Gate 1. Tagged `gate-1`.
