@@ -10,7 +10,7 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-22 by orchestrator (Gate 1.5 approved and tagged)_
+_Last updated: 2026-10-22 by orchestrator (Gate 2 plan proposed)_
 
 - **Gate:** 1.5 (Design foundation) approved by the human 2026-10-22 after the device checklist (no problems found); tagged `gate-1.5`. Gates 0 and 1 approved (tag `gate-1` on `e889592`). Gate 2 not started.
 - **Slice 5 contents:** Add/Edit form restyled from SaveItem/Angles (single form, Gate 1 fields plus name; order: photos, colors, name, category, seasons, style tags). Add tab has a "New piece" step header (no back, no step count) and "Save to closet"; Edit keeps the native "Edit item" header. Photo area: 330 pt photo-background preview (`contain`) with a "Front · Primary" badge, three-column angle tiles plus a dashed "Add another angle" tile (opens the role panel), stacked Take photo / Choose from library, text buttons for Make primary / Remove photo. Colors: swatch chips (primary 2 pt outline + "Primary"), dashed "+ Choose colors" / "Edit colors" chip, italic "Detected from the photo" note. Chips via the shared look (`casing="sentence"` for category, seasons, angle, "+ Add"; style tags italic serif). Tag box is a boxed `TextField` (`inputBorder`). Color matrix: "Pick colors" serif title, five columns of 46 pt swatches with a 2 pt ink ring, chosen colors as hairline rows, Done pinned at the bottom. Camera intro: square card on a scrim, serif title, Continue / library / Not now (copy unchanged). Denied panel: ink-outlined box. FormButton wraps the shared button look (destructive = danger outline).
@@ -23,21 +23,19 @@ _Last updated: 2026-10-22 by orchestrator (Gate 1.5 approved and tagged)_
 - **Known issues (for later):** Switching to System while a forced scheme is active may show the old scheme for a frame (unverified on device). `hanger` needs iOS 16+. 1.2 em serif lines may still clip accented capitals. Guard gaps listed in `token-guard-rules.js`. Typed routes (`.expo/types`, gitignored) only regenerate on `expo start`. Dashed borders on Android unverified (now also the add-angle tile and add chips). Gallery `!__DEV__` redirect unverified on a release build. npm audit: no action until the next SDK upgrade (ROADMAP).
 - **Mockup differences (slice 5):** approved by the human 2026-10-22 (copy changes, named-item meta lines, form photo `contain`); see ROADMAP.
 - **Review notes still deferred:** slice 5: name `maxLength={60}` counts UTF-16 units while the validator counts code points (emoji names stop at 30 in the box; safe direction); photo thumbnails stay pressable while the form is busy (only changes the selected photo). slice 4: item screen shows only a spinner while loading; screen wiring has no rendered test (device checklist); a fresh checkout needs `expo start` once before tsc sees `/item/[id]/edit`. Earlier: radios report both `checked` and `selected`; swatch sizes 26/40 and chevron stroke are raw numbers outside `src/theme/`.
-- **Next step:** Gate 2 (backend skeleton and tagging) only when the human says to start it. Start by proposing the two background-removal options (ROADMAP Gate 2).
+- **Next step:** the human answers the decisions in `docs/plans/gate-2.md` (D1, D4, D5 before slice 1). Then Gate 2 slice 1. Do not start Gate 2 before the plan is approved.
 - **Open questions:** Detection thresholds need tuning on real photos; Android keyboard padding relies on `useHeaderHeight`. Gate 2: reword "Photos stay on this device" once uploads exist.
 
-## Gate 1.5 plan (approved 2026-10-21)
-Each slice keeps the existing tests passing unchanged. The token guard starts with an allowlist of not-yet-restyled files; each slice removes its files from it, and slice 5 leaves it empty.
-1. **Theme tokens and fonts.** `src/theme/` (tokens: light/dark colors, fonts, type scale in pt, letter spacing converted from em, spacing, borders) replacing `constants/theme.ts`; font loading in the root layout behind the splash (if fonts approved); `use-theme` returns the new tokens; token guard (ESLint `no-restricted-syntax` for hex/rgb strings and numeric `fontSize` outside `src/theme/` and `core/palette.ts`, plus a Jest test scanning the same files). Proposes the missing dark values (photo background, border, body secondary, danger) to the human before finishing. Tests: token completeness (every light key has a dark key), contrast of text on background, guard catches a planted raw color.
-2. **Appearance setting, navigation and tab bar.** `core/appearance.ts` (preference type, resolve against system), an `AppearanceStore` interface with a mock and a real one (`expo-sqlite/kv-store`, already in the installed expo-sqlite; no new dependency), provider in the root layout feeding the navigation theme, `StatusBar` style and the tabs. NativeTabs kept (Closet, Add, Me) with mockup labels, icons and colors; check on device whether custom fonts show in tab labels. Plus a "Me" tab holding only the Appearance control (Profile mockup). Tests: persistence, System follows the OS, resolution.
-3. **Shared components and dev gallery.** `components/ui/`: Button (primary, outline, text), Chip (plain, selected, serif style tag, dashed "add"), labeled TextInput (underline and boxed), SectionLabel, ScreenHeader (masthead with 2 pt rule and the step header variant), Swatch (circle plus text label), SegmentedControl (used by Appearance and the matrix Primary/Secondary if adopted). Dev screen `app/dev/components.tsx` with a light/dark toggle, redirecting away when `!__DEV__`. Tests: roles, states, labels, 44 pt hit areas.
-4. **Closet grid and item screen.** Restyle `app/(tabs)/index.tsx` and `closet-grid.tsx` (masthead with count, 2-column grid, photo-background tiles, serif labels). Search box and category filter chips with the filter/search logic in `src/core` (tested). Item screen becomes read-only detail (`item/[id]`) with Edit opening the unchanged form at `item/[id]/edit`; delete stays in the form.
-5. **Add/Edit form, photo set, color matrix, camera intro, denied panel.** Restyle `add.tsx`, `item-form-fields.tsx`, `photo-set-field.tsx`, `color-field.tsx`, `color-matrix.tsx`, `camera-intro-modal.tsx`, `camera-denied-panel.tsx`, `tag-field.tsx`, `chip-group.tsx`, `form-button.tsx`. Keyboard handling and camera flow logic untouched. Empty the guard allowlist. Gate review, gate report, device checklist (Gate 1 checklist re-run plus both themes per screen).
-
-Decisions: see ROADMAP "Gate 1.5 answers". Fonts approved; install in slice 1 with `npx expo install`.
+## Gate plans
+- Gate 1.5 (approved 2026-10-21, done): five slices, see `git log` and ROADMAP decisions.
+- Gate 2: proposed in `docs/plans/gate-2.md`, not approved.
 
 ## Log
 Newest first.
+
+### 2026-10-22 — Gate 2 plan proposed
+- Wrote `docs/plans/gate-2.md`: 7 slices (skeleton with stub, tags with mock, real tagging, eval, cutouts, multi-select import, gate review), edge cases per slice, decisions D1-D11 with recommendations. No app code changed.
+- Next: human decisions, then slice 1.
 
 ### 2026-10-22 — Gate 1.5 approved
 - Human ran the device checklist (Gate 1 re-run plus both themes per screen, iOS and Android): no problems found. Gate 1.5 approved; tagged `gate-1.5` and pushed the tag.
