@@ -10,9 +10,9 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-22 by orchestrator (slice 5 copy and layout approved; device check pending)_
+_Last updated: 2026-10-22 by orchestrator (Gate 1.5 approved and tagged)_
 
-- **Gate:** 1.5 (Design foundation). Slices 1-5 committed (see `git log`); gate review PASS WITH NOTES; Gate 1.5 report sent, awaiting device check and approval. Not tagged. Gates 0 and 1 approved (tag `gate-1` on `e889592`).
+- **Gate:** 1.5 (Design foundation) approved by the human 2026-10-22 after the device checklist (no problems found); tagged `gate-1.5`. Gates 0 and 1 approved (tag `gate-1` on `e889592`). Gate 2 not started.
 - **Slice 5 contents:** Add/Edit form restyled from SaveItem/Angles (single form, Gate 1 fields plus name; order: photos, colors, name, category, seasons, style tags). Add tab has a "New piece" step header (no back, no step count) and "Save to closet"; Edit keeps the native "Edit item" header. Photo area: 330 pt photo-background preview (`contain`) with a "Front · Primary" badge, three-column angle tiles plus a dashed "Add another angle" tile (opens the role panel), stacked Take photo / Choose from library, text buttons for Make primary / Remove photo. Colors: swatch chips (primary 2 pt outline + "Primary"), dashed "+ Choose colors" / "Edit colors" chip, italic "Detected from the photo" note. Chips via the shared look (`casing="sentence"` for category, seasons, angle, "+ Add"; style tags italic serif). Tag box is a boxed `TextField` (`inputBorder`). Color matrix: "Pick colors" serif title, five columns of 46 pt swatches with a 2 pt ink ring, chosen colors as hairline rows, Done pinned at the bottom. Camera intro: square card on a scrim, serif title, Continue / library / Not now (copy unchanged). Denied panel: ink-outlined box. FormButton wraps the shared button look (destructive = danger outline).
 - **Item name (human-approved addition):** `ClothingItem.name?` (absent = no name, never ""), trimmed, at most 60 characters counted as code points (`core/item-name.ts`); validator, `createClothingItem`, form values, `hasDetailChanges`, SQLite migration 6 (`ALTER TABLE clothing_items ADD COLUMN name TEXT`, NULL = no name), both repositories, closet tile (name, meta "Top · Navy, White" when named), item screen title (name, category line under it when named), search (also matches the name), delete confirmation. Fallback to the category everywhere.
 - **Spec-changed tests:** `sqlite-closet-repository.test.ts` migration 5 tests hard-coded "latest = version 5"; they now migrate with `CLOSET_MIGRATIONS.slice(0, 5)` (and run the rest of the chain before using the repository), like the migration 4 tests already did. `token-guard.test.ts` `MAX_ALLOWLIST` 10 -> 0 (the test's own comment said slice 5 sets it to 0). No other existing test changed; none deleted.
@@ -23,7 +23,7 @@ _Last updated: 2026-10-22 by orchestrator (slice 5 copy and layout approved; dev
 - **Known issues (for later):** Switching to System while a forced scheme is active may show the old scheme for a frame (unverified on device). `hanger` needs iOS 16+. 1.2 em serif lines may still clip accented capitals. Guard gaps listed in `token-guard-rules.js`. Typed routes (`.expo/types`, gitignored) only regenerate on `expo start`. Dashed borders on Android unverified (now also the add-angle tile and add chips). Gallery `!__DEV__` redirect unverified on a release build. npm audit: no action until the next SDK upgrade (ROADMAP).
 - **Mockup differences (slice 5):** approved by the human 2026-10-22 (copy changes, named-item meta lines, form photo `contain`); see ROADMAP.
 - **Review notes still deferred:** slice 5: name `maxLength={60}` counts UTF-16 units while the validator counts code points (emoji names stop at 30 in the box; safe direction); photo thumbnails stay pressable while the form is busy (only changes the selected photo). slice 4: item screen shows only a spinner while loading; screen wiring has no rendered test (device checklist); a fresh checkout needs `expo start` once before tsc sees `/item/[id]/edit`. Earlier: radios report both `checked` and `selected`; swatch sizes 26/40 and chevron stroke are raw numbers outside `src/theme/`.
-- **Next step:** human runs the device checklist (Gate 1 checklist re-run plus both themes per screen); fix what they find; tag `gate-1.5` only after approval and push the tag. Do not start Gate 2.
+- **Next step:** Gate 2 (backend skeleton and tagging) only when the human says to start it. Start by proposing the two background-removal options (ROADMAP Gate 2).
 - **Open questions:** Detection thresholds need tuning on real photos; Android keyboard padding relies on `useHeaderHeight`. Gate 2: reword "Photos stay on this device" once uploads exist.
 
 ## Gate 1.5 plan (approved 2026-10-21)
@@ -38,6 +38,10 @@ Decisions: see ROADMAP "Gate 1.5 answers". Fonts approved; install in slice 1 wi
 
 ## Log
 Newest first.
+
+### 2026-10-22 — Gate 1.5 approved
+- Human ran the device checklist (Gate 1 re-run plus both themes per screen, iOS and Android): no problems found. Gate 1.5 approved; tagged `gate-1.5` and pushed the tag.
+- Next: Gate 2, when the human starts it.
 
 ### 2026-10-22 — Slice 5 copy and layout approved
 - Human approved all slice 5 copy and layout changes. Recorded in ROADMAP. Gate 1.5 not yet approved: device checklist pending; not tagged.
