@@ -98,6 +98,8 @@ export const typography = {
   chip: variant(fonts.sans.semiBold, 12, 16, { em: 0.12 }, 'uppercase'),
   /** Button text: 0.16em. */
   button: variant(fonts.sans.semiBold, 13, 16, { em: 0.16 }, 'uppercase'),
+  /** Segmented control options (Profile.dc.html Appearance): 13 pt semibold, sentence case. */
+  segment: variant(fonts.sans.semiBold, 13, 16),
 } as const satisfies Record<string, TextVariant>;
 
 export type TypographyVariant = keyof typeof typography;
