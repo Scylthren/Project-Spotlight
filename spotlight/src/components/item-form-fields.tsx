@@ -1,5 +1,6 @@
 import { Linking, Text, View } from 'react-native';
 
+import { AttributeFields } from '@/components/attribute-fields';
 import { ChipGroup } from '@/components/chip-group';
 import { ColorField } from '@/components/color-field';
 import { FormButton } from '@/components/form-button';
@@ -28,8 +29,9 @@ interface ItemFormFieldsProps {
 }
 
 /**
- * Photos (see `PhotoSetField`), colors, name, category, seasons, style tags,
- * and errors, in the order of SaveItem.dc.html. Used by Add and Edit. Taps
+ * Photos (see `PhotoSetField`), colors, name, category, attributes (type,
+ * pattern, material, fit, formality; see `AttributeFields`), seasons, style
+ * tags, and errors, in the order of SaveItem.dc.html. Used by Add and Edit. Taps
  * outside the name box and the tag area close the keyboard
  * (`KeyboardDismissArea`; the text boxes stay outside it, or a tap into one
  * would close the keyboard it just opened). The parent's content container
@@ -80,6 +82,11 @@ export function ItemFormFields({
           />
         </View>
 
+      </KeyboardDismissArea>
+
+      <AttributeFields fields={fields} disabled={busy} />
+
+      <KeyboardDismissArea style={{ gap: form.body.gap }}>
         <View style={form.section}>
           <SectionLabel>Seasons</SectionLabel>
           <ChipGroup

@@ -625,7 +625,7 @@ describe('migration 3: photos', () => {
   it('a fresh install reaches the latest version with the photo table and no image_uri', async () => {
     const db = await openMigrated();
     expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: CLOSET_SCHEMA_VERSION });
-    expect(await tableNames(db)).toEqual(['clothing_items', 'item_colors', 'item_photos', 'item_tags', 'maintenance', 'tags']);
+    expect(await tableNames(db)).toEqual(['clothing_items', 'item_attributes', 'item_colors', 'item_photos', 'item_tags', 'maintenance', 'tags']);
     expect(await columns(db, 'clothing_items')).not.toContain('image_uri');
     expect(await columns(db, 'item_photos')).toEqual(['id', 'item_id', 'role', 'storage_path', 'sort_order', 'is_primary']);
     const indexes = await db.getAllAsync<{ name: string }>(
@@ -1250,9 +1250,9 @@ describe('migration 6: item name', () => {
       v5.close();
       open.length = 0;
 
-      // Next launch with the version 6 app.
+      // Next launch with the current app (version 6 or later).
       const db = await openMigrated(file);
-      expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 6 });
+      expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: CLOSET_SCHEMA_VERSION });
       expect(CLOSET_SCHEMA_VERSION).toBeGreaterThanOrEqual(6);
       expect(await columnInfo(db)).toEqual([
         ['id', 'TEXT', 1, null],
@@ -1308,5 +1308,147 @@ describe('migration 6: item name', () => {
       expect(await repo.get('v5-a')).toBeNull();
     }
     expect(corrupt).toEqual(['v5-a', 'v5-a']);
+  });
+});
+
+describe('migration 7: item attributes', () => {
+  /** A real version 6 database (no item_attributes table) with one named item, written with v6 SQL. */
+  async function openAtVersion6(path?: string): Promise<NodeSqlDatabase> {
+    const db = new NodeSqlDatabase(path);
+    open.push(db);
+    await migrateClosetDatabase(db, CLOSET_MIGRATIONS.slice(0, 6));
+    await db.runAsync(
+      'INSERT INTO clothing_items (id, name, category, seasons, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      ['v6-a', 'Old coat', 'outerwear', '["winter"]', '2026-05-01T00:00:00.000Z', '2026-05-02T00:00:00.000Z'],
+    );
+    await db.runAsync(
+      'INSERT INTO item_photos (id, item_id, role, storage_path, sort_order, is_primary) VALUES (?, ?, ?, ?, ?, ?)',
+      ['v6-a-front', 'v6-a', 'front', 'closet-images/v6-a-1.jpg', 0, 1],
+    );
+    await db.runAsync('INSERT INTO item_colors (item_id, rank, palette_id, hex, source) VALUES (?, ?, ?, ?, ?)', [
+      'v6-a',
+      0,
+      'camel',
+      '#C19A6B',
+      'auto',
+    ]);
+    return db;
+  }
+
+  const V6_ITEM = {
+    id: 'v6-a',
+    name: 'Old coat',
+    photos: [{ id: 'v6-a-front', role: 'front', path: 'closet-images/v6-a-1.jpg', sortOrder: 0, isPrimary: true }],
+    category: 'outerwear',
+    colors: [{ paletteId: 'camel', hex: '#C19A6B', source: 'auto' }],
+    seasons: ['winter'],
+    tags: [],
+    createdAt: '2026-05-01T00:00:00.000Z',
+    updatedAt: '2026-05-02T00:00:00.000Z',
+  };
+
+  it('upgrades a real v6 file database: old items load with no attributes, and take them after', async () => {
+    const dir = makeTempDir('spotlight-v6-');
+    try {
+      const file = joinPath(dir, 'spotlight.db');
+      const v6 = await openAtVersion6(file);
+      expect(await v6.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 6 });
+      v6.close();
+      open.length = 0;
+
+      const db = await openMigrated(file);
+      expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: CLOSET_SCHEMA_VERSION });
+      expect(CLOSET_SCHEMA_VERSION).toBeGreaterThanOrEqual(7);
+      const columns = await db.getAllAsync<{ name: string; type: string; notnull: number; pk: number }>(
+        'PRAGMA table_info(item_attributes)',
+        [],
+      );
+      expect(columns.map((c) => [c.name, c.type, c.notnull, c.pk])).toEqual([
+        ['item_id', 'TEXT', 1, 1],
+        ['name', 'TEXT', 1, 2],
+        ['value', 'TEXT', 1, 0],
+        ['source', 'TEXT', 1, 0],
+      ]);
+      expect(await db.getAllAsync('SELECT * FROM item_attributes', [])).toEqual([]);
+
+      const repo = new SqliteClosetRepository(db);
+      const loaded = await repo.get('v6-a');
+      expect(loaded).toEqual(V6_ITEM);
+      expect('attributes' in loaded!).toBe(false);
+      expect(await repo.list()).toEqual([V6_ITEM]);
+
+      const attributes = {
+        type: { value: 'Trench coat', source: 'user' as const },
+        material: { value: 'wool' as const, source: 'auto' as const },
+      };
+      await repo.update({ ...loaded!, attributes, updatedAt: '2026-06-01T00:00:00.000Z' });
+      db.close();
+      open.length = 0;
+      const reopened = await openMigrated(file);
+      expect((await new SqliteClosetRepository(reopened).get('v6-a'))?.attributes).toEqual(attributes);
+    } finally {
+      while (open.length) open.pop()!.close();
+      removeDir(dir);
+    }
+  });
+
+  it('a failure in migration 7 rolls back to an intact v6 database, and a later launch upgrades it', async () => {
+    const db = await openAtVersion6();
+    const realStep = CLOSET_MIGRATIONS[6];
+    if (typeof realStep !== 'string') throw new Error('migration 7 is expected to be SQL');
+    await expect(
+      migrateClosetDatabase(db, [...CLOSET_MIGRATIONS.slice(0, 6), `${realStep}\nSELECT * FROM no_such_table;`]),
+    ).rejects.toThrow(/no_such_table/);
+    expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: 6 });
+    expect(await db.getAllAsync("SELECT name FROM sqlite_master WHERE name = 'item_attributes'", [])).toEqual([]);
+
+    await migrateClosetDatabase(db);
+    expect(await new SqliteClosetRepository(db).get('v6-a')).toEqual(V6_ITEM);
+  });
+
+  it('a stored row outside the lists, with an unknown name, or with a bad type makes the item unreadable', async () => {
+    const db = await openAtVersion6();
+    await migrateClosetDatabase(db);
+    const corrupt: string[] = [];
+    const repo = new SqliteClosetRepository(db, (id) => corrupt.push(id));
+    const bad: [string, string][] = [
+      ['pattern', 'paisley'],
+      ['sleeve', 'long'],
+      ['type', ''],
+      ['type', ' padded '],
+      ['type', 'x'.repeat(31)],
+      ['formality', 'smart casual'],
+    ];
+    for (const [name, value] of bad) {
+      await db.runAsync('INSERT INTO item_attributes (item_id, name, value, source) VALUES (?, ?, ?, ?)', [
+        'v6-a',
+        name,
+        value,
+        'auto',
+      ]);
+      expect(await repo.get('v6-a')).toBeNull();
+      expect(await repo.list()).toEqual([]);
+      await db.runAsync('DELETE FROM item_attributes WHERE item_id = ?', ['v6-a']);
+    }
+    expect(corrupt).toHaveLength(bad.length * 2);
+    expect(await repo.get('v6-a')).toEqual(V6_ITEM);
+  });
+
+  it('the table refuses an unknown source, and deleting the item removes its rows', async () => {
+    const db = await openAtVersion6();
+    await migrateClosetDatabase(db);
+    await expect(
+      db.runAsync('INSERT INTO item_attributes (item_id, name, value, source) VALUES (?, ?, ?, ?)', [
+        'v6-a',
+        'fit',
+        'slim',
+        'guess',
+      ]),
+    ).rejects.toThrow(/CHECK/);
+    const repo = new SqliteClosetRepository(db);
+    const item = (await repo.get('v6-a'))!;
+    await repo.update({ ...item, attributes: { fit: { value: 'slim', source: 'user' } } });
+    await repo.remove('v6-a');
+    expect(await db.getAllAsync('SELECT * FROM item_attributes', [])).toEqual([]);
   });
 });

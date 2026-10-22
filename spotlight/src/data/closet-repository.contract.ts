@@ -2,7 +2,7 @@
  * Shared behavior every `ClosetRepository` must have. Not a test file itself:
  * each implementation's test calls `describeClosetRepositoryContract`.
  */
-import { paletteColor, type ClothingItem, type ItemColor, type ItemPhoto, type PaletteId } from '@/core';
+import { paletteColor, type ClothingItem, type ItemAttributes, type ItemColor, type ItemPhoto, type PaletteId } from '@/core';
 
 import { ClosetRepositoryError, type ClosetRepository } from './closet-repository';
 
@@ -357,6 +357,79 @@ export function describeClosetRepositoryContract(
         await repo.add(makeItem({ name: 'Kept' }));
         await expectRepoError(repo.update(makeItem({ name: '' })), 'invalid');
         expect((await repo.get('item-1'))?.name).toBe('Kept');
+      });
+    });
+
+    describe('attributes', () => {
+      const all = (): ItemAttributes => ({
+        type: { value: 'Band hoodie', source: 'user' },
+        pattern: { value: 'polka-dot', source: 'auto' },
+        material: { value: 'cotton', source: 'auto' },
+        fit: { value: 'oversized', source: 'user' },
+        formality: { value: 'smart-casual', source: 'auto' },
+      });
+
+      it('round-trips every attribute with value and source via get and list; an item without any has no attributes key', async () => {
+        const tagged = makeItem({ id: 'tagged', attributes: all() });
+        const plain = makeItem({ id: 'plain', createdAt: '2026-01-14T10:00:00.000Z' });
+        await repo.add(tagged);
+        await repo.add(plain);
+        expect(await repo.get('tagged')).toEqual(tagged);
+        expect(await repo.list()).toEqual([tagged, plain]);
+        expect('attributes' in (await repo.get('plain'))!).toBe(false);
+      });
+
+      it('update adds, changes (value or source only), and removes attributes', async () => {
+        await repo.add(makeItem());
+        await repo.update(makeItem({ attributes: all() }));
+        expect((await repo.get('item-1'))?.attributes).toEqual(all());
+        const changed: ItemAttributes = { pattern: { value: 'polka-dot', source: 'user' }, fit: { value: 'slim', source: 'user' } };
+        await repo.update(makeItem({ attributes: changed }));
+        expect((await repo.get('item-1'))?.attributes).toEqual(changed);
+        await repo.update(makeItem());
+        expect(await repo.get('item-1')).toEqual(makeItem());
+      });
+
+      it('keeps each item\'s attributes separate, and remove deletes them', async () => {
+        await repo.add(makeItem({ id: 'a', attributes: { fit: { value: 'slim', source: 'user' } } }));
+        await repo.add(makeItem({ id: 'b', attributes: { fit: { value: 'relaxed', source: 'auto' } } }));
+        expect((await repo.get('a'))?.attributes).toEqual({ fit: { value: 'slim', source: 'user' } });
+        await repo.remove('a');
+        await repo.add(makeItem({ id: 'a' }));
+        expect('attributes' in (await repo.get('a'))!).toBe(false);
+        expect((await repo.get('b'))?.attributes).toEqual({ fit: { value: 'relaxed', source: 'auto' } });
+      });
+
+      it('rejects invalid attributes with code invalid and stores nothing', async () => {
+        const bad: unknown[] = [
+          {},
+          { pattern: { value: 'paisley', source: 'auto' } },
+          { pattern: { value: 'polka dot', source: 'auto' } },
+          { sleeve: { value: 'long', source: 'user' } },
+          { fit: { value: 'slim', source: 'guess' } },
+          { fit: 'slim' },
+          { type: { value: '', source: 'user' } },
+          { type: { value: ' Hoodie', source: 'user' } },
+          { type: { value: 'Band  hoodie', source: 'user' } },
+          { type: { value: 'x'.repeat(31), source: 'user' } },
+        ];
+        for (const attributes of bad) {
+          await expectRepoError(repo.add(makeItem({ attributes: attributes as ItemAttributes })), 'invalid');
+        }
+        expect(await repo.list()).toEqual([]);
+        await repo.add(makeItem({ attributes: all() }));
+        await expectRepoError(repo.update(makeItem({ attributes: {} })), 'invalid');
+        expect((await repo.get('item-1'))?.attributes).toEqual(all());
+      });
+
+      it('returns copies of attributes', async () => {
+        const item = makeItem({ attributes: all() });
+        await repo.add(item);
+        item.attributes!.fit!.value = 'slim';
+        const loaded = (await repo.get('item-1'))!;
+        expect(loaded.attributes).toEqual(all());
+        loaded.attributes!.type!.value = 'Changed';
+        expect((await repo.get('item-1'))?.attributes).toEqual(all());
       });
     });
 

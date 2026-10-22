@@ -107,4 +107,27 @@ describe('describeItemDetail', () => {
     detail.tags.push('x');
     expect(ITEM.tags).toEqual(['minimal', 'old money']);
   });
+
+  it('shows the attributes under the title, after a named item\'s category, and names them for screen readers', () => {
+    const attributes: ClothingItem['attributes'] = {
+      type: { value: 'Band hoodie', source: 'user' },
+      pattern: { value: 'polka-dot', source: 'auto' },
+      fit: { value: 'oversized', source: 'auto' },
+      formality: { value: 'smart-casual', source: 'user' },
+    };
+    const unnamed = describeItemDetail({ ...ITEM, attributes });
+    expect(unnamed.subtitle).toBe('Band hoodie · Polka dot · Oversized · Smart casual');
+    expect(unnamed.subtitleAccessibilityLabel).toBe(
+      'type Band hoodie, pattern Polka dot, fit Oversized, formality Smart casual',
+    );
+    const named = describeItemDetail({ ...ITEM, name: 'Old coat', attributes: { material: { value: 'wool', source: 'auto' } } });
+    expect(named.subtitle).toBe('Outerwear · Wool');
+    expect(named.subtitleAccessibilityLabel).toBe('Outerwear, material Wool');
+  });
+
+  it('has no subtitle for an unnamed item without attributes, and only the category for a named one', () => {
+    expect(describeItemDetail(ITEM).subtitle).toBeNull();
+    expect(describeItemDetail(ITEM).subtitleAccessibilityLabel).toBeNull();
+    expect(describeItemDetail({ ...ITEM, name: 'Coat' }).subtitle).toBe('Outerwear');
+  });
 });

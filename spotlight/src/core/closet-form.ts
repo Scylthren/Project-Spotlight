@@ -1,4 +1,5 @@
 import { sameColors } from './color-selection';
+import { attributesToFields, EMPTY_ATTRIBUTE_FIELDS, sameAttributes, type AttributeFields } from './item-attributes';
 import { sameTagSet } from './tags';
 import type { Category, ClothingItem, ItemColor, Season } from './types';
 
@@ -19,6 +20,11 @@ export interface ItemFormValues {
   seasons: Season[];
   /** Normalized tags (see tags.ts). */
   tags: string[];
+  /**
+   * Type, pattern, material, fit, formality with their sources
+   * (item-attributes.ts). Missing means all empty and untouched.
+   */
+  attributes?: AttributeFields;
 }
 
 export const EMPTY_ITEM_FORM: Readonly<ItemFormValues> = Object.freeze({
@@ -26,6 +32,7 @@ export const EMPTY_ITEM_FORM: Readonly<ItemFormValues> = Object.freeze({
   colors: [],
   seasons: [],
   tags: [],
+  attributes: EMPTY_ATTRIBUTE_FIELDS,
 });
 
 /** Prefills the form from a stored item. Returns copies; editing them does not change `item`. */
@@ -36,6 +43,7 @@ export function itemToFormValues(item: ClothingItem): ItemFormValues {
     colors: item.colors.map((c) => ({ ...c })),
     seasons: [...item.seasons],
     tags: [...item.tags],
+    attributes: attributesToFields(item.attributes),
   };
 }
 
@@ -43,7 +51,8 @@ export function itemToFormValues(item: ClothingItem): ItemFormValues {
  * True if `draft` differs from `existing` in a field the edit form controls:
  * name (an added, changed or removed name), category, colors (order matters, since the first is the primary color; a
  * changed hex or source counts too, e.g. the user confirming a detected
- * color), seasons, or tags (both compared as sets; order carries no meaning). Photos
+ * color), seasons, or tags (both compared as sets; order carries no meaning), or
+ * attributes (value and source). Photos
  * (see `hasPhotoChanges`), id, and timestamps are not compared. Pass a
  * validated (normalized) draft.
  */
@@ -54,5 +63,6 @@ export function hasDetailChanges(existing: ClothingItem, draft: ClothingItem): b
   const before = new Set(existing.seasons);
   const after = new Set(draft.seasons);
   if (before.size !== after.size || [...after].some((s) => !before.has(s))) return true;
+  if (!sameAttributes(existing.attributes, draft.attributes)) return true;
   return !sameTagSet(existing.tags, draft.tags);
 }

@@ -1,6 +1,7 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 
+import { MockClosetTagger, type ClosetTagger } from '@/ai/closet-tagger';
 import { EntryPromptSession, type CameraPermissions } from '@/data/camera-permissions';
 import type { ClosetRepository } from '@/data/closet-repository';
 import { ExpoCameraPermissions } from '@/data/expo-camera-permissions';
@@ -13,6 +14,7 @@ import { asSqlDatabase } from '@/data/expo-sqlite-database';
 import type { GarmentIsolator } from '@/data/garment-isolator';
 import type { ImageProcessor } from '@/data/image-processor';
 import type { ImageStore } from '@/data/image-store';
+import { PlaceholderTagImageSource, type TagImageSource } from '@/data/item-suggestions';
 import { LocalGarmentIsolator } from '@/data/local-garment-isolator';
 import { SqliteMaintenanceLog } from '@/data/maintenance-log';
 import { startPhotoMetadataBackfill } from '@/data/photo-metadata-backfill';
@@ -33,6 +35,13 @@ export interface ClosetServices {
   cameraPermissions: CameraPermissions;
   /** Whether the Add screen's camera prompt was already shown this app session. */
   entryPromptSession: EntryPromptSession;
+  /**
+   * Suggests tags for the front photo (Gate 2). The mock until slice 3 swaps
+   * in the real tagger; a failure never blocks saving.
+   */
+  closetTagger: ClosetTagger;
+  /** Prepares the photo the tagger receives (a placeholder until slice 3). */
+  tagImageSource: TagImageSource;
 }
 
 /** One per app session (module lifetime), so remounting the provider does not show the prompt again. */
@@ -53,6 +62,8 @@ export function ClosetServicesProvider({ children }: { children: ReactNode }) {
       garmentIsolator: new LocalGarmentIsolator(),
       cameraPermissions: new ExpoCameraPermissions(),
       entryPromptSession: ENTRY_PROMPT_SESSION,
+      closetTagger: new MockClosetTagger(),
+      tagImageSource: new PlaceholderTagImageSource(),
     }),
     [db],
   );

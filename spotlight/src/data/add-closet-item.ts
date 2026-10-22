@@ -1,6 +1,9 @@
 import {
   createClothingItem,
+  EMPTY_ATTRIBUTE_FIELDS,
+  fieldsToAttributes,
   ITEM_NAME_MAX_LENGTH,
+  ITEM_TYPE_MAX_LENGTH,
   TAG_MESSAGES,
   type Category,
   type ClothingItem,
@@ -44,6 +47,8 @@ export const CLOSET_ITEM_MESSAGES = {
   badColors: 'These colors cannot be saved. Choose them again.',
   noSeasons: 'Choose at least one season.',
   badTags: 'Some tags could not be used. Remove them and add them again.',
+  badType: `Types can be up to ${ITEM_TYPE_MAX_LENGTH} characters.`,
+  badAttributes: 'Some details could not be saved. Choose them again.',
   processFailed: 'Could not prepare this photo. Try again, or use a different photo.',
   copyFailed: 'Could not save the photo on this device. Check free space and try again.',
   saveFailed: 'Could not save the item. Please try again.',
@@ -63,6 +68,8 @@ export function toUserMessage(error: string): string {
   if (error === 'seasons must be a non-empty array') return CLOSET_ITEM_MESSAGES.noSeasons;
   if (error.startsWith('tags must have at most')) return TAG_MESSAGES.too_many;
   if (error.startsWith('tags ')) return CLOSET_ITEM_MESSAGES.badTags;
+  if (error.startsWith('attributes.type ')) return CLOSET_ITEM_MESSAGES.badType;
+  if (error.startsWith('attributes')) return CLOSET_ITEM_MESSAGES.badAttributes;
   return error;
 }
 
@@ -98,6 +105,7 @@ export function buildItemDraft(
       colors: values.colors,
       seasons: values.seasons,
       tags: values.tags,
+      attributes: fieldsToAttributes(values.attributes ?? EMPTY_ATTRIBUTE_FIELDS),
     },
     now,
   );

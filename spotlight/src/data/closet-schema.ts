@@ -118,6 +118,25 @@ async function migrateToItemColors(db: SqlDatabase): Promise<void> {
 }
 
 /**
+ * Migration 7: item attributes (Gate 2, D6): type, pattern, material, fit,
+ * formality. One row per attribute that has a value; an item with none has
+ * no rows, so existing items load with no attributes. `source` is 'auto'
+ * (suggested from the photo) or 'user', like colors.
+ *
+ * `name` and `value` have no CHECK against the lists in
+ * core/item-attributes.ts, so adding an attribute or a value never needs a
+ * table rebuild; the repository validates them (a bad row makes the item
+ * unreadable, like a bad color).
+ */
+const ITEM_ATTRIBUTES_SQL = `CREATE TABLE item_attributes (
+     item_id TEXT NOT NULL REFERENCES clothing_items(id) ON DELETE CASCADE,
+     name TEXT NOT NULL,
+     value TEXT NOT NULL,
+     source TEXT NOT NULL CHECK (source IN ('auto', 'user')),
+     PRIMARY KEY (item_id, name)
+   );`;
+
+/**
  * Ordered migrations. Index i upgrades user_version i to i + 1. Never edit a
  * shipped migration; append a new one.
  */
@@ -163,6 +182,8 @@ export const CLOSET_MIGRATIONS: readonly ClosetMigration[] = [
   // 6: the optional item name (Gate 1.5). NULL means no name, so existing
   // items load unnamed; the repository never writes an empty string.
   `ALTER TABLE clothing_items ADD COLUMN name TEXT;`,
+  // 7: item attributes (Gate 2). See ITEM_ATTRIBUTES_SQL.
+  ITEM_ATTRIBUTES_SQL,
 ];
 
 export const CLOSET_SCHEMA_VERSION = CLOSET_MIGRATIONS.length;

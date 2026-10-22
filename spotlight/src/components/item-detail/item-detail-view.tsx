@@ -19,7 +19,7 @@ interface ItemDetailViewProps {
   bottomInset: number;
 }
 
-/** Read-only item screen (Gate 1 fields): photos by angle, colors, style tags, seasons. */
+/** Read-only item screen: photos by angle, the attributes line under the title, colors, style tags, seasons. */
 export function ItemDetailView({ item, resolveImageUri, onBack, onEdit, topInset, bottomInset }: ItemDetailViewProps) {
   const theme = useTheme();
   const look = itemDetailLook(theme, topInset);
@@ -84,7 +84,11 @@ export function ItemDetailView({ item, resolveImageUri, onBack, onEdit, topInset
         <Text accessibilityRole="header" style={look.title}>
           {detail.title}
         </Text>
-        {detail.subtitle ? <Text style={look.subtitle}>{detail.subtitle}</Text> : null}
+        {detail.subtitle ? (
+          <Text style={look.subtitle} accessibilityLabel={detail.subtitleAccessibilityLabel ?? undefined}>
+            {detail.subtitle}
+          </Text>
+        ) : null}
         <View style={look.row} accessible accessibilityLabel={detail.colorsAccessibilityLabel}>
           {detail.colors.map((c) => (
             <Swatch key={c.paletteId} hex={c.hex} name={c.name} />

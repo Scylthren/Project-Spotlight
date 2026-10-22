@@ -112,3 +112,34 @@ export function angleTileWidth(theme: Theme, rowWidth: number): number {
   const { tileColumns, tileGap } = photoSetLook(theme);
   return Math.max(0, Math.floor((rowWidth - tileGap * (tileColumns - 1)) / tileColumns));
 }
+
+/**
+ * The attribute grid (SaveItem.dc.html: Pattern, Material, Fit and Type in
+ * two columns) and its choice boxes. A choice box looks like a boxed text
+ * field: a 1 pt `inputBorder` outline that turns ink while its choices are
+ * open.
+ */
+export function attributeFieldsLook(theme: Theme) {
+  const { colors, borders, sizes, spacing, typography } = theme;
+  return {
+    grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: spacing.lg, rowGap: spacing.lg } satisfies ViewStyle,
+    /** One of the two columns (the gap is taken out by flex-basis below 50%). */
+    cell: { flexBasis: '40%', flexGrow: 1, gap: spacing.sm } satisfies ViewStyle,
+    label: { ...typography.label, color: colors.text } satisfies TextStyle,
+    box: ({ open, pressed, disabled }: { open: boolean; pressed: boolean; disabled: boolean }): ViewStyle => ({
+      minHeight: sizes.minTouchTarget,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      justifyContent: 'center',
+      borderWidth: borders.hairline,
+      borderColor: open ? colors.text : colors.inputBorder,
+      borderRadius: borders.radius.none,
+      backgroundColor: pressed && !disabled ? colors.surface : colors.background,
+      opacity: disabled ? theme.opacity.disabled : 1,
+    }),
+    value: { ...typography.body, color: colors.text } satisfies TextStyle,
+    placeholder: { ...typography.body, color: colors.textSecondary } satisfies TextStyle,
+    /** "Suggested" under a field, like a text field's hint. */
+    note: { ...typography.caption, color: colors.textSecondary } satisfies TextStyle,
+  };
+}

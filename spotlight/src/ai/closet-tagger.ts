@@ -45,7 +45,11 @@ export interface ClosetTagger {
   tag(image: TagImage): Promise<TagOutcome>;
 }
 
-/** Mock `ClosetTagger`: always suggests the same tags as the backend stub. */
+/**
+ * Mock `ClosetTagger`: always suggests the same tags as the backend stub
+ * (including the D6 fields), marked `stub`. The app's default tagger until
+ * slice 3.
+ */
 export class MockClosetTagger implements ClosetTagger {
   async tag(): Promise<TagOutcome> {
     const { tags, stub } = STUB_TAG_ITEM_RESPONSE;

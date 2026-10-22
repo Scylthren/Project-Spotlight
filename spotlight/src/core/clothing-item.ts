@@ -11,6 +11,7 @@ import {
   type Season,
 } from './types';
 import { MAX_ITEM_COLORS } from './color-selection';
+import { cloneAttributes, normalizeItemType, validateAttributes, type ItemAttributes } from './item-attributes';
 import { isValidItemName, ITEM_NAME_MAX_LENGTH, normalizeItemName } from './item-name';
 import { isNormalizedHex, isPaletteId, normalizeHex, paletteColor } from './palette';
 import { isPhotoRole, photoSetProblems } from './photo-set';
@@ -34,6 +35,8 @@ export interface NewClothingItemInput {
   seasons: Season[];
   /** Raw tags; normalized by `createClothingItem`. Missing means no tags. */
   tags?: string[];
+  /** Missing, or with no entry, means no attributes. The type is normalized by `createClothingItem`. */
+  attributes?: ItemAttributes;
 }
 
 export type ValidationResult =
@@ -117,6 +120,8 @@ export function validateClothingItem(value: unknown): string[] {
     errors.push(`tags must have at most ${MAX_TAGS_PER_ITEM} entries`);
   }
 
+  errors.push(...validateAttributes(v.attributes));
+
   if (!isIsoDate(v.createdAt)) errors.push('createdAt must be an ISO date string');
   if (!isIsoDate(v.updatedAt)) errors.push('updatedAt must be an ISO date string');
 
@@ -176,8 +181,9 @@ export function isValidClothingItem(value: unknown): value is ClothingItem {
  * photos' `sortOrder` by position, normalizes each color's hex to uppercase #RRGGBB (a
  * missing hex becomes the palette's reference hex), drops a repeated palette color
  * (keeping the first; more than MAX_ITEM_COLORS is rejected, not cut), normalizes tags (see `canonicalTagText`) and drops
- * blank and duplicate ones (too-long tags or too many tags are rejected, not cut), and
- * sets both timestamps to `now`.
+ * blank and duplicate ones (too-long tags or too many tags are rejected, not cut),
+ * normalizes the attribute type and leaves out `attributes` when it has no
+ * entry, and sets both timestamps to `now`.
  */
 export function createClothingItem(
   input: NewClothingItemInput,
@@ -194,6 +200,7 @@ export function createClothingItem(
     colors: normalizeColorInput(input.colors),
     seasons: input.seasons,
     tags: normalizeTagInput(input.tags),
+    ...normalizeAttributeInput(input.attributes),
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -256,4 +263,20 @@ function normalizeTagInput(tags: unknown): unknown {
         .filter((t) => t !== ''),
     ),
   );
+}
+
+/** `{ attributes }` with the type normalized, or `{}` when there are none (no key at all). */
+function normalizeAttributeInput(attributes: unknown): { attributes?: unknown } {
+  if (attributes === undefined) return {};
+  if (typeof attributes !== 'object' || attributes === null || Array.isArray(attributes)) return { attributes };
+  const copy: Record<string, unknown> = { ...(cloneAttributes(attributes as ItemAttributes) ?? {}) };
+  // Keep unknown keys so validation reports them instead of dropping them silently.
+  for (const key of Object.keys(attributes)) if (!(key in copy)) copy[key] = (attributes as Record<string, unknown>)[key];
+  const type = copy.type as { value?: unknown; source?: unknown } | undefined;
+  if (type && typeof type === 'object' && typeof type.value === 'string') {
+    const value = normalizeItemType(type.value);
+    if (value === null) delete copy.type;
+    else copy.type = { ...type, value };
+  }
+  return Object.keys(copy).length === 0 ? {} : { attributes: copy };
 }

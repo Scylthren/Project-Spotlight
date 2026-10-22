@@ -109,6 +109,33 @@ describe('search', () => {
   });
 });
 
+describe('search over attributes (Gate 2)', () => {
+  const hoodie = item('hoodie', {
+    attributes: {
+      type: { value: 'Band hoodie', source: 'user' },
+      pattern: { value: 'polka-dot', source: 'auto' },
+      material: { value: 'cotton', source: 'auto' },
+      fit: { value: 'oversized', source: 'user' },
+      formality: { value: 'smart-casual', source: 'auto' },
+    },
+  });
+
+  it.each(['hoodie', 'BAND', 'polka', 'polka dot', 'cotton', 'oversized', 'smart casual', 'casual', 'black oversized hoodie'])(
+    'finds an item by its attributes: %j',
+    (query) => {
+      expect(matchesSearch(hoodie, query)).toBe(true);
+    },
+  );
+
+  it('matches attribute labels, not stored ids, and items without attributes are unaffected', () => {
+    expect(matchesSearch(hoodie, 'polka-dot')).toBe(false);
+    expect(matchesSearch(hoodie, 'smart-casual')).toBe(false);
+    expect(matchesSearch(hoodie, 'denim')).toBe(false);
+    expect(filterCloset([...CLOSET, hoodie], { query: 'oversized', category: 'all' })).toEqual([hoodie]);
+    expect(filterCloset([...CLOSET, hoodie], { query: 'cotton', category: 'bottom' })).toEqual([]);
+  });
+});
+
 describe('search and category together', () => {
   it('combine: both must match', () => {
     expect(ids(filterCloset(CLOSET, { query: 'black', category: 'shoes' }))).toEqual(['black-boots']);

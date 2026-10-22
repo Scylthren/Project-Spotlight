@@ -3,6 +3,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   addTag,
   allowedNewRoles,
+  EMPTY_ATTRIBUTE_FIELDS,
+  setAttribute,
+  toggleAttribute,
+  type AttributeFields,
+  type AttributeValueMap,
+  type ChoiceAttributeName,
   COLOR_MESSAGES,
   EMPTY_ITEM_FORM,
   makePrimary,
@@ -27,6 +33,7 @@ import {
 import { generateItemId } from '@/data/add-closet-item';
 import type { CameraFlowPick } from '@/data/camera-access-flow';
 import { FormColorDetection } from '@/data/form-color-detection';
+import { FormTagSuggestions } from '@/data/form-tag-suggestions';
 import { describePickProblem, type PhotoSource } from '@/data/photo-picker';
 import { PickedPhotoSet, placePickedPhoto } from '@/data/picked-photo-set';
 
@@ -51,13 +58,18 @@ const NO_PHOTOS: readonly PhotoDraft[] = Object.freeze([]);
  * Camera (slice 5): "Take photo" goes through `useCameraAccess` (permission
  * intro, denied panel). `cameraPromptOnEntry` shows the intro when the
  * screen is entered (the Add screen only).
+ *
+ * Tag suggestions (Gate 2): picking or retaking the front photo also asks the
+ * `ClosetTagger` in the background (`FormTagSuggestions`). Suggestions fill
+ * only attributes the user has not touched; the tagger's colors go through
+ * the color detection (D7). Failures just leave the fields for the user.
  */
 export function useItemFormFields(
   initial: ItemFormValues = EMPTY_ITEM_FORM,
   initialPhotos: readonly PhotoDraft[] = NO_PHOTOS,
   { cameraPromptOnEntry = false }: { cameraPromptOnEntry?: boolean } = {},
 ) {
-  const { photoPicker, temporaryFiles, imageStore, garmentIsolator } = useClosetServices();
+  const { photoPicker, temporaryFiles, imageStore, garmentIsolator, closetTagger, tagImageSource } = useClosetServices();
   const picker = useSingleFlight();
   const isMounted = useIsMounted();
   /** Owns the picker's temporary copies (keyed by draft id): deletes them when retaken, removed, cleared, or the form closes. */
@@ -99,6 +111,28 @@ export function useItemFormFields(
    * top. Slice 4 opens it with a notice when detection fails or is unsure.
    */
   const [colorMatrix, setColorMatrix] = useState<{ notice: string | null } | null>(null);
+  const [attributes, setAttributesState] = useState<AttributeFields>(() => ({
+    ...(initial.attributes ?? EMPTY_ATTRIBUTE_FIELDS),
+  }));
+  /** Latest `attributes`, so a late suggestion never acts on a stale copy. */
+  const attributesRef = useRef(attributes);
+  /** True while the front photo is being tagged (shown as a hint; never blocks). */
+  const [suggestingTags, setSuggestingTags] = useState(false);
+  const [suggestions] = useState(
+    () =>
+      new FormTagSuggestions(
+        { tagger: closetTagger, imageSource: tagImageSource },
+        {
+          attributes: () => attributesRef.current,
+          setAttributes: (next) => setAttributes(next),
+          frontPhotoId: () => photosRef.current.find((p) => p.role === 'front')?.id ?? null,
+          suggestColors: (id, suggested) => detection.taggerColors(id, suggested),
+          setSuggesting: (suggesting) => setSuggestingTags(suggesting),
+          isActive: () => isMounted(),
+        },
+        { onError: (error) => console.warn('Tag suggestion failed', error) },
+      ),
+  );
   const [seasons, setSeasons] = useState<Season[]>(() => [...initial.seasons]);
   const [tags, setTags] = useState<string[]>(() => [...initial.tags]);
   /** What is typed in the tag box (also filters the saved tag list). */
@@ -130,10 +164,16 @@ export function useItemFormFields(
     return () => void picked.close();
   }, [picked]);
   useEffect(() => () => detection.cancel(), [detection]);
+  useEffect(() => () => suggestions.cancel(), [suggestions]);
 
   function setPhotos(next: PhotoDraft[]) {
     photosRef.current = next;
     setPhotosState(next);
+  }
+
+  function setAttributes(next: AttributeFields) {
+    attributesRef.current = next;
+    setAttributesState(next);
   }
 
   function setColors(next: ItemColor[]) {
@@ -186,7 +226,11 @@ export function useItemFormFields(
         if (!placed.ok) return { id: null };
         const draft = photosRef.current.find((p) => p.id === placed.id);
         // Not awaited: detection runs in the background and never blocks the form.
-        if (draft?.kind === 'picked' && draft.role === 'front') void detection.frontPhotoPicked(draft.id, draft.uri);
+        if (draft?.kind === 'picked' && draft.role === 'front') {
+          // Detection first: tagger colors that arrive later must win over its guess (D7).
+          void detection.frontPhotoPicked(draft.id, draft.uri);
+          void suggestions.frontPhotoPicked(draft.id, draft.uri);
+        }
         return { id: placed.id };
       }
       // Access to the camera was refused at the last moment (e.g. changed in Settings): the flow shows its panel.
@@ -257,6 +301,7 @@ export function useItemFormFields(
   function reset(values: ItemFormValues = EMPTY_ITEM_FORM, nextPhotos: readonly PhotoDraft[] = NO_PHOTOS) {
     void picked.clear();
     detection.reset();
+    suggestions.reset();
     if (!isMounted()) return;
     setPhotos([...nextPhotos]);
     setName(values.name ?? '');
@@ -266,12 +311,13 @@ export function useItemFormFields(
     setColorMatrix(null);
     setSeasons([...values.seasons]);
     setTags([...values.tags]);
+    setAttributes({ ...(values.attributes ?? EMPTY_ATTRIBUTE_FIELDS) });
     setTagText('');
     setTagProblem(null);
     setErrors([]);
   }
 
-  const values: ItemFormValues = { name, category, colors, seasons, tags };
+  const values: ItemFormValues = { name, category, colors, seasons, tags, attributes };
 
   return {
     photos,
@@ -304,6 +350,13 @@ export function useItemFormFields(
       setColorProblem(null);
     },
     toggleSeason: (season: Season) => setSeasons((s) => toggleSeason(s, season)),
+    /** True while the front photo is being tagged. */
+    suggestingTags,
+    /** The type as typed (marks it the user's). */
+    setItemType: (text: string) => setAttributes(setAttribute(attributesRef.current, 'type', text)),
+    /** A tap on a choice: picks it, or clears it when already picked (marks it the user's). */
+    toggleAttribute: <K extends ChoiceAttributeName>(name: K, value: AttributeValueMap[K]) =>
+      setAttributes(toggleAttribute(attributesRef.current, name, value)),
     tagText,
     setTagText: (text: string) => {
       setTagText(text);

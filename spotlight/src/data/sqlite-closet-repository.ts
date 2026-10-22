@@ -32,6 +32,13 @@ interface ItemColorRow {
   source: string;
 }
 
+interface ItemAttributeRow {
+  item_id: string;
+  name: string;
+  value: string;
+  source: string;
+}
+
 interface ItemPhotoRow {
   id: string;
   item_id: string;
@@ -44,6 +51,13 @@ interface ItemPhotoRow {
 const COLUMNS = 'id, name, category, seasons, created_at, updated_at';
 const PHOTO_COLUMNS = 'id, item_id, role, storage_path, sort_order, is_primary';
 const COLOR_COLUMNS = 'item_id, rank, palette_id, hex, source';
+const ATTRIBUTE_COLUMNS = 'item_id, name, value, source';
+
+/** Maps an item's attribute rows to unvalidated attributes, or undefined when there are none. */
+function rowsToAttributes(rows: ItemAttributeRow[] | undefined): Record<string, unknown> | undefined {
+  if (!rows || rows.length === 0) return undefined;
+  return Object.fromEntries(rows.map((row) => [row.name, { value: row.value, source: row.source }]));
+}
 
 /**
  * Maps an item's color rows (in rank order) to unvalidated colors. Ranks must
@@ -90,14 +104,15 @@ function parseJsonArray(text: string): unknown {
 }
 
 /**
- * Maps a row, its photos (in sort order), colors (in rank order), and tags to
- * an item, or returns null if the stored data is not a valid item.
+ * Maps a row, its photos (in sort order), colors (in rank order), tags and
+ * attributes to an item, or returns null if the stored data is not a valid item.
  */
 export function rowToItem(
   row: ClothingItemRow,
   photos: unknown[] = [],
   tags: string[] = [],
   colors: unknown[] = [],
+  attributes?: Record<string, unknown>,
 ): ClothingItem | null {
   const candidate = {
     id: row.id,
@@ -108,6 +123,7 @@ export function rowToItem(
     colors,
     seasons: parseJsonArray(row.seasons),
     tags,
+    ...(attributes === undefined ? {} : { attributes }),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -193,6 +209,29 @@ export class SqliteClosetRepository implements ClosetRepository {
     return new Map([...grouped].map(([id, list]) => [id, rowsToColors(list)]));
   }
 
+  private async attributesByItem(itemId?: string): Promise<Map<string, ItemAttributeRow[]>> {
+    const rows = await this.db.getAllAsync<ItemAttributeRow>(
+      `SELECT ${ATTRIBUTE_COLUMNS} FROM item_attributes ${itemId === undefined ? '' : 'WHERE item_id = ?'}
+       ORDER BY item_id, name`,
+      itemId === undefined ? [] : [itemId],
+    );
+    return groupByItem(rows, (r) => r.item_id);
+  }
+
+  /** Replaces the item's attribute rows (one per attribute with a value). */
+  private async writeAttributes(item: ClothingItem): Promise<void> {
+    await this.db.runAsync('DELETE FROM item_attributes WHERE item_id = ?', [item.id]);
+    for (const [name, entry] of Object.entries(item.attributes ?? {})) {
+      if (!entry) continue;
+      await this.db.runAsync(`INSERT INTO item_attributes (${ATTRIBUTE_COLUMNS}) VALUES (?, ?, ?, ?)`, [
+        item.id,
+        name,
+        entry.value,
+        entry.source,
+      ]);
+    }
+  }
+
   /** Replaces the item's color rows; rank is the position in `item.colors`. */
   private async writeColors(item: ClothingItem): Promise<void> {
     await this.db.runAsync('DELETE FROM item_colors WHERE item_id = ?', [item.id]);
@@ -251,9 +290,16 @@ export class SqliteClosetRepository implements ClosetRepository {
       const photos = await this.photosByItem();
       const tags = await this.tagsByItem();
       const colors = await this.colorsByItem();
+      const attributes = await this.attributesByItem();
       const items: ClothingItem[] = [];
       for (const row of rows) {
-        const item = rowToItem(row, photos.get(row.id), tags.get(row.id), colors.get(row.id));
+        const item = rowToItem(
+          row,
+          photos.get(row.id),
+          tags.get(row.id),
+          colors.get(row.id),
+          rowsToAttributes(attributes.get(row.id)),
+        );
         if (item) items.push(item);
         else this.onCorruptRow(row.id);
       }
@@ -273,6 +319,7 @@ export class SqliteClosetRepository implements ClosetRepository {
         (await this.photosByItem(id)).get(id),
         (await this.tagsByItem(id)).get(id),
         (await this.colorsByItem(id)).get(id),
+        rowsToAttributes((await this.attributesByItem(id)).get(id)),
       );
       if (!item) this.onCorruptRow(row.id);
       return item;
@@ -294,6 +341,7 @@ export class SqliteClosetRepository implements ClosetRepository {
       await this.writePhotos(item);
       await this.writeColors(item);
       await this.writeTags(item);
+      await this.writeAttributes(item);
     });
   }
 
@@ -314,6 +362,7 @@ export class SqliteClosetRepository implements ClosetRepository {
       await this.writePhotos(item);
       await this.writeColors(item);
       await this.writeTags(item);
+      await this.writeAttributes(item);
     });
   }
 
@@ -325,6 +374,7 @@ export class SqliteClosetRepository implements ClosetRepository {
       await this.db.runAsync('DELETE FROM item_tags WHERE item_id = ?', [id]);
       await this.db.runAsync('DELETE FROM item_photos WHERE item_id = ?', [id]);
       await this.db.runAsync('DELETE FROM item_colors WHERE item_id = ?', [id]);
+      await this.db.runAsync('DELETE FROM item_attributes WHERE item_id = ?', [id]);
       const result = await this.db.runAsync('DELETE FROM clothing_items WHERE id = ?', [id]);
       if (result.changes === 0) {
         throw new ClosetRepositoryError('not_found', `item ${id} does not exist`);

@@ -184,3 +184,70 @@ describe('FormColorDetection', () => {
     detection.cancel();
   });
 });
+
+describe('FormColorDetection: tagger colors (Gate 2, D7)', () => {
+  const AI_NAVY: ItemColor = { paletteId: 'navy', hex: '#202A60', source: 'auto' };
+  const AI_RED: ItemColor = { paletteId: 'red', hex: '#B5122B', source: 'auto' };
+
+  it('tagger colors replace the on-device guess', async () => {
+    const { form, isolator, detection } = setup();
+    isolator.queue.push(navyShirt());
+    await detection.frontPhotoPicked('draft-1', 'file:///front.jpg');
+    expect(form.colors.map((c) => c.paletteId)).toEqual(['navy']);
+    detection.taggerColors('draft-1', [AI_RED, AI_NAVY]);
+    expect(form.colors).toEqual([AI_RED, AI_NAVY]);
+    expect(form.matrix).toEqual([]);
+  });
+
+  it('an on-device result that arrives after the tagger colors is ignored, notice included', async () => {
+    const { form, isolator, detection } = setup();
+    const pending = deferred<GarmentIsolation>();
+    isolator.queue.push(() => pending.promise);
+    const running = detection.frontPhotoPicked('draft-1', 'file:///front.jpg');
+    detection.taggerColors('draft-1', [AI_RED]);
+    pending.resolve(navyShirt(0.2));
+    await running;
+    expect(form.colors).toEqual([AI_RED]);
+    expect(form.matrix).toEqual([]);
+    expect(form.detecting).toEqual([true, false]);
+  });
+
+  it('user colors always win, also when the user only deselected', async () => {
+    const withUser = setup([USER_WHITE]);
+    withUser.detection.taggerColors('draft-1', [AI_RED]);
+    expect(withUser.form.colors).toEqual([USER_WHITE]);
+
+    const { form, isolator, detection } = setup();
+    isolator.queue.push(navyShirt());
+    await detection.frontPhotoPicked('draft-1', 'file:///front.jpg');
+    form.colors = [];
+    detection.userChangedColors();
+    detection.taggerColors('draft-1', [AI_RED]);
+    expect(form.colors).toEqual([]);
+  });
+
+  it('ignores tagger colors for another photo or an empty list, and the on-device guess stays the fallback', async () => {
+    const { form, isolator, detection } = setup();
+    isolator.queue.push(navyShirt());
+    await detection.frontPhotoPicked('draft-1', 'file:///front.jpg');
+    detection.taggerColors('draft-0', [AI_RED]);
+    detection.taggerColors('draft-1', []);
+    expect(form.colors.map((c) => c.paletteId)).toEqual(['navy']);
+  });
+
+  it('drops a held on-device notice once the tagger colors arrive; a new photo starts over', async () => {
+    const { form, isolator, detection } = setup([AUTO_RED]);
+    isolator.queue.push(navyShirt(0.2));
+    detection.hold('picker');
+    await detection.frontPhotoPicked('draft-1', 'file:///front.jpg');
+    detection.taggerColors('draft-1', [AI_NAVY]);
+    detection.release('picker');
+    expect(form.matrix).toEqual([]);
+    expect(form.colors).toEqual([AI_NAVY]);
+
+    form.front = 'draft-2';
+    isolator.queue.push(navyShirt());
+    await detection.frontPhotoPicked('draft-2', 'file:///two.jpg');
+    expect(form.colors.map((c) => [c.paletteId, c.source])).toEqual([['navy', 'auto']]);
+  });
+});

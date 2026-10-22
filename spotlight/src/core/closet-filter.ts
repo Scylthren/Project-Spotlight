@@ -4,11 +4,13 @@
  * `filterCloset` returns.
  *
  * Search is case-insensitive and matches an item's name, its category (its id and its
- * singular and plural labels), its color names ("Light grey") and its style
- * tags. Each word of the query must match one of those, so "navy top" finds
+ * singular and plural labels), its color names ("Light grey"), its style
+ * tags, and its attributes (Gate 2: the type as stored, and the labels of
+ * pattern, material, fit and formality, e.g. "Polka dot", "Smart casual"). Each word of the query must match one of those, so "navy top" finds
  * navy tops. A word matches when it is part of a field ("blue" finds "Sky
  * blue"). Search and the category filter combine.
  */
+import { describeAttributes } from './item-attributes';
 import { CATEGORY_LABELS, CATEGORY_PLURAL_LABELS } from './labels';
 import { paletteName } from './palette';
 import { CATEGORIES, type Category, type ClothingItem } from './types';
@@ -44,6 +46,7 @@ export function searchableText(item: ClothingItem): string[] {
     CATEGORY_PLURAL_LABELS[item.category],
     ...item.colors.map((c) => paletteName(c.paletteId)),
     ...item.tags,
+    ...describeAttributes(item.attributes).map((a) => a.text),
   ].map((text) => text.toLowerCase());
 }
 

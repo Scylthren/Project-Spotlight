@@ -1,4 +1,13 @@
-import type { ClothingItem, PhotoDraft, PhotoRole } from '@/core';
+import {
+  applyAttributeSuggestions,
+  attributesToFields,
+  clearSuggestedAttributes,
+  EMPTY_ATTRIBUTE_FIELDS,
+  setAttribute,
+  type ClothingItem,
+  type PhotoDraft,
+  type PhotoRole,
+} from '@/core';
 
 import { CLOSET_ITEM_MESSAGES } from './add-closet-item';
 import { makeColor, makeItem, makePhoto } from './closet-repository.contract';
@@ -604,5 +613,51 @@ describe('editClosetItem: name', () => {
     const cleared = await editClosetItem('item-1', unchangedForm(original, '  '), deps);
     expect(cleared.ok && cleared.changed).toBe(true);
     expect('name' in (await repository.get('item-1'))!).toBe(false);
+  });
+});
+
+describe('editClosetItem: attributes', () => {
+  const formFor = (item: ClothingItem, attributes: EditItemForm['attributes'], photos: PhotoDraft[] = [KEPT_FRONT]): EditItemForm => ({
+    photos,
+    category: item.category,
+    colors: item.colors.map((c) => ({ ...c })),
+    seasons: [...item.seasons],
+    tags: [...item.tags],
+    attributes,
+  });
+
+  it('saves attributes with their sources; the unchanged form is no change', async () => {
+    const { original, repository, deps } = setup();
+    const fields = applyAttributeSuggestions(setAttribute(EMPTY_ATTRIBUTE_FIELDS, 'type', ' Parka '), {
+      material: 'wool',
+      fit: 'paisley',
+    });
+    const result = await editClosetItem('item-1', formFor(original, fields), deps);
+    expect(result.ok && result.changed).toBe(true);
+    const saved = (await repository.get('item-1'))!;
+    expect(saved.attributes).toEqual({ type: { value: 'Parka', source: 'user' }, material: { value: 'wool', source: 'auto' } });
+    const again = await editClosetItem('item-1', formFor(saved, attributesToFields(saved.attributes)), deps);
+    expect(again).toEqual({ ok: true, item: saved, changed: false });
+  });
+
+  it('after the source photo is retaken and no new suggestion arrives, the old suggested values are gone; user ones stay', async () => {
+    const original = makeItem({
+      photos: [OLD_PHOTO],
+      attributes: { type: { value: 'Parka', source: 'user' }, pattern: { value: 'checked', source: 'auto' } },
+    });
+    const repository = new InMemoryClosetRepository([original]);
+    const deps = { ...setup().deps, repository };
+    // The form clears untouched values when the front photo is retaken (FormTagSuggestions).
+    const fields = clearSuggestedAttributes(attributesToFields(original.attributes));
+    const result = await editClosetItem('item-1', formFor(original, fields, RETAKEN_FRONT), deps);
+    expect(result.ok && result.changed).toBe(true);
+    expect((await repository.get('item-1'))?.attributes).toEqual({ type: { value: 'Parka', source: 'user' } });
+  });
+
+  it('rejects a too-long type with a user-facing message and changes nothing', async () => {
+    const { original, repository, deps } = setup();
+    const result = await editClosetItem('item-1', formFor(original, setAttribute(EMPTY_ATTRIBUTE_FIELDS, 'type', 'x'.repeat(31))), deps);
+    expect(result).toEqual({ ok: false, errors: [CLOSET_ITEM_MESSAGES.badType] });
+    expect(await repository.get('item-1')).toEqual(original);
   });
 });

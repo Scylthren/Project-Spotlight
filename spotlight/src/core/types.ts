@@ -1,6 +1,7 @@
 /**
  * Core domain types. Plain TypeScript, no React or Expo imports.
  */
+import type { ItemAttributes } from './item-attributes';
 import type { PaletteId } from './palette';
 
 export const CATEGORIES = [
@@ -92,6 +93,13 @@ export interface ClothingItem {
    * the order the user added them and carries no meaning. May be empty.
    */
   tags: string[];
+  /**
+   * Type, pattern, material, fit and formality (Gate 2, item-attributes.ts),
+   * each with its source ('auto' when suggested, 'user' once touched). Only
+   * the ones with a value are present; absent when the item has none (never
+   * an empty object), so items stored before Gate 2 load unchanged.
+   */
+  attributes?: ItemAttributes;
   /** ISO 8601 timestamps. */
   createdAt: string;
   updatedAt: string;

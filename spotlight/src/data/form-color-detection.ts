@@ -38,12 +38,18 @@ export type NoticeHold = 'picker' | 'camera-intro' | 'save';
  *   kept and shown once the last hold is released, unless it was dropped.
  * - `detecting` is true from a pick until its own result arrives; a newer
  *   pick or `reset` takes over the flag.
+ * - `taggerColors` (Gate 2, D7): colors suggested by the tagger for the
+ *   current front photo replace the on-device guess, unless the user changed
+ *   the colors. After that, the on-device result for the same photo (and its
+ *   notice) is ignored; it stays the fallback when the tagger gives none.
  */
 export class FormColorDetection {
   private readonly detection: FrontPhotoColorDetection;
   private readonly holds = new Set<NoticeHold>();
   private heldNotice: string | null = null;
   private userTouched = false;
+  /** The front photo draft whose colors came from the tagger, or null. */
+  private taggerColorsFor: string | null = null;
 
   constructor(
     isolator: GarmentIsolator,
@@ -56,13 +62,29 @@ export class FormColorDetection {
   /** Detects the colors of front photo draft `id`. Resolves when done; never rejects. */
   async frontPhotoPicked(id: string, uri: string): Promise<void> {
     this.userTouched = false;
+    this.taggerColorsFor = null;
     this.host.setDetecting(true);
     const detected = await this.detection.run(id, uri);
     if (detected === null || !this.host.isActive()) return; // superseded or cancelled; whoever did that owns the flag
     this.host.setDetecting(false);
     if (this.host.frontPhotoId() !== id) return;
+    if (this.taggerColorsFor === id) return; // the tagger's colors won (D7)
     const applied = applyDetectedColors(this.host.colors(), detected, { userTouched: this.userTouched });
     if (applied) this.apply(applied.colors, applied.notice);
+  }
+
+  /**
+   * The tagger suggested `colors` (source 'auto', most prominent first) for
+   * front photo draft `id`. Applied without a notice when that photo is still
+   * the front and the user has not touched the colors; any notice kept from
+   * the on-device guess is dropped. Ignored otherwise, or when empty.
+   */
+  taggerColors(id: string, colors: readonly ItemColor[]): void {
+    if (!this.host.isActive() || colors.length === 0 || this.host.frontPhotoId() !== id) return;
+    if (this.userTouched || this.host.colors().some((c) => c.source === 'user')) return;
+    this.taggerColorsFor = id;
+    this.heldNotice = null;
+    this.apply(colors.map((c) => ({ ...c, source: 'auto' })), null);
   }
 
   /** The user picked, removed, or reordered a color. */
@@ -100,6 +122,7 @@ export class FormColorDetection {
     this.detection.cancel();
     this.heldNotice = null;
     this.userTouched = false;
+    this.taggerColorsFor = null;
     if (this.host.isActive()) this.host.setDetecting(false);
   }
 

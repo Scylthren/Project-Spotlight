@@ -37,4 +37,15 @@ describe('SegmentedControl (rendered)', () => {
     await fireEvent.press(alpha);
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('can have no selection, and reads a longer name when given', async () => {
+    const options = [
+      { value: 'a', label: 'Alpha' },
+      { value: 's', label: 'Smart', accessibilityLabel: 'Smart casual' },
+    ] as const;
+    await render(<SegmentedControl options={options} value={null} onChange={() => {}} accessibilityLabel="Letters" />);
+    expect(screen.getByRole('radio', { name: 'Alpha' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Smart casual' })).not.toBeChecked();
+    expect(screen.getByText('Smart')).toBeTruthy();
+  });
 });

@@ -1,9 +1,10 @@
 /**
  * What the closet tiles and the read-only item screen show (Closet.dc.html,
- * ItemDetail.dc.html), Gate 1 fields only: name, category, photos, colors,
- * seasons and style tags. An item without a name is called by its category.
+ * ItemDetail.dc.html): name, category, photos, colors, seasons, style tags,
+ * and (Gate 2) attributes. An item without a name is called by its category.
  */
 import { describeItemColors } from './color-selection';
+import { describeAttributes } from './item-attributes';
 import { itemDisplayName } from './item-name';
 import { CATEGORY_LABELS, SEASON_LABELS } from './labels';
 import { paletteName } from './palette';
@@ -81,8 +82,14 @@ export interface DetailColor {
 export interface ItemDetail {
   /** The name, else the category. */
   title: string;
-  /** The category under a named item's title ("Top"); null when the title is already the category. */
+  /**
+   * The line under the title: a named item's category, then its attributes
+   * ("Top · Hoodie · Graphic · Cotton · Oversized · Casual"); null when
+   * there is nothing to add to the title.
+   */
   subtitle: string | null;
+  /** The subtitle for screen readers, naming each attribute: "Top, type Hoodie, fit Oversized". */
+  subtitleAccessibilityLabel: string | null;
   colors: DetailColor[];
   /** "Colors: Navy (primary), White". */
   colorsAccessibilityLabel: string;
@@ -101,9 +108,14 @@ export function describeItemDetail(item: ClothingItem): ItemDetail {
     primary: i === 0,
   }));
   const seasons = SEASONS.filter((s) => item.seasons.includes(s)).map((s) => SEASON_LABELS[s]);
+  const category = item.name === undefined ? [] : [CATEGORY_LABELS[item.category]];
+  const attributes = describeAttributes(item.attributes);
+  const subtitle = [...category, ...attributes.map((a) => a.text)];
+  const spoken = [...category, ...attributes.map((a) => `${a.label.toLowerCase()} ${a.text}`)];
   return {
     title: itemDisplayName(item),
-    subtitle: item.name === undefined ? null : CATEGORY_LABELS[item.category],
+    subtitle: subtitle.length > 0 ? subtitle.join(' · ') : null,
+    subtitleAccessibilityLabel: spoken.length > 0 ? spoken.join(', ') : null,
     colors,
     colorsAccessibilityLabel: `Colors: ${colors.map((c) => (c.primary ? `${c.name} (primary)` : c.name)).join(', ')}`,
     seasonsText: seasons.join(' · '),

@@ -1,4 +1,4 @@
-import type { ClothingItem, TagSummary } from '@/core';
+import { cloneAttributes, type ClothingItem, type TagSummary } from '@/core';
 
 /**
  * Storage for the user's closet. Implementations: `InMemoryClosetRepository`
@@ -29,6 +29,13 @@ import type { ClothingItem, TagSummary } from '@/core';
  *   id, hex, and source. `update` replaces the whole list; `remove` deletes it.
  * - An empty list, more than three, a repeated or unknown palette id, a
  *   non-normalized hex, or an unknown source is rejected (code 'invalid').
+ *
+ * Attributes (type, pattern, material, fit, formality; core/item-attributes.ts):
+ * - Items round-trip their `attributes` with value and source; an item with
+ *   none has no `attributes` key. `update` replaces them all.
+ * - An unknown attribute, a value outside its list, a type that is empty,
+ *   untrimmed or too long, an unknown source, or an empty `attributes`
+ *   object is rejected (code 'invalid').
  *
  * Tags (user-defined labels, see core/tags.ts):
  * - Items round-trip their `tags` in order. Saving an item (add or update)
@@ -75,11 +82,13 @@ export function compareNewestFirst(a: ClothingItem, b: ClothingItem): number {
 }
 
 export function cloneItem(item: ClothingItem): ClothingItem {
+  const { attributes, ...rest } = item;
   return {
-    ...item,
+    ...rest,
     photos: item.photos.map((p) => ({ ...p })),
     colors: item.colors.map((c) => ({ ...c })),
     seasons: [...item.seasons],
     tags: [...item.tags],
+    ...(attributes === undefined ? {} : { attributes: cloneAttributes(attributes) }),
   };
 }

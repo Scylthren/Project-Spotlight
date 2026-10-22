@@ -6,6 +6,7 @@ export * from './legacy-colors';
 export * from './clothing-item';
 export * from './item-name';
 export * from './tags';
+export * from './item-attributes';
 export * from './photo-set';
 export * from './closet-form';
 export * from './single-flight';

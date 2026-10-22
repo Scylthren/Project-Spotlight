@@ -116,3 +116,21 @@ describe.each([
     expect(look.title.fontFamily).toBe(theme.fonts.serif.regular);
   });
 });
+
+describe('ItemDetailView: attributes (Gate 2)', () => {
+  it('shows the attributes under the title and names them for screen readers', async () => {
+    await renderDetail({
+      ...ITEM,
+      name: 'Old coat',
+      attributes: { type: { value: 'Trench', source: 'user' }, material: { value: 'wool', source: 'auto' } },
+    });
+    const line = screen.getByText('Outerwear · Trench · Wool');
+    expect(line.props.accessibilityLabel).toBe('Outerwear, type Trench, material Wool');
+  });
+
+  it('an old item without attributes shows no attributes line', async () => {
+    await renderDetail();
+    expect(screen.queryByText(/·.*·/)).toBeNull();
+  });
+});
+

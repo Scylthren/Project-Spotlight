@@ -1,5 +1,7 @@
 import {
   createClothingItem,
+  EMPTY_ATTRIBUTE_FIELDS,
+  fieldsToAttributes,
   EMPTY_ITEM_FORM,
   hasDetailChanges,
   itemToFormValues,
@@ -85,6 +87,7 @@ describe('itemToFormValues', () => {
       colors: [NAVY, { paletteId: 'cream', hex: '#F4EEDD', source: 'auto' }],
       seasons: ['spring', 'autumn'],
       tags: ['90s', 'work'],
+      attributes: EMPTY_ATTRIBUTE_FIELDS,
     });
     values.seasons.push('winter');
     values.tags.push('emo');
@@ -102,8 +105,31 @@ describe('itemToFormValues', () => {
   });
 
   it('EMPTY_ITEM_FORM is blank and frozen', () => {
-    expect(EMPTY_ITEM_FORM).toEqual({ category: null, colors: [], seasons: [], tags: [] });
+    expect(EMPTY_ITEM_FORM).toEqual({ category: null, colors: [], seasons: [], tags: [], attributes: EMPTY_ATTRIBUTE_FIELDS });
     expect(Object.isFrozen(EMPTY_ITEM_FORM)).toBe(true);
+    expect(Object.isFrozen(EMPTY_ATTRIBUTE_FIELDS)).toBe(true);
+    expect(Object.isFrozen(EMPTY_ATTRIBUTE_FIELDS.fit)).toBe(true);
+  });
+
+  it('prefills attributes with their sources and round-trips them', () => {
+    const item: ClothingItem = {
+      id: 'x',
+      photos: [{ id: 'p', role: 'front', path: 'closet-images/x.jpg', sortOrder: 0, isPrimary: true }],
+      category: 'top',
+      colors: [NAVY],
+      seasons: ['spring'],
+      tags: [],
+      attributes: { type: { value: 'Polo', source: 'user' }, formality: { value: 'smart-casual', source: 'auto' } },
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    const values = itemToFormValues(item);
+    expect(values.attributes?.type).toEqual({ value: 'Polo', source: 'user' });
+    expect(values.attributes?.formality).toEqual({ value: 'smart-casual', source: 'auto' });
+    expect(values.attributes?.fit).toEqual({ value: null, source: 'auto' });
+    expect(fieldsToAttributes(values.attributes!)).toEqual(item.attributes);
+    values.attributes!.type.value = 'Changed';
+    expect(item.attributes?.type?.value).toBe('Polo');
   });
 });
 
@@ -118,6 +144,15 @@ describe('hasDetailChanges', () => {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
   };
+
+  it('counts an added, removed, changed, or re-sourced attribute as a change', () => {
+    const withFit: ClothingItem = { ...base, attributes: { fit: { value: 'slim', source: 'auto' } } };
+    expect(hasDetailChanges(base, withFit)).toBe(true);
+    expect(hasDetailChanges(withFit, base)).toBe(true);
+    expect(hasDetailChanges(withFit, { ...base, attributes: { fit: { value: 'regular', source: 'auto' } } })).toBe(true);
+    expect(hasDetailChanges(withFit, { ...base, attributes: { fit: { value: 'slim', source: 'user' } } })).toBe(true);
+    expect(hasDetailChanges(withFit, { ...base, attributes: { fit: { value: 'slim', source: 'auto' } } })).toBe(false);
+  });
 
   it('is false when only timestamps or the photos differ', () => {
     expect(hasDetailChanges(base, { ...base })).toBe(false);

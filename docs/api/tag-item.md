@@ -1,6 +1,6 @@
 # tag-item
 
-Suggests tags for one garment photo. Gate 2 slice 1: the function returns a fixed stub answer and does not look at the image. Slice 3 sends the image to Claude.
+Suggests tags for one garment photo. Gate 2 slices 1 and 2: the function returns a fixed stub answer and does not look at the image. Slice 3 sends the image to Claude.
 
 - **URL:** `POST https://<project-ref>.supabase.co/functions/v1/tag-item` (the app builds it from `EXPO_PUBLIC_SUPABASE_URL`).
 - **Source:** `supabase/functions/tag-item/` (thin Deno entry `index.ts`, logic in `handler.ts`), shared code in `supabase/functions/_shared/`.
@@ -40,7 +40,12 @@ Unknown extra fields are ignored.
   "tags": {
     "category": "top",
     "colors": ["navy", "white"],
-    "seasons": ["spring", "autumn"]
+    "seasons": ["spring", "autumn"],
+    "type": "Shirt",
+    "pattern": "striped",
+    "material": "cotton",
+    "fit": "regular",
+    "formality": "casual"
   },
   "stub": true
 }
@@ -52,9 +57,21 @@ Unknown extra fields are ignored.
 | `tags.category` | string or null | One of `top`, `bottom`, `dress`, `outerwear`, `shoes`, `accessory`; `null` = no suggestion. |
 | `tags.colors` | string[] | Palette color ids (`spotlight/src/core/palette.ts`), most prominent first, no duplicates, at most 3. |
 | `tags.seasons` | string[] | `spring`, `summer`, `autumn`, `winter`, no duplicates. |
+| `tags.type` | string or null | Short free text ("Hoodie"): trimmed, single spaces, 1 to 30 characters (code points). Case is kept. |
+| `tags.pattern` | string or null | `solid`, `striped`, `checked`, `floral`, `graphic`, `polka-dot`, `animal`, `other`. |
+| `tags.material` | string or null | `cotton`, `denim`, `wool`, `knit`, `linen`, `silk`, `leather`, `synthetic`, `other`. |
+| `tags.fit` | string or null | `slim`, `regular`, `relaxed`, `oversized`. |
+| `tags.formality` | string or null | `athletic`, `casual`, `smart-casual`, `formal`. |
 | `stub` | boolean | `true` while the function returns the fixed answer above. |
 
-Slice 2 adds the D6 tag fields (type, pattern, material, fit, formality). Clients ignore fields they do not know; a known field with a value outside the vocabulary makes the app reject the whole response (treated as "no suggestion").
+The lists are ROADMAP decision D6 (ids use a hyphen where the label has a space: "Polka dot" is `polka-dot`, "Smart casual" is `smart-casual`) and match the app's `spotlight/src/core/item-attributes.ts` (drift-tested).
+
+Validation (`validateTagItemResponse`, used by the app and, from slice 3, by the function on the model's reply):
+- Unknown fields are ignored.
+- `category`, `colors`, `seasons` are strict: a value outside the vocabulary rejects the whole response (the app treats it as "no suggestion").
+- `type`, `pattern`, `material`, `fit`, `formality` are lenient: a missing field (an older server), a value outside the list, or a type that is empty or longer than 30 characters is read as `null` (that suggestion is dropped); the rest of the response is kept. Adding these fields did not change `apiVersion`.
+
+The app applies suggestions only to fields the user has not touched (D6). Colors from a `stub: true` answer are ignored (they are canned); from a real answer they replace the on-device color guess unless the user changed the colors (D7).
 
 ## Errors
 Error bodies: `{ "error": { "code": "<code>", "message": "<text>" } }`. Messages are for developers, not shown to users.

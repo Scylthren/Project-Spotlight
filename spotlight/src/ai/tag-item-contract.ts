@@ -61,17 +61,34 @@ export const TAG_COLORS = [
   'lavender',
 ] as const;
 
+/** Same lists and limit as the app's `PATTERNS`, `MATERIALS`, `FITS`, `FORMALITIES`, `ITEM_TYPE_MAX_LENGTH` (drift-tested). */
+export const TAG_PATTERNS = ['solid', 'striped', 'checked', 'floral', 'graphic', 'polka-dot', 'animal', 'other'] as const;
+export const TAG_MATERIALS = ['cotton', 'denim', 'wool', 'knit', 'linen', 'silk', 'leather', 'synthetic', 'other'] as const;
+export const TAG_FITS = ['slim', 'regular', 'relaxed', 'oversized'] as const;
+export const TAG_FORMALITIES = ['athletic', 'casual', 'smart-casual', 'formal'] as const;
+/** Longest type ("Hoodie"), in characters (code points), after trimming and collapsing whitespace. */
+export const TAG_TYPE_MAX_LENGTH = 30;
+
 export type TagCategory = (typeof TAG_CATEGORIES)[number];
 export type TagSeason = (typeof TAG_SEASONS)[number];
 export type TagColor = (typeof TAG_COLORS)[number];
+export type TagPattern = (typeof TAG_PATTERNS)[number];
+export type TagMaterial = (typeof TAG_MATERIALS)[number];
+export type TagFit = (typeof TAG_FITS)[number];
+export type TagFormality = (typeof TAG_FORMALITIES)[number];
 
 /** At most this many colors, most prominent first. */
 export const TAG_MAX_COLORS = 3;
 
 /**
  * Suggested tags. Every field may be empty: `null` / `[]` means "no
- * suggestion". Gate 2 slice 2 adds the D6 fields (type, pattern, material,
- * fit, formality); clients ignore fields they do not know.
+ * suggestion". Clients ignore fields they do not know.
+ *
+ * The D6 fields (type, pattern, material, fit, formality; Gate 2 slice 2) are
+ * lenient: a missing field (an older server), a value outside the list, or a
+ * type that is empty or too long is read as `null` (dropped), and the rest
+ * of the response is kept. category, colors and seasons are strict: a bad
+ * value rejects the whole response.
  */
 export interface ItemTags {
   category: TagCategory | null;
@@ -79,6 +96,12 @@ export interface ItemTags {
   colors: TagColor[];
   /** No duplicates. */
   seasons: TagSeason[];
+  /** Short free text ("Hoodie"): trimmed, single spaces, 1 to TAG_TYPE_MAX_LENGTH characters. */
+  type: string | null;
+  pattern: TagPattern | null;
+  material: TagMaterial | null;
+  fit: TagFit | null;
+  formality: TagFormality | null;
 }
 
 export interface TagItemResponse {
@@ -102,10 +125,19 @@ export interface TagItemErrorResponse {
   error: { code: TagItemErrorCode; message: string };
 }
 
-/** The fixed answer of the Gate 2 slice 1 stub. */
+/** The fixed answer of the stub (Gate 2 slices 1 and 2). */
 export const STUB_TAG_ITEM_RESPONSE: TagItemResponse = {
   apiVersion: TAG_ITEM_API_VERSION,
-  tags: { category: 'top', colors: ['navy', 'white'], seasons: ['spring', 'autumn'] },
+  tags: {
+    category: 'top',
+    colors: ['navy', 'white'],
+    seasons: ['spring', 'autumn'],
+    type: 'Shirt',
+    pattern: 'striped',
+    material: 'cotton',
+    fit: 'regular',
+    formality: 'casual',
+  },
   stub: true,
 };
 
@@ -154,8 +186,9 @@ function validateList<T extends string>(list: readonly T[], value: unknown, max:
 
 /**
  * Checks a parsed response body. Unknown extra fields are ignored (newer
- * servers may add tags); a known field with a value outside the vocabulary
- * rejects the whole response.
+ * servers may add tags). A bad category, color or season rejects the whole
+ * response; a bad or missing D6 field (type, pattern, material, fit,
+ * formality) is read as null (see `ItemTags`).
  */
 export function validateTagItemResponse(body: unknown): Validation<TagItemResponse> {
   if (!isRecord(body)) return { ok: false, reason: 'Response must be a JSON object.' };
@@ -174,8 +207,28 @@ export function validateTagItemResponse(body: unknown): Validation<TagItemRespon
   if (!seasons) return { ok: false, reason: 'Invalid seasons.' };
   return {
     ok: true,
-    value: { apiVersion, stub, tags: { category, colors, seasons } },
+    value: {
+      apiVersion,
+      stub,
+      tags: {
+        category,
+        colors,
+        seasons,
+        type: readTagType(tags.type),
+        pattern: isOneOf(TAG_PATTERNS, tags.pattern) ? tags.pattern : null,
+        material: isOneOf(TAG_MATERIALS, tags.material) ? tags.material : null,
+        fit: isOneOf(TAG_FITS, tags.fit) ? tags.fit : null,
+        formality: isOneOf(TAG_FORMALITIES, tags.formality) ? tags.formality : null,
+      },
+    },
   };
+}
+
+/** A suggested type, trimmed with single spaces, or null when missing, empty, or too long. */
+export function readTagType(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const text = value.trim().replace(/\s+/g, ' ');
+  return text.length > 0 && [...text].length <= TAG_TYPE_MAX_LENGTH ? text : null;
 }
 
 /** Reads the error code from an error body, or null when it is not one. */
