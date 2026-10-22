@@ -1,5 +1,5 @@
 import { darkColors, lightColors, type ThemeColors } from './colors';
-import { borders, sizes, spacing } from './layout';
+import { borders, opacity, sizes, spacing } from './layout';
 import type { ColorScheme } from './scheme';
 import { fonts, typography } from './typography';
 
@@ -17,10 +17,11 @@ export interface Theme {
   spacing: typeof spacing;
   borders: typeof borders;
   sizes: typeof sizes;
+  opacity: typeof opacity;
 }
 
 function makeTheme(scheme: ColorScheme, colors: ThemeColors): Theme {
-  return { scheme, colors, fonts, typography, spacing, borders, sizes };
+  return { scheme, colors, fonts, typography, spacing, borders, sizes, opacity };
 }
 
 export const themes: Record<ColorScheme, Theme> = {

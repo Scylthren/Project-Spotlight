@@ -20,8 +20,13 @@ export interface ThemeColors {
   photoBackgroundAlt: string;
   /** 1 pt dividers between rows and sections. */
   hairline: string;
-  /** Outlines of inputs, unselected chips and swatches. */
+  /** Outlines of unselected chips and swatches (the chip's text also identifies it). */
   border: string;
+  /**
+   * The outline where it is a control's only boundary (boxed text inputs).
+   * At least 3:1 against the background and the surface (WCAG 1.4.11).
+   */
+  inputBorder: string;
   /** Labels, metadata, placeholders. */
   textSecondary: string;
   /** Secondary body copy (longer text), darker than `textSecondary`. */
@@ -42,6 +47,9 @@ export const lightColors: ThemeColors = {
   photoBackgroundAlt: '#E4E1DB',
   hairline: '#E2DFD8',
   border: '#B9B6AF',
+  // Approved carry-in 2026-10-21 (ROADMAP "Gate 1.5 dark values"): `border` is 2.02:1 on white,
+  // so inputs use this darker step of the same warm grey (3.68:1 on background, 3.09:1 on surface).
+  inputBorder: '#88857E',
   textSecondary: '#5E5C58',
   textBodySecondary: '#4A4945',
   accent: '#C8102E',
@@ -59,6 +67,9 @@ export const darkColors: ThemeColors = {
   hairline: '#33322F',
   // Approved 2026-10-21 (README gap): 3.09:1 on the background, between hairline and secondary text.
   border: '#615F5A',
+  // Approved carry-in 2026-10-21: `border` is 2.70:1 on the dark surface, so inputs use one step
+  // lighter (3.59:1 on background, 3.14:1 on surface).
+  inputBorder: '#6B6964',
   textSecondary: '#A3A19A',
   // Approved 2026-10-21 (README gap): between text and secondary text (11.64:1 on the background).
   textBodySecondary: '#C9C7C0',

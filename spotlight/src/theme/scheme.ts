@@ -7,3 +7,19 @@ export type ColorScheme = 'light' | 'dark';
 export function resolveColorScheme(reported: string | null | undefined): ColorScheme {
   return reported === 'dark' ? 'dark' : 'light';
 }
+
+/**
+ * The scheme `useTheme()` uses: a local override (the dev gallery's preview)
+ * wins, then the Appearance setting, then what the system reports.
+ */
+export function pickColorScheme({
+  override,
+  appearance,
+  system,
+}: {
+  override: ColorScheme | null;
+  appearance: ColorScheme | null;
+  system: string | null | undefined;
+}): ColorScheme {
+  return override ?? appearance ?? resolveColorScheme(system);
+}

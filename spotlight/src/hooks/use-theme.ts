@@ -4,15 +4,18 @@
  */
 
 import { useOptionalAppearance } from '@/hooks/appearance';
+import { useThemeOverride } from '@/hooks/theme-override';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { resolveColorScheme, themes, type Theme } from '@/theme';
+import { pickColorScheme, themes, type Theme } from '@/theme';
 
 /**
  * The theme for the Appearance setting (Light, Dark or System). Outside
- * `AppearanceProvider` it follows the system scheme.
+ * `AppearanceProvider` it follows the system scheme. Inside a
+ * `ThemeOverride` (the dev gallery) the override wins.
  */
 export function useTheme(): Theme {
+  const override = useThemeOverride();
   const appearance = useOptionalAppearance();
   const system = useColorScheme();
-  return themes[appearance ? appearance.scheme : resolveColorScheme(system)];
+  return themes[pickColorScheme({ override, appearance: appearance?.scheme ?? null, system })];
 }

@@ -34,7 +34,8 @@ const TOKEN_GUARD_ALLOWLIST = [
   // Template splash overlay (blue background). No slice restyles it yet; it
   // must move to a token by slice 5 (the Loading polish item comes later).
   'src/components/animated-icon.tsx',
-  // Template text styles; slice 3's shared components replace them.
+  // Template text styles; removed once slices 4 and 5 restyle the screens
+  // that still use them.
   'src/components/themed-text.tsx',
   // Slice 5: Add/Edit form, color matrix, camera intro.
   'src/components/camera-intro-modal.tsx',

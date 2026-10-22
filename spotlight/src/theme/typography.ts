@@ -94,6 +94,8 @@ export const typography = {
   itemName: variant(fonts.serif.regular, 28, serifLine(28)),
   /** Item names under closet tiles. */
   itemNameSmall: variant(fonts.serif.regular, 17, serifLine(17)),
+  /** Large text inputs on an underline (SaveItem.dc.html item name): 20px serif. */
+  inputSerif: variant(fonts.serif.regular, 20, serifLine(20)),
   /** Style tags and italic asides. */
   styleTag: variant(fonts.serif.italic, 14, 18),
   bodyLarge: variant(fonts.sans.regular, 15, 22),
@@ -102,6 +104,8 @@ export const typography = {
   caption: variant(fonts.sans.regular, 12, 16),
   /** Section labels: 11 pt uppercase, 0.18em. */
   label: variant(fonts.sans.bold, 11, 14, { em: 0.18 }, 'uppercase'),
+  /** The centered label of a step header (Angles.dc.html "New piece"): 11 pt semibold, 0.2em. */
+  headerLabel: variant(fonts.sans.semiBold, 11, 14, { em: 0.2 }, 'uppercase'),
   /** Tab bar labels: 0.14em. */
   tabLabel: variant(fonts.sans.semiBold, 11, 14, { em: 0.14 }, 'uppercase'),
   /** Filter chips and small uppercase actions: 0.12em. */
