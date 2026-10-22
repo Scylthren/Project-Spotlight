@@ -2,7 +2,23 @@
 
 > A clothing catalog app that scans your wardrobe and builds outfits from prompts like *"For summer"* or *"Emo vibes"*, built as a hands-on project in **agent-driven development**.
 
-<!-- photos and gifs here -->
+<p align="center">
+  <img src="docs/media/closet-dark.png" width="200" alt="Closet screen, dark mode">
+  <img src="docs/media/closet-light.png" width="200" alt="Closet screen, light mode">
+  <img src="docs/media/item-detail.png" width="200" alt="Clothing item detail">
+  <img src="docs/media/settings.png" width="200" alt="Me / settings screen">
+</p>
+
+<table>
+  <tr>
+    <td align="center"><b>Adding a piece to the closet</b></td>
+    <td align="center"><b>Component gallery (design system)</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/media/add-item.gif" width="260" alt="Adding a clothing item"></td>
+    <td align="center"><img src="docs/media/component-gallery.gif" width="260" alt="Component gallery walkthrough"></td>
+  </tr>
+</table>
 
 ---
 
