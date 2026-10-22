@@ -63,7 +63,9 @@ function ThemedNavigation() {
           <ClosetServicesProvider>
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false, title: 'Closet' }} />
-              <Stack.Screen name="item/[id]" options={{ title: 'Edit item' }} />
+              {/* The item screen draws its own back and Edit buttons over the photo. */}
+              <Stack.Screen name="item/[id]/index" options={{ headerShown: false, title: 'Item' }} />
+              <Stack.Screen name="item/[id]/edit" options={{ title: 'Edit item' }} />
             </Stack>
           </ClosetServicesProvider>
         </SQLiteProvider>

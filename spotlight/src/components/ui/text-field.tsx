@@ -1,9 +1,15 @@
-import { useState } from 'react';
-import { Text, TextInput, View, type TextInputProps } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
-import { textFieldAccessibility, textFieldLook, type TextFieldVariant } from './text-field-style';
+import {
+  shouldAnnounceError,
+  textFieldAccessibility,
+  textFieldErrorAnnouncement,
+  textFieldLook,
+  type TextFieldVariant,
+} from './text-field-style';
 
 type PassThrough = Pick<
   TextInputProps,
@@ -25,11 +31,19 @@ interface TextFieldProps extends PassThrough {
   value: string;
   onChangeText: (text: string) => void;
   variant?: TextFieldVariant;
-  /** Shown under the field in the danger color; also read by screen readers. */
+  /**
+   * Shown under the field in the danger color. Screen readers read it as part
+   * of the field's name and announce it when it appears or changes.
+   */
   error?: string;
   /** Shown under the field when there is no error. */
   hint?: string;
   disabled?: boolean;
+  /**
+   * Hide the visible label (the mockup's search box has none). The input is
+   * still named by `label`; use a placeholder that says what to type.
+   */
+  labelHidden?: boolean;
 }
 
 /** A text input with its label above: underline (serif) or boxed. */
@@ -41,6 +55,7 @@ export function TextField({
   error,
   hint,
   disabled = false,
+  labelHidden = false,
   onFocus,
   onBlur,
   ...rest
@@ -49,12 +64,15 @@ export function TextField({
   const [focused, setFocused] = useState(false);
   const look = textFieldLook(theme, variant, { focused, disabled, error: Boolean(error) });
   const message = error || hint;
+  useErrorAnnouncement(label, error);
 
   return (
     <View style={{ gap: theme.spacing.sm }}>
-      <Text style={look.label} accessible={false} importantForAccessibility="no">
-        {label}
-      </Text>
+      {labelHidden ? null : (
+        <Text style={look.label} accessible={false} importantForAccessibility="no">
+          {label}
+        </Text>
+      )}
       <TextInput
         {...rest}
         {...textFieldAccessibility(label, { disabled, error, hint })}
@@ -82,4 +100,15 @@ export function TextField({
       ) : null}
     </View>
   );
+}
+
+/** Announces the error when it appears or changes (iOS and Android). */
+function useErrorAnnouncement(label: string, error: string | undefined) {
+  const announced = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (shouldAnnounceError(announced.current, error)) {
+      AccessibilityInfo.announceForAccessibility(textFieldErrorAnnouncement(label, error));
+    }
+    announced.current = error || undefined;
+  }, [label, error]);
 }

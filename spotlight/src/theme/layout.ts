@@ -33,9 +33,15 @@ export const sizes = {
   screenPadding: 20,
   buttonHeight: 52,
   chipHeight: 36,
+  /** Chip side padding (Closet.dc.html filters, SaveItem.dc.html chips: 0 14px). */
+  chipPaddingHorizontal: 14,
   /** Minimum touch target; smaller elements get hit slop up to this. */
   minTouchTarget: 44,
   maxContentWidth: 800,
+  /** Photo area of a closet tile (Closet.dc.html). */
+  closetTileHeight: 200,
+  /** Photo area at the top of the item screen (ItemDetail.dc.html), below the status bar. */
+  itemPhotoHeight: 340,
   /** Space the native tab bar covers at the bottom of a scrolling screen. */
   bottomTabInset: Platform.select({ ios: 50, android: 80 }) ?? 0,
 } as const;
@@ -43,4 +49,6 @@ export const sizes = {
 /** Opacity of disabled controls (exempt from contrast minimums, WCAG 1.4.3). */
 export const opacity = {
   disabled: 0.4,
+  /** Pressed photo tiles (closet grid). */
+  pressed: 0.7,
 } as const;

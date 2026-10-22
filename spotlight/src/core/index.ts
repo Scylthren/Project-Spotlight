@@ -15,3 +15,6 @@ export * from './garment-colors';
 export * from './camera-access';
 export * from './keyboard';
 export * from './appearance';
+export * from './labels';
+export * from './closet-filter';
+export * from './item-detail';

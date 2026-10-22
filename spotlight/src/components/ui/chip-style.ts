@@ -7,13 +7,20 @@ import { hitSlopFor, type HitSlop } from './touch-target';
 
 /**
  * Chips (README "Chips", Closet.dc.html filters, SaveItem.dc.html tags):
- * 36 pt, square.
- * - plain: uppercase label, light outline; selected is ink-filled.
+ * 36 pt, square, 14 pt side padding.
+ * - plain: light outline; selected is ink-filled.
  * - styleTag: italic serif label, ink outline; selected is ink-filled.
  * - add: dashed ink outline, a "+" before the label. Never selected.
+ *
+ * Casing (plain and add only; style tags show the tag as typed):
+ * - uppercase: 12 pt tracked uppercase (Closet.dc.html filters);
+ * - sentence: 13 pt sentence case (SaveItem.dc.html seasons and "+ Add").
  */
 export const CHIP_VARIANTS = ['plain', 'styleTag', 'add'] as const;
 export type ChipVariant = (typeof CHIP_VARIANTS)[number];
+
+export const CHIP_CASINGS = ['uppercase', 'sentence'] as const;
+export type ChipCasing = (typeof CHIP_CASINGS)[number];
 
 export interface ChipLook {
   container: ViewStyle;
@@ -33,8 +40,23 @@ export interface ChipState extends ControlState {
   selected: boolean;
 }
 
-export function chipLook(theme: Theme, variant: ChipVariant, state: ChipState): ChipLook {
-  const { colors, borders, sizes, spacing, typography } = theme;
+/** The label's type: serif italic for style tags, else by casing (the add chip is semibold in sentence case). */
+function chipLabelType(theme: Theme, variant: ChipVariant, casing: ChipCasing): TextStyle {
+  const { fonts, typography } = theme;
+  if (variant === 'styleTag') return typography.styleTag;
+  if (casing === 'uppercase') return typography.chip;
+  return variant === 'add'
+    ? { ...typography.chipSentence, fontFamily: fonts.sans.semiBold }
+    : typography.chipSentence;
+}
+
+export function chipLook(
+  theme: Theme,
+  variant: ChipVariant,
+  state: ChipState,
+  casing: ChipCasing = 'uppercase',
+): ChipLook {
+  const { colors, borders, sizes } = theme;
   const selected = state.selected && variant !== 'add';
   const active = state.pressed && !state.disabled;
   const fill = selected
@@ -49,7 +71,7 @@ export function chipLook(theme: Theme, variant: ChipVariant, state: ChipState): 
   return {
     container: {
       minHeight: sizes.chipHeight,
-      paddingHorizontal: spacing.md,
+      paddingHorizontal: sizes.chipPaddingHorizontal,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -61,7 +83,7 @@ export function chipLook(theme: Theme, variant: ChipVariant, state: ChipState): 
       opacity: state.disabled ? theme.opacity.disabled : 1,
     },
     label: {
-      ...(variant === 'styleTag' ? typography.styleTag : typography.chip),
+      ...chipLabelType(theme, variant, casing),
       color: selected ? colors.background : colors.text,
     },
     fill,

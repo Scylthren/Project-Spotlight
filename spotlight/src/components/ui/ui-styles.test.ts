@@ -1,13 +1,13 @@
 import { contrastRatio, darkColors, lightColors, themes, type Theme } from '@/theme';
 
 import { BUTTON_VARIANTS, buttonAccessibility, buttonLook } from './button-style';
-import { CHIP_VARIANTS, chipAccessibility, chipLook, chipText } from './chip-style';
+import { CHIP_CASINGS, CHIP_VARIANTS, chipAccessibility, chipLook, chipText } from './chip-style';
 import { CONTROL_STATES } from './control-state';
 import { SCREEN_HEADER_VARIANTS, screenHeaderAccessibility, screenHeaderLook, stepAccessibilityLabel, stepText } from './screen-header-style';
 import { SECTION_LABEL_ACCESSIBILITY, sectionLabelLook } from './section-label-style';
 import { segmentAccessibility, segmentedGroupAccessibility, segmentedGroupLook, segmentLook } from './segmented-control-style';
 import { swatchAccessibility, swatchLook } from './swatch-style';
-import { TEXT_FIELD_VARIANTS, textFieldAccessibility, textFieldLook } from './text-field-style';
+import { shouldAnnounceError, TEXT_FIELD_VARIANTS, textFieldAccessibility, textFieldErrorAnnouncement, textFieldLook } from './text-field-style';
 import { touchArea } from './touch-target';
 
 const THEMES: [string, Theme][] = [
@@ -74,14 +74,16 @@ describe.each(THEMES)('%s theme', (_name, theme) => {
 
   describe('Chip', () => {
     it.each(CHIP_VARIANTS)('%s resolves in every state with readable text and a 44 pt target', (variant) => {
-      for (const selected of [false, true]) {
-        for (const state of CONTROL_STATES) {
-          const look = chipLook(theme, variant, { ...state, selected });
-          expectTokenColors(theme, look.container);
-          expectTokenColors(theme, look.label);
-          expect(contrastRatio(String(look.label.color), look.fill)).toBeGreaterThanOrEqual(TEXT);
-          expect(reach(look.container.minHeight, look.hitSlop)).toBeGreaterThanOrEqual(MIN);
-          if (look.boundary) expect(contrastRatio(look.boundary, colors.background)).toBeGreaterThanOrEqual(BOUNDARY);
+      for (const casing of CHIP_CASINGS) {
+        for (const selected of [false, true]) {
+          for (const state of CONTROL_STATES) {
+            const look = chipLook(theme, variant, { ...state, selected }, casing);
+            expectTokenColors(theme, look.container);
+            expectTokenColors(theme, look.label);
+            expect(contrastRatio(String(look.label.color), look.fill)).toBeGreaterThanOrEqual(TEXT);
+            expect(reach(look.container.minHeight, look.hitSlop)).toBeGreaterThanOrEqual(MIN);
+            if (look.boundary) expect(contrastRatio(look.boundary, colors.background)).toBeGreaterThanOrEqual(BOUNDARY);
+          }
         }
       }
     });
@@ -95,6 +97,33 @@ describe.each(THEMES)('%s theme', (_name, theme) => {
       expect(add.container.borderStyle).toBe('dashed');
       expect(add.fill).toBe(colors.background);
       expect(add.boundary).toBe(colors.text);
+    });
+
+    // Spec change (human decision 2026-10-22, slice 4): chips follow the mockups.
+    it('pads every chip 14 pt from the chipPaddingHorizontal token', () => {
+      expect(theme.sizes.chipPaddingHorizontal).toBe(14);
+      for (const variant of CHIP_VARIANTS) {
+        for (const casing of CHIP_CASINGS) {
+          const look = chipLook(theme, variant, { pressed: false, disabled: false, selected: false }, casing);
+          expect(look.container.paddingHorizontal).toBe(theme.sizes.chipPaddingHorizontal);
+        }
+      }
+    });
+
+    it('casing: uppercase 12 pt tracked by default (Closet filters); sentence 13 pt (SaveItem); style tags keep the serif', () => {
+      const idle = { pressed: false, disabled: false, selected: false };
+      const upper = chipLook(theme, 'plain', idle).label;
+      expect(upper).toMatchObject({ fontSize: 12, textTransform: 'uppercase', fontFamily: theme.fonts.sans.semiBold });
+      expect(upper.letterSpacing).toBeGreaterThan(0);
+      const sentence = chipLook(theme, 'plain', idle, 'sentence').label;
+      expect(sentence).toMatchObject({ fontSize: 13, letterSpacing: 0, fontFamily: theme.fonts.sans.regular });
+      expect(sentence.textTransform).toBeUndefined();
+      const addSentence = chipLook(theme, 'add', idle, 'sentence').label;
+      expect(addSentence).toMatchObject({ fontSize: 13, fontFamily: theme.fonts.sans.semiBold });
+      expect(addSentence.textTransform).toBeUndefined();
+      for (const casing of CHIP_CASINGS) {
+        expect(chipLook(theme, 'styleTag', idle, casing).label.fontFamily).toBe(theme.fonts.serif.italic);
+      }
     });
   });
 
@@ -224,13 +253,25 @@ describe('accessibility props', () => {
     });
   });
 
-  it('text fields carry the label and read the error before the hint', () => {
+  // Spec change (human decision 2026-10-22, slice 4): the error is read as part of the field, not only as a hint.
+  it('text fields carry the label, and the error in the label (the hint only without an error)', () => {
     expect(textFieldAccessibility('Name', { disabled: false, hint: 'Short' })).toEqual({
       accessibilityLabel: 'Name',
       accessibilityHint: 'Short',
       accessibilityState: { disabled: false },
     });
-    expect(textFieldAccessibility('Name', { disabled: true, error: 'Required', hint: 'Short' }).accessibilityHint).toBe('Error: Required');
+    const withError = textFieldAccessibility('Name', { disabled: true, error: 'Required', hint: 'Short' });
+    expect(withError.accessibilityLabel).toBe('Name, error: Required');
+    expect(withError.accessibilityHint).toBeUndefined();
+    expect(textFieldErrorAnnouncement('Name', 'Required')).toBe('Name, error: Required');
+  });
+
+  it('announces an error only when it appears or changes', () => {
+    expect(shouldAnnounceError(undefined, 'Required')).toBe(true);
+    expect(shouldAnnounceError('Required', 'Too long')).toBe(true);
+    expect(shouldAnnounceError('Required', 'Required')).toBe(false);
+    expect(shouldAnnounceError('Required', undefined)).toBe(false);
+    expect(shouldAnnounceError(undefined, '')).toBe(false);
   });
 
   it('swatches are named by the color; pressable ones report selected', () => {

@@ -15,7 +15,8 @@ import { useClosetItem } from '@/hooks/use-closet-item';
 import { useEditItemForm } from '@/hooks/use-edit-item-form';
 import { useIsMounted } from '@/hooks/use-is-mounted';
 
-export default function ItemScreen() {
+/** The edit form for one item (opened from the item screen's Edit). Restyled in slice 5. */
+export default function EditItemScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const state = useClosetItem(id ?? '');
@@ -43,6 +44,14 @@ function leaveScreen() {
   else router.replace('/');
 }
 
+/**
+ * After a delete: back to the closet, past the item screen (which would only
+ * say the item is gone). Replaces this screen if the closet is not below it.
+ */
+function leaveToCloset() {
+  router.dismissTo('/');
+}
+
 function EditItem({ item }: { item: ClothingItem }) {
   const form = useEditItemForm(item);
   // The user may go back while a save or delete runs; it finishes, but must not navigate again.
@@ -55,7 +64,7 @@ function EditItem({ item }: { item: ClothingItem }) {
   }
 
   async function onDelete() {
-    if ((await form.remove(() => confirmDelete(`this ${item.category}`))) && isMounted()) leaveScreen();
+    if ((await form.remove(() => confirmDelete(`this ${item.category}`))) && isMounted()) leaveToCloset();
   }
 
   return (

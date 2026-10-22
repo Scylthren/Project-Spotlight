@@ -106,11 +106,16 @@ function GalleryBody({
             <Chip variant="add" label="Pressed" onPress={noop} forcePressed />
             <Chip variant="add" label="Disabled" onPress={noop} disabled />
           </Row>
+          <Row>
+            <Chip casing="sentence" label="Spring" onPress={noop} />
+            <Chip casing="sentence" label="Autumn" selected onPress={noop} />
+            <Chip casing="sentence" variant="add" label="Add" onPress={noop} />
+          </Row>
         </Section>
 
         <Section title="Text fields">
           <TextField variant="underline" label="Name" placeholder="Black wool coat" value={text} onChangeText={setText} />
-          <TextField label="Search" placeholder="Search by color, piece or vibe" value={text} onChangeText={setText} />
+          <TextField label="Search your closet" labelHidden placeholder="Search by color, piece or vibe" value={text} onChangeText={setText} />
           <TextField label="With hint" hint="Up to 40 characters." value="" onChangeText={noop} />
           <TextField label="With error" error="Enter a name." value="" onChangeText={noop} />
           <TextField variant="underline" label="Underline error" error="Enter a name." value="" onChangeText={noop} />

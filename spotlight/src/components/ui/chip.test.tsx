@@ -44,4 +44,19 @@ describe('Chip (rendered)', () => {
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.getByLabelText('minimal').props.accessibilityRole).toBe('text');
   });
+
+  // Spec change (human decision 2026-10-22, slice 4): label casing per mockup.
+  it('draws uppercase labels by default and sentence-case 13 pt labels when asked', async () => {
+    await render(
+      <>
+        <Chip label="Tops" onPress={() => {}} />
+        <Chip label="Autumn" casing="sentence" onPress={() => {}} />
+      </>,
+    );
+    expect(screen.getByText('Tops')).toHaveStyle({ textTransform: 'uppercase', fontSize: 12 });
+    const sentence = screen.getByText('Autumn');
+    expect(sentence).toHaveStyle({ fontSize: 13 });
+    expect(sentence).not.toHaveStyle({ textTransform: 'uppercase' });
+    expect(screen.getByRole('button', { name: 'Autumn' })).toHaveStyle({ paddingHorizontal: 14 });
+  });
 });

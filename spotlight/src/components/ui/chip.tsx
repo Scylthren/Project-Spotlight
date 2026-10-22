@@ -2,12 +2,14 @@ import { Pressable, Text, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
-import { chipAccessibility, chipLook, chipText, type ChipVariant } from './chip-style';
+import { chipAccessibility, chipLook, chipText, type ChipCasing, type ChipVariant } from './chip-style';
 
 interface ChipProps {
   label: string;
   variant?: ChipVariant;
   selected?: boolean;
+  /** Label casing for plain and add chips (default uppercase); style tags ignore it. */
+  casing?: ChipCasing;
   /** Without it the chip is a static tag (plain text to screen readers). */
   onPress?: () => void;
   onLongPress?: () => void;
@@ -22,6 +24,7 @@ export function Chip({
   label,
   variant = 'plain',
   selected = false,
+  casing = 'uppercase',
   onPress,
   onLongPress,
   disabled = false,
@@ -31,7 +34,7 @@ export function Chip({
   const theme = useTheme();
   const interactive = onPress !== undefined;
   const a11y = chipAccessibility(variant, label, { selected, disabled, interactive });
-  const idle = chipLook(theme, variant, { selected, disabled, pressed: forcePressed });
+  const idle = chipLook(theme, variant, { selected, disabled, pressed: forcePressed }, casing);
   const text = <Text style={idle.label}>{chipText(variant, label)}</Text>;
 
   if (!interactive) {
@@ -50,7 +53,7 @@ export function Chip({
       disabled={disabled}
       hitSlop={idle.hitSlop}
       style={({ pressed }) =>
-        chipLook(theme, variant, { selected, disabled, pressed: pressed || forcePressed }).container
+        chipLook(theme, variant, { selected, disabled, pressed: pressed || forcePressed }, casing).container
       }>
       {text}
     </Pressable>

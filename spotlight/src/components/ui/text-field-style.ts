@@ -80,16 +80,31 @@ export function textFieldLook(
 
 /**
  * The input carries the field's name; the visible label is hidden from
- * screen readers so it isn't read twice. An error (or else the hint) is read
- * after the name.
+ * screen readers so it isn't read twice. An error is part of the name
+ * ("Name, error: Enter a name."), so it is read whenever the field is, not
+ * only as a hint (which users can turn off). The hint is read only when
+ * there is no error, matching what is shown under the field.
  */
 export function textFieldAccessibility(
   label: string,
   { disabled, error, hint }: { disabled: boolean; error?: string; hint?: string },
 ) {
   return {
-    accessibilityLabel: label,
-    accessibilityHint: error ? `Error: ${error}` : hint,
+    accessibilityLabel: error ? textFieldErrorAnnouncement(label, error) : label,
+    accessibilityHint: error ? undefined : hint,
     accessibilityState: { disabled },
   };
+}
+
+/** What is announced when an error appears, and the field's name while it shows. */
+export function textFieldErrorAnnouncement(label: string, error: string): string {
+  return `${label}, error: ${error}`;
+}
+
+/**
+ * Announce only when an error appears or changes, not on every render and
+ * not when it clears.
+ */
+export function shouldAnnounceError(previous: string | undefined, next: string | undefined): next is string {
+  return Boolean(next) && next !== previous;
 }

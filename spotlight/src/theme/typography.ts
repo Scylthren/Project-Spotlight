@@ -110,6 +110,8 @@ export const typography = {
   tabLabel: variant(fonts.sans.semiBold, 11, 14, { em: 0.14 }, 'uppercase'),
   /** Filter chips and small uppercase actions: 0.12em. */
   chip: variant(fonts.sans.semiBold, 12, 16, { em: 0.12 }, 'uppercase'),
+  /** Sentence-case chips (SaveItem.dc.html seasons, "+ Add"): 13 pt, no tracking. */
+  chipSentence: variant(fonts.sans.regular, 13, 16),
   /** Button text: 0.16em. */
   button: variant(fonts.sans.semiBold, 13, 16, { em: 0.16 }, 'uppercase'),
   /** Segmented control options (Profile.dc.html Appearance): 13 pt semibold, sentence case. */
