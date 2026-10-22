@@ -108,11 +108,21 @@ Avoid platform-specific APIs without a fallback. List any platform-specific code
 
 ## Running locally
 
+**You need:** access to this repo (it's private, so ask me to add you as a collaborator), git, [Node.js](https://nodejs.org) 22.13 or newer, and [Expo Go](https://expo.dev/go) on your phone. The app uses Expo SDK 57; the store version of Expo Go only runs the latest SDK, so if Expo Go says the project is incompatible, let me know.
+
 ```bash
-git clone https://github.com/<your-username>/project-spotlight.git
-cd project-spotlight
-npm install
+git clone https://github.com/Scylthren/Project-Spotlight.git
+cd Project-Spotlight/spotlight   # the Expo app lives in spotlight/; run everything from here
+npm ci                           # installs the exact versions in package-lock.json
+cp .env.example .env
 npx expo start
 ```
 
-You'll need a `.env` with your backend keys. See `.env.example`.
+1. In `.env`, set `EXPO_PUBLIC_SUPABASE_URL=https://lithblsvhrxfdkjhnhdy.supabase.co`. This is the only setting, and it's public. Never put a key or token in `.env`. The app runs without it; only the dev Backend section on the Me tab uses it.
+2. Scan the QR code with the Camera app (iPhone) or from inside Expo Go (Android). Your phone and computer must be on the same Wi-Fi. If the phone can't connect (guest network, VPN, firewall), run `npx expo start --tunnel` instead.
+3. Optional checks: `npm test`, `npm run typecheck`, `npm run lint`.
+
+Good to know:
+- Your closet is stored only on your phone.
+- The app runs only while `npx expo start` is running on your computer.
+- The Backend section on the Me tab needs a private dev token from me. Nothing in the app needs it yet. If I give you one, don't commit it or share it.
