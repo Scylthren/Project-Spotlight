@@ -25,28 +25,13 @@ const TOKEN_GUARD_EXEMPT = [
 ];
 
 /**
- * Not-yet-restyled files that still use raw colors or numeric font sizes.
- * Each Gate 1.5 slice removes the files it restyles; slice 5 leaves this
- * empty. The guard test fails if a listed file no longer violates, so the
- * list cannot go stale.
+ * Files exempt from the guard while they still use raw colors or numeric
+ * font sizes. Empty since Gate 1.5 slice 5: every screen and component uses
+ * theme tokens. Keep it empty; the guard test caps it at 0 and fails if a
+ * listed file no longer violates, so the list cannot go stale.
  */
-const TOKEN_GUARD_ALLOWLIST = [
-  // Template splash overlay (blue background). No slice restyles it yet; it
-  // must move to a token by slice 5 (the Loading polish item comes later).
-  'src/components/animated-icon.tsx',
-  // Template text styles; removed once slices 4 and 5 restyle the screens
-  // that still use them.
-  'src/components/themed-text.tsx',
-  // Slice 5: Add/Edit form, color matrix, camera intro.
-  'src/components/camera-intro-modal.tsx',
-  'src/components/chip-group.tsx',
-  'src/components/color-field.tsx',
-  'src/components/color-matrix.tsx',
-  'src/components/form-button.tsx',
-  'src/components/item-form-fields.tsx',
-  'src/components/photo-set-field.tsx',
-  'src/components/tag-field.tsx',
-];
+/** @type {string[]} */
+const TOKEN_GUARD_ALLOWLIST = [];
 
 /*
  * Known gaps (not caught):

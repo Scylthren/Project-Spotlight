@@ -20,6 +20,8 @@ export interface ItemDetailLook {
   angleRow: ViewStyle;
   body: ViewStyle;
   title: TextStyle;
+  /** The category under a named item's title (ItemDetail.dc.html detail line). */
+  subtitle: TextStyle;
   row: ViewStyle;
   seasons: ViewStyle;
   seasonsText: TextStyle;
@@ -61,6 +63,7 @@ export function itemDetailLook(theme: Theme, topInset: number): ItemDetailLook {
     },
     body: { paddingHorizontal: spacing.xxl, paddingTop: spacing.xl, gap: spacing.lg },
     title: { ...typography.headline, color: colors.text },
+    subtitle: { ...typography.bodySmall, color: colors.textSecondary, marginTop: -spacing.md },
     row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.sm },
     seasons: {
       minHeight: sizes.chipHeight,

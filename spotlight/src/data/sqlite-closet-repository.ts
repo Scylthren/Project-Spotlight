@@ -11,6 +11,8 @@ import type { SqlDatabase } from './sql-database';
 
 interface ClothingItemRow {
   id: string;
+  /** NULL (or missing in rows built by older tests) means no name. */
+  name?: string | null;
   category: string;
   seasons: string;
   created_at: string;
@@ -39,7 +41,7 @@ interface ItemPhotoRow {
   is_primary: number;
 }
 
-const COLUMNS = 'id, category, seasons, created_at, updated_at';
+const COLUMNS = 'id, name, category, seasons, created_at, updated_at';
 const PHOTO_COLUMNS = 'id, item_id, role, storage_path, sort_order, is_primary';
 const COLOR_COLUMNS = 'item_id, rank, palette_id, hex, source';
 
@@ -99,6 +101,8 @@ export function rowToItem(
 ): ClothingItem | null {
   const candidate = {
     id: row.id,
+    // An empty or untrimmed stored name is kept, so validation reports the row as unreadable.
+    ...(row.name === null || row.name === undefined ? {} : { name: row.name }),
     photos,
     category: row.category,
     colors,
@@ -281,8 +285,8 @@ export class SqliteClosetRepository implements ClosetRepository {
     await this.transaction(async () => {
       // INSERT OR IGNORE + changes avoids parsing driver-specific constraint errors.
       const result = await this.db.runAsync(
-        `INSERT OR IGNORE INTO clothing_items (${COLUMNS}) VALUES (?, ?, ?, ?, ?)`,
-        [item.id, item.category, JSON.stringify(item.seasons), item.createdAt, item.updatedAt],
+        `INSERT OR IGNORE INTO clothing_items (${COLUMNS}) VALUES (?, ?, ?, ?, ?, ?)`,
+        [item.id, item.name ?? null, item.category, JSON.stringify(item.seasons), item.createdAt, item.updatedAt],
       );
       if (result.changes === 0) {
         throw new ClosetRepositoryError('duplicate', `item ${item.id} already exists`);
@@ -300,9 +304,9 @@ export class SqliteClosetRepository implements ClosetRepository {
       // created_at is deliberately not in the SET list: it never changes.
       const result = await this.db.runAsync(
         `UPDATE clothing_items
-           SET category = ?, seasons = ?, updated_at = ?
+           SET name = ?, category = ?, seasons = ?, updated_at = ?
          WHERE id = ?`,
-        [item.category, JSON.stringify(item.seasons), item.updatedAt, item.id],
+        [item.name ?? null, item.category, JSON.stringify(item.seasons), item.updatedAt, item.id],
       );
       if (result.changes === 0) {
         throw new ClosetRepositoryError('not_found', `item ${item.id} does not exist`);

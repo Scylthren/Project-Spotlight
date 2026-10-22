@@ -1,11 +1,9 @@
 import { Component, type ReactNode } from 'react';
-import { StyleSheet } from 'react-native';
+import { Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
 import { DatabaseOpenError, describeDatabaseError } from '@/data/closet-schema';
+import { useTheme } from '@/hooks/use-theme';
 
 interface Props {
   children: ReactNode;
@@ -37,20 +35,20 @@ export class DatabaseErrorBoundary extends Component<Props, State> {
     // Not ours: rethrowing from render hands it to the next boundary up.
     if (!(error instanceof DatabaseOpenError)) throw error;
     const { title, detail } = describeDatabaseError(error);
-    return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.content}>
-          <ThemedText type="subtitle" accessibilityRole="header">
-            {title}
-          </ThemedText>
-          <ThemedText themeColor="textSecondary">{detail}</ThemedText>
-        </SafeAreaView>
-      </ThemedView>
-    );
+    return <DatabaseErrorScreen title={title} detail={detail} />;
   }
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { flex: 1, justifyContent: 'center', padding: spacing.xxl, gap: spacing.lg },
-});
+/** The error screen in the theme: serif title, secondary body text. */
+function DatabaseErrorScreen({ title, detail }: { title: string; detail: string }) {
+  const { colors, fonts, spacing, typography } = useTheme();
+  return (
+    <SafeAreaView
+      style={{ flex: 1, justifyContent: 'center', padding: spacing.xxl, gap: spacing.lg, backgroundColor: colors.background }}>
+      <Text accessibilityRole="header" style={{ ...typography.headline, fontFamily: fonts.serif.semiBold, color: colors.text }}>
+        {title}
+      </Text>
+      <Text style={{ ...typography.bodyLarge, color: colors.textBodySecondary }}>{detail}</Text>
+    </SafeAreaView>
+  );
+}

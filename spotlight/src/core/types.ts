@@ -66,6 +66,13 @@ export interface ClothingItem {
   /** Stable unique ID. Outfits reference items by this ID. */
   id: string;
   /**
+   * What the user calls the item ("Black band hoodie"). Optional: absent
+   * when the user gave none (never an empty string). Trimmed, at most
+   * ITEM_NAME_MAX_LENGTH characters (item-name.ts). Screens fall back to the
+   * category (`itemDisplayName`).
+   */
+  name?: string;
+  /**
    * The item's photos in display order (see photo-set.ts for the rules:
    * exactly one front, at most one back, at most two details, at most four
    * in total, exactly one primary).

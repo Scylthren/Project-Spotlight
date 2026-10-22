@@ -3,7 +3,7 @@
  * screen keeps the query and the selected category, and shows what
  * `filterCloset` returns.
  *
- * Search is case-insensitive and matches an item's category (its id and its
+ * Search is case-insensitive and matches an item's name, its category (its id and its
  * singular and plural labels), its color names ("Light grey") and its style
  * tags. Each word of the query must match one of those, so "navy top" finds
  * navy tops. A word matches when it is part of a field ("blue" finds "Sky
@@ -38,6 +38,7 @@ export function searchTerms(query: string): string[] {
 /** Everything an item can be found by, lowercased. */
 export function searchableText(item: ClothingItem): string[] {
   return [
+    ...(item.name === undefined ? [] : [item.name]),
     item.category,
     CATEGORY_LABELS[item.category],
     CATEGORY_PLURAL_LABELS[item.category],

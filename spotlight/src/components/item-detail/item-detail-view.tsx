@@ -84,6 +84,7 @@ export function ItemDetailView({ item, resolveImageUri, onBack, onEdit, topInset
         <Text accessibilityRole="header" style={look.title}>
           {detail.title}
         </Text>
+        {detail.subtitle ? <Text style={look.subtitle}>{detail.subtitle}</Text> : null}
         <View style={look.row} accessible accessibilityLabel={detail.colorsAccessibilityLabel}>
           {detail.colors.map((c) => (
             <Swatch key={c.paletteId} hex={c.hex} name={c.name} />

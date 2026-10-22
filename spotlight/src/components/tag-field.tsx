@@ -1,11 +1,10 @@
 import { useRef } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Text, View, type TextInput } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
 import { confirmDelete } from '@/components/confirm-delete';
-import { FormButton } from '@/components/form-button';
-import { ThemedText } from '@/components/themed-text';
-import { spacing } from '@/theme';
+import { itemFormLook } from '@/components/item-form-style';
+import { Chip, SectionLabel, TextField } from '@/components/ui';
 import { describeTagDeletion, filterTags, TAG_MAX_LENGTH, tagReturnKeyAction, type TagSummary } from '@/core';
 import type { ItemFormFields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
@@ -20,9 +19,10 @@ interface TagFieldProps {
 const asIs = (tag: string) => tag;
 
 /**
- * The item's tags (tap to remove), a box to type a new one (Add or the return
- * key), and the saved tag list filtered by what is typed: tap to toggle a tag
- * on this item, long-press to delete it from the list after confirming.
+ * The item's style tags (SaveItem.dc.html "Style": italic serif chips, tap to
+ * remove), a box to type a new one ("+ Add" or the return key), and the saved
+ * tag list filtered by what is typed: tap to toggle a tag on this item,
+ * long-press to delete it from the list after confirming.
  *
  * Keyboard: "Done" with text adds the tag and keeps the keyboard up for the
  * next one; "Done" on an empty box closes it (`tagReturnKeyAction`). Taps on
@@ -30,6 +30,7 @@ const asIs = (tag: string) => tag;
  */
 export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagFieldProps) {
   const theme = useTheme();
+  const form = itemFormLook(theme);
   const itemTags = fields.values.tags;
   const matches = filterTags(savedTags.tags, fields.tagText);
   const byName = new Map(savedTags.tags.map((t) => [t.name, t]));
@@ -47,63 +48,61 @@ export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagF
   }
 
   return (
-    <>
-      <ThemedText type="smallBold">Tags</ThemedText>
+    <View style={form.section}>
+      <SectionLabel>Style tags</SectionLabel>
       {itemTags.length > 0 ? (
         <ChipGroup
           accessibilityLabel="Tags on this item"
+          variant="styleTag"
           options={itemTags}
           isSelected={() => true}
           onPress={fields.removeTag}
           formatLabel={(tag) => `${tag}  ×`}
+          formatAccessibilityLabel={asIs}
           chipAccessibilityHint="Removes the tag from this item"
           disabled={disabled}
         />
       ) : (
-        <ThemedText type="small" themeColor="textSecondary">
-          No tags yet. Add your own, like 90s or work.
-        </ThemedText>
+        <Text style={form.caption}>No tags yet. Add your own, like 90s or work.</Text>
       )}
-      <View style={styles.inputRow}>
-        <TextInput
-          ref={input}
-          value={fields.tagText}
-          onChangeText={fields.setTagText}
-          onSubmitEditing={onReturnKey}
-          // Keep focus on return; `onReturnKey` blurs when the box is empty.
-          submitBehavior="submit"
-          returnKeyType="done"
-          placeholder="New tag"
-          placeholderTextColor={theme.colors.textSecondary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={TAG_MAX_LENGTH * 2}
-          editable={!disabled}
-          accessibilityLabel="New tag"
-          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.surface }]}
-        />
-        <View style={styles.addButton}>
-          <FormButton label="Add" variant="secondary" onPress={fields.addTypedTag} disabled={disabled} />
+      <View style={{ flexDirection: 'row', gap: theme.spacing.sm, alignItems: 'center' }}>
+        <View style={{ flex: 1 }}>
+          <TextField
+            ref={input}
+            label="New tag"
+            labelHidden
+            value={fields.tagText}
+            onChangeText={fields.setTagText}
+            onSubmitEditing={onReturnKey}
+            // Keep focus on return; `onReturnKey` blurs when the box is empty.
+            submitBehavior="submit"
+            returnKeyType="done"
+            placeholder="New tag"
+            autoCapitalize="none"
+            autoCorrect={false}
+            maxLength={TAG_MAX_LENGTH * 2}
+            disabled={disabled}
+          />
         </View>
+        <Chip variant="add" casing="sentence" label="Add" onPress={fields.addTypedTag} disabled={disabled} />
       </View>
       {fields.tagProblem && (
-        <ThemedText type="small" style={styles.errorText} accessibilityLiveRegion="polite">
+        <Text style={form.error} accessibilityLiveRegion="polite">
           {fields.tagProblem}
-        </ThemedText>
+        </Text>
       )}
       {savedTags.error && (
-        <ThemedText type="small" style={styles.errorText} accessibilityLiveRegion="polite">
+        <Text style={form.error} accessibilityLiveRegion="polite">
           {savedTags.error}
-        </ThemedText>
+        </Text>
       )}
       {savedTags.tags.length > 0 && (
         <>
-          <ThemedText type="small" themeColor="textSecondary">
-            Your tags: tap to add or remove. Long-press to delete one from your list.
-          </ThemedText>
+          <Text style={form.caption}>Your tags: tap to add or remove. Long-press to delete one from your list.</Text>
           {matches.length > 0 ? (
             <ChipGroup
               accessibilityLabel="Your saved tags"
+              variant="styleTag"
               options={matches.map((t) => t.name)}
               isSelected={(name) => itemTags.includes(name)}
               onPress={fields.toggleTag}
@@ -113,19 +112,10 @@ export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagF
               disabled={disabled}
             />
           ) : (
-            <ThemedText type="small" themeColor="textSecondary">
-              No saved tag matches. Tap Add to create it.
-            </ThemedText>
+            <Text style={form.caption}>No saved tag matches. Tap Add to create it.</Text>
           )}
         </>
       )}
-    </>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  inputRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  input: { flex: 1, borderRadius: spacing.sm, padding: spacing.lg, fontSize: 16 },
-  addButton: { width: 88 },
-  errorText: { color: '#d93025' },
-});

@@ -92,9 +92,12 @@ export function chipLook(
   };
 }
 
-/** The text a chip shows: the add chip puts a "+" before its label. */
-export function chipText(variant: ChipVariant, label: string): string {
-  return variant === 'add' ? `+ ${label}` : label;
+/**
+ * The text a chip shows: the add chip puts a "+" before its label, unless
+ * `plus` is false (a dashed action that adds nothing, like "Edit colors").
+ */
+export function chipText(variant: ChipVariant, label: string, plus = true): string {
+  return variant === 'add' && plus ? `+ ${label}` : label;
 }
 
 /**

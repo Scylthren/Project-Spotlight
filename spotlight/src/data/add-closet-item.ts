@@ -1,5 +1,6 @@
 import {
   createClothingItem,
+  ITEM_NAME_MAX_LENGTH,
   TAG_MESSAGES,
   type Category,
   type ClothingItem,
@@ -37,6 +38,7 @@ export const CLOSET_ITEM_MESSAGES = {
   noPhoto: 'Take or choose a photo first.',
   badPhotos: 'These photos cannot be saved together. Remove one and try again.',
   staleItem: 'This item changed since you opened it. Go back and open it again.',
+  badName: `Names can be up to ${ITEM_NAME_MAX_LENGTH} characters.`,
   noCategory: 'Choose a category.',
   noColors: 'Choose at least one color.',
   badColors: 'These colors cannot be saved. Choose them again.',
@@ -54,6 +56,7 @@ export const ADD_ITEM_MESSAGES = CLOSET_ITEM_MESSAGES;
 export function toUserMessage(error: string): string {
   if (error === 'photos must include exactly one front photo') return CLOSET_ITEM_MESSAGES.noPhoto;
   if (error.startsWith('photos')) return CLOSET_ITEM_MESSAGES.badPhotos;
+  if (error.startsWith('name ')) return CLOSET_ITEM_MESSAGES.badName;
   if (error.startsWith('category ')) return CLOSET_ITEM_MESSAGES.noCategory;
   if (error === 'colors must be a non-empty array') return CLOSET_ITEM_MESSAGES.noColors;
   if (error.startsWith('colors')) return CLOSET_ITEM_MESSAGES.badColors;
@@ -83,6 +86,7 @@ export function buildItemDraft(
   const draft = createClothingItem(
     {
       id,
+      name: values.name,
       photos: photos.map((p) => ({
         id: p.id,
         role: p.role,

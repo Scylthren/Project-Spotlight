@@ -1,16 +1,14 @@
 import { useEffect } from 'react';
-import { AccessibilityInfo, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ColorSwatch } from '@/components/color-swatch';
+import { colorMatrixLook } from '@/components/color-matrix-style';
 import { FormButton } from '@/components/form-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
+import { SectionLabel } from '@/components/ui';
+import { chipLook } from '@/components/ui/chip-style';
 import { COLOR_MATRIX_HELP, describeMatrix, paletteColor, type ItemColor, type SwatchDescription } from '@/core';
 import { useTheme } from '@/hooks/use-theme';
-
-const ACCENT = '#3c87f7';
 
 interface ColorMatrixProps {
   visible: boolean;
@@ -27,10 +25,11 @@ interface ColorMatrixProps {
 }
 
 /**
- * Sheet with every palette color. Tap a swatch to select or deselect it; the
- * first selected is the primary. Selected colors are listed at the top in
- * order, where a secondary can be made primary or removed. State and rules
- * come from the caller (core/color-selection.ts); this only renders.
+ * Sheet with every palette color (ColorMatrix.dc.html look). Tap a swatch to
+ * select or deselect it; the first selected is the primary. Selected colors
+ * are listed at the top in order, where a secondary can be made primary or
+ * removed. State and rules come from the caller (core/color-selection.ts);
+ * this only renders.
  */
 export function ColorMatrix({
   visible,
@@ -42,6 +41,8 @@ export function ColorMatrix({
   problem,
   disabled = false,
 }: ColorMatrixProps) {
+  const theme = useTheme();
+  const look = colorMatrixLook(theme);
   // Android reads the message through accessibilityLiveRegion below; iOS has
   // no live regions, so VoiceOver is told explicitly (platform-specific).
   useEffect(() => {
@@ -50,45 +51,39 @@ export function ColorMatrix({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onDone}>
-      <ThemedView style={styles.fill}>
-        <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
-          <View style={styles.header}>
-            <ThemedText type="subtitle" accessibilityRole="header" style={styles.title}>
-              Colors
-            </ThemedText>
-            <View style={styles.done}>
-              <FormButton label="Done" onPress={onDone} />
-            </View>
+      <SafeAreaView style={look.fill} edges={['top', 'bottom']}>
+        <ScrollView contentContainerStyle={look.content}>
+          <Text accessibilityRole="header" style={look.title}>
+            Pick colors
+          </Text>
+          {notice ? (
+            <Text style={look.notice} accessibilityLiveRegion="polite">
+              {notice}
+            </Text>
+          ) : null}
+          <Text style={look.help}>{COLOR_MATRIX_HELP}</Text>
+          {problem ? (
+            <Text style={look.error} accessibilityLiveRegion="polite">
+              {problem}
+            </Text>
+          ) : null}
+          <SelectedColors colors={colors} onToggle={onToggle} onMakePrimary={onMakePrimary} disabled={disabled} />
+          <View style={look.grid}>
+            {describeMatrix(colors).map((swatch) => (
+              <Swatch
+                key={swatch.color.id}
+                swatch={swatch}
+                onToggle={onToggle}
+                onMakePrimary={onMakePrimary}
+                disabled={disabled}
+              />
+            ))}
           </View>
-          <ScrollView contentContainerStyle={styles.content}>
-            {notice ? (
-              <ThemedView type="hairline" style={styles.notice} accessibilityLiveRegion="polite">
-                <ThemedText type="smallBold">{notice}</ThemedText>
-              </ThemedView>
-            ) : null}
-            <ThemedText type="small" themeColor="textSecondary">
-              {COLOR_MATRIX_HELP}
-            </ThemedText>
-            {problem ? (
-              <ThemedText type="small" style={styles.errorText} accessibilityLiveRegion="polite">
-                {problem}
-              </ThemedText>
-            ) : null}
-            <SelectedColors colors={colors} onToggle={onToggle} onMakePrimary={onMakePrimary} disabled={disabled} />
-            <View style={styles.grid}>
-              {describeMatrix(colors).map((swatch) => (
-                <Swatch
-                  key={swatch.color.id}
-                  swatch={swatch}
-                  onToggle={onToggle}
-                  onMakePrimary={onMakePrimary}
-                  disabled={disabled}
-                />
-              ))}
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </ThemedView>
+        </ScrollView>
+        <View style={look.footer}>
+          <FormButton label="Done" onPress={onDone} />
+        </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -102,6 +97,8 @@ interface SwatchProps {
 
 /** One grid cell: swatch, name, and a "Primary"/"Secondary" badge when selected. */
 function Swatch({ swatch, onToggle, onMakePrimary, disabled }: SwatchProps) {
+  const theme = useTheme();
+  const look = colorMatrixLook(theme);
   const { color, selected, primary, badge, accessibilityLabel } = swatch;
   const canMakePrimary = selected && !primary;
   return (
@@ -116,16 +113,16 @@ function Swatch({ swatch, onToggle, onMakePrimary, disabled }: SwatchProps) {
       onAccessibilityAction={(event) => {
         if (event.nativeEvent.actionName === 'makePrimary' && canMakePrimary) onMakePrimary(color.id);
       }}
-      style={({ pressed }) => [styles.cell, (pressed || disabled) && styles.pressed]}>
-      <View style={[styles.ring, selected && styles.ringSelected]}>
-        <ColorSwatch hex={color.hex} size={44} />
+      style={({ pressed }) => look.cell({ pressed, disabled })}>
+      <View style={look.ring(selected)}>
+        <ColorSwatch hex={color.hex} size={theme.sizes.matrixSwatchSize} />
       </View>
-      <ThemedText type={selected ? 'smallBold' : 'small'} numberOfLines={2} style={styles.cellText}>
+      <Text style={look.cellName(selected)} numberOfLines={2}>
         {color.name}
-      </ThemedText>
-      <ThemedText type="small" style={[styles.cellText, styles.badge]} numberOfLines={1}>
+      </Text>
+      <Text style={look.badge(primary)} numberOfLines={1}>
         {badge ?? ' '}
-      </ThemedText>
+      </Text>
     </Pressable>
   );
 }
@@ -140,29 +137,20 @@ interface SelectedColorsProps {
 /** The chosen colors in order, with "Make primary" and "Remove". */
 function SelectedColors({ colors, onToggle, onMakePrimary, disabled }: SelectedColorsProps) {
   const theme = useTheme();
-  if (colors.length === 0) {
-    return (
-      <ThemedText type="small" themeColor="textSecondary">
-        No colors chosen yet.
-      </ThemedText>
-    );
-  }
+  const look = colorMatrixLook(theme);
+  if (colors.length === 0) return <Text style={look.help}>No colors chosen yet.</Text>;
   return (
-    <View style={styles.selectedList}>
-      <ThemedText type="smallBold" accessibilityRole="header">
-        Chosen colors
-      </ThemedText>
+    <View style={look.selectedList}>
+      <SectionLabel>Chosen colors</SectionLabel>
       {colors.map((c, rank) => {
         const name = paletteColor(c.paletteId)?.name ?? c.paletteId;
         return (
-          <ThemedView key={c.paletteId} type="surface" style={styles.selectedRow}>
-            <ColorSwatch hex={c.hex} size={28} backgroundHex={theme.colors.surface} />
-            <ThemedText type="smallBold" style={styles.selectedName}>
+          <View key={c.paletteId} style={look.selectedRow}>
+            <ColorSwatch hex={c.hex} size={theme.sizes.chosenSwatchSize} />
+            <Text style={look.selectedName}>
               {name}
-              <ThemedText type="small" themeColor="textSecondary">
-                {rank === 0 ? '  Primary' : '  Secondary'}
-              </ThemedText>
-            </ThemedText>
+              <Text style={look.selectedRank}>{rank === 0 ? '  Primary' : '  Secondary'}</Text>
+            </Text>
             {rank > 0 && (
               <SmallButton
                 label="Make primary"
@@ -177,14 +165,17 @@ function SelectedColors({ colors, onToggle, onMakePrimary, disabled }: SelectedC
               onPress={() => onToggle(c.paletteId)}
               disabled={disabled}
             />
-          </ThemedView>
+          </View>
         );
       })}
     </View>
   );
 }
 
+/** A small outlined action (the plain chip look), grown to 44 pt by hit slop. */
 function SmallButton(props: { label: string; accessibilityLabel: string; onPress: () => void; disabled: boolean }) {
+  const theme = useTheme();
+  const idle = chipLook(theme, 'plain', { selected: false, pressed: false, disabled: props.disabled }, 'sentence');
   return (
     <Pressable
       onPress={props.onPress}
@@ -192,51 +183,11 @@ function SmallButton(props: { label: string; accessibilityLabel: string; onPress
       accessibilityRole="button"
       accessibilityLabel={props.accessibilityLabel}
       accessibilityState={{ disabled: props.disabled }}
-      hitSlop={6}
-      style={({ pressed }) => [styles.smallButton, (pressed || props.disabled) && styles.pressed]}>
-      <ThemedText type="small" style={styles.smallButtonText}>
-        {props.label}
-      </ThemedText>
+      hitSlop={idle.hitSlop}
+      style={({ pressed }) =>
+        chipLook(theme, 'plain', { selected: false, pressed, disabled: props.disabled }, 'sentence').container
+      }>
+      <Text style={idle.label}>{props.label}</Text>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    paddingHorizontal: spacing.xxl,
-    paddingTop: spacing.lg,
-  },
-  title: { flex: 1 },
-  done: { width: 96 },
-  content: { padding: spacing.xxl, gap: spacing.lg },
-  notice: { borderRadius: spacing.sm, padding: spacing.lg },
-  errorText: { color: '#d93025' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.lg },
-  cell: { width: '25%', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.xxs },
-  ring: { padding: 3, borderRadius: 30, borderWidth: 2, borderColor: 'transparent' },
-  ringSelected: { borderColor: ACCENT },
-  cellText: { textAlign: 'center' },
-  badge: { color: ACCENT, fontSize: 12, lineHeight: 16 },
-  pressed: { opacity: 0.6 },
-  selectedList: { gap: spacing.sm },
-  selectedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: spacing.sm,
-  },
-  selectedName: { flex: 1 },
-  smallButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: ACCENT,
-  },
-  smallButtonText: { color: ACCENT },
-});

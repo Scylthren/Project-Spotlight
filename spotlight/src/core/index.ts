@@ -4,6 +4,7 @@ export * from './color-science';
 export * from './color-selection';
 export * from './legacy-colors';
 export * from './clothing-item';
+export * from './item-name';
 export * from './tags';
 export * from './photo-set';
 export * from './closet-form';

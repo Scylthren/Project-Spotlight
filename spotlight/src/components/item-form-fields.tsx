@@ -1,16 +1,16 @@
-import { Linking, StyleSheet } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
 import { ColorField } from '@/components/color-field';
 import { FormButton } from '@/components/form-button';
+import { itemFormLook } from '@/components/item-form-style';
 import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
 import { PhotoSetField } from '@/components/photo-set-field';
 import { TagField } from '@/components/tag-field';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
-import { CATEGORIES, SEASONS, type TagSummary } from '@/core';
+import { SectionLabel, TextField } from '@/components/ui';
+import { CATEGORIES, CATEGORY_LABELS, ITEM_NAME_MAX_LENGTH, SEASON_LABELS, SEASONS, type TagSummary } from '@/core';
 import type { ItemFormFields as Fields } from '@/hooks/use-item-form-fields';
+import { useTheme } from '@/hooks/use-theme';
 
 interface ItemFormFieldsProps {
   fields: Fields;
@@ -20,17 +20,21 @@ interface ItemFormFieldsProps {
   onDeleteSavedTag: (summary: TagSummary, confirm: () => Promise<boolean>) => void;
   /**
    * True while the item is being saved or deleted, or a saved tag is being
-   * deleted. Locks every input (photo buttons, category, colors, seasons,
-   * tags), so a pick or edit made mid-save is not lost when the form resets.
+   * deleted. Locks every input (photo buttons, name, category, colors,
+   * seasons, tags), so a pick or edit made mid-save is not lost when the form
+   * resets.
    */
   busy: boolean;
 }
 
 /**
- * Photos (see `PhotoSetField`), category, colors, seasons, tags, and errors.
- * Used by Add and Edit. Taps outside the tag area close the keyboard
- * (`KeyboardDismissArea`). The parent's content container uses the same gap
- * as `styles.section`, so the wrappers do not change the layout.
+ * Photos (see `PhotoSetField`), colors, name, category, seasons, style tags,
+ * and errors, in the order of SaveItem.dc.html. Used by Add and Edit. Taps
+ * outside the name box and the tag area close the keyboard
+ * (`KeyboardDismissArea`; the text boxes stay outside it, or a tap into one
+ * would close the keyboard it just opened). The parent's content container
+ * uses the same gap as `itemFormLook().body`, so the wrappers do not change
+ * the layout.
  */
 export function ItemFormFields({
   fields,
@@ -39,57 +43,72 @@ export function ItemFormFields({
   onDeleteSavedTag,
   busy,
 }: ItemFormFieldsProps) {
+  const theme = useTheme();
+  const form = itemFormLook(theme);
   const { values } = fields;
 
   return (
     <>
-      <KeyboardDismissArea style={styles.section}>
+      <KeyboardDismissArea style={{ gap: form.body.gap }}>
         <PhotoSetField fields={fields} emptyHint={emptyPhotoHint} busy={busy} />
-
-        <ThemedText type="smallBold">Category</ThemedText>
-        <ChipGroup
-          accessibilityLabel="Category"
-          options={CATEGORIES}
-          isSelected={(c) => c === values.category}
-          onPress={fields.setCategory}
-          disabled={busy}
-        />
-
         <ColorField fields={fields} disabled={busy} />
+      </KeyboardDismissArea>
 
-        <ThemedText type="smallBold">Seasons</ThemedText>
-        <ChipGroup
-          accessibilityLabel="Seasons"
-          options={SEASONS}
-          isSelected={(s) => values.seasons.includes(s)}
-          onPress={fields.toggleSeason}
-          disabled={busy}
-        />
+      <TextField
+        variant="underline"
+        label="Name"
+        value={values.name ?? ''}
+        onChangeText={fields.setName}
+        placeholder="Optional, e.g. Black band hoodie"
+        hint={`Up to ${ITEM_NAME_MAX_LENGTH} characters. Without a name, the category is shown.`}
+        maxLength={ITEM_NAME_MAX_LENGTH}
+        autoCapitalize="sentences"
+        returnKeyType="done"
+        disabled={busy}
+      />
+
+      <KeyboardDismissArea style={{ gap: form.body.gap }}>
+        <View style={form.section}>
+          <SectionLabel>Category</SectionLabel>
+          <ChipGroup
+            accessibilityLabel="Category"
+            options={CATEGORIES}
+            isSelected={(c) => c === values.category}
+            onPress={fields.setCategory}
+            formatLabel={(c) => CATEGORY_LABELS[c]}
+            disabled={busy}
+          />
+        </View>
+
+        <View style={form.section}>
+          <SectionLabel>Seasons</SectionLabel>
+          <ChipGroup
+            accessibilityLabel="Seasons"
+            options={SEASONS}
+            isSelected={(s) => values.seasons.includes(s)}
+            onPress={fields.toggleSeason}
+            formatLabel={(s) => SEASON_LABELS[s]}
+            disabled={busy}
+          />
+        </View>
       </KeyboardDismissArea>
 
       <TagField fields={fields} savedTags={savedTags} onDeleteSavedTag={onDeleteSavedTag} disabled={busy} />
 
       {fields.errors.length > 0 && (
         <KeyboardDismissArea>
-          <ThemedView accessibilityLiveRegion="polite" style={styles.errors}>
+          <View accessibilityLiveRegion="polite" style={form.section}>
             {fields.errors.map((e) => (
-              <ThemedText key={e} type="small" style={styles.errorText}>
+              <Text key={e} style={form.error}>
                 {e}
-              </ThemedText>
+              </Text>
             ))}
             {fields.suggestSettings && (
               <FormButton label="Open Settings" variant="secondary" onPress={() => void Linking.openSettings()} />
             )}
-          </ThemedView>
+          </View>
         </KeyboardDismissArea>
       )}
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  // Same gap as the screens' content containers.
-  section: { gap: spacing.lg },
-  errors: { gap: spacing.xs },
-  errorText: { color: '#d93025' },
-});

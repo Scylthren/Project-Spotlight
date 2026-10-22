@@ -1,17 +1,17 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { CameraDeniedPanel } from '@/components/camera-denied-panel';
 import { CameraIntroModal } from '@/components/camera-intro-modal';
 import { ChipGroup } from '@/components/chip-group';
 import { FormButton } from '@/components/form-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
+import { angleTileWidth, itemFormLook, photoSetLook } from '@/components/item-form-style';
+import { SectionLabel } from '@/components/ui';
 import { PHOTO_ROLE_LABELS, primaryPhoto, type PhotoDraft, type PhotoRole, type PhotoTarget } from '@/core';
 import type { PhotoSource } from '@/data/photo-picker';
 import type { ItemFormFields as Fields } from '@/hooks/use-item-form-fields';
+import { useTheme } from '@/hooks/use-theme';
 
 interface PhotoSetFieldProps {
   fields: Fields;
@@ -22,21 +22,28 @@ interface PhotoSetFieldProps {
 }
 
 /**
- * The item's photos: a large preview of the selected one, a row of
- * thumbnails, retake / make primary / remove for the selected photo, and
- * "Add another angle" with a role chooser. Rules live in core/photo-set.ts;
- * this only offers what `fields` allows. "Take photo" goes through the camera
- * permission flow: the intro modal and the denied panel live here too.
+ * The item's photos (Angles.dc.html): a large preview of the selected one, a
+ * row of angle tiles (thumbnails and the dashed "Add another angle" tile, which
+ * opens a role chooser), and retake / make primary / remove for the selected
+ * photo. Rules live in core/photo-set.ts; this only offers what `fields`
+ * allows. "Take photo" goes through the camera permission flow: the intro
+ * modal and the denied panel live here too.
  */
 export function PhotoSetField({ fields, emptyHint, busy }: PhotoSetFieldProps) {
+  const theme = useTheme();
+  const form = itemFormLook(theme);
+  const look = photoSetLook(theme);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** The role chosen for a new angle, or null while "Add another angle" is closed. */
   const [addingRole, setAddingRole] = useState<PhotoRole | null>(null);
+  const [rowWidth, setRowWidth] = useState(0);
   const { photos, allowedNewRoles } = fields;
   const selected = photos.find((p) => p.id === selectedId) ?? primaryPhoto(photos);
   const locked = busy || fields.pickingPhoto;
   // A role offered earlier may no longer fit (e.g. the set filled up).
   const role = addingRole && allowedNewRoles.includes(addingRole) ? addingRole : null;
+  const canOfferAngle = selected !== undefined && allowedNewRoles.length > 0 && role === null;
+  const tileWidth = angleTileWidth(theme, rowWidth);
 
   async function pick(source: PhotoSource, target: PhotoTarget) {
     const id = await fields.pickPhoto(source, target);
@@ -47,64 +54,94 @@ export function PhotoSetField({ fields, emptyHint, busy }: PhotoSetFieldProps) {
   }
 
   return (
-    <>
-      <ThemedView type="surface" style={styles.preview}>
+    <View style={form.section}>
+      <SectionLabel>Photos</SectionLabel>
+      <View style={look.preview}>
         {selected ? (
-          <Image
-            source={{ uri: fields.previewUri(selected) }}
-            style={styles.previewImage}
-            contentFit="cover"
-            accessibilityLabel={`${PHOTO_ROLE_LABELS[selected.role]} photo`}
-          />
+          <>
+            <Image
+              source={{ uri: fields.previewUri(selected) }}
+              style={look.previewImage}
+              contentFit="contain"
+              accessibilityLabel={`${PHOTO_ROLE_LABELS[selected.role]} photo`}
+            />
+            <View style={look.badge} accessible={false} importantForAccessibility="no-hide-descendants">
+              <Text style={look.badgeText}>
+                {`${PHOTO_ROLE_LABELS[selected.role]}${selected.isPrimary ? ' · Primary' : ''}`}
+              </Text>
+            </View>
+          </>
         ) : (
-          <ThemedText themeColor="textSecondary">{emptyHint}</ThemedText>
+          <Text style={look.emptyHint}>{emptyHint}</Text>
         )}
-      </ThemedView>
+      </View>
 
       <CameraIntroModal camera={fields.camera} />
       <CameraDeniedPanel camera={fields.camera} disabled={locked} />
 
-      {photos.length > 1 && (
-        <View style={styles.thumbnails} accessibilityLabel="Item photos">
-          {photos.map((photo) => (
-            <Thumbnail
-              key={photo.id}
-              photo={photo}
-              uri={fields.previewUri(photo)}
-              selected={photo.id === selected?.id}
-              onPress={() => setSelectedId(photo.id)}
-            />
-          ))}
+      {photos.length > 1 || canOfferAngle ? (
+        <View
+          style={look.tiles}
+          accessibilityLabel="Item photos"
+          onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}>
+          {photos.length > 1 &&
+            photos.map((photo) => (
+              <Thumbnail
+                key={photo.id}
+                photo={photo}
+                uri={fields.previewUri(photo)}
+                width={tileWidth}
+                selected={photo.id === selected?.id}
+                onPress={() => setSelectedId(photo.id)}
+              />
+            ))}
+          {canOfferAngle ? (
+            <AddAngleTile width={tileWidth} disabled={locked} onPress={() => setAddingRole(allowedNewRoles[0])} />
+          ) : null}
         </View>
-      )}
+      ) : null}
+
+      {selected && role !== null ? (
+        <View style={form.panel}>
+          <SectionLabel>Which angle?</SectionLabel>
+          <ChipGroup
+            accessibilityLabel="Photo angle"
+            options={allowedNewRoles}
+            isSelected={(r) => r === role}
+            onPress={setAddingRole}
+            formatLabel={(r) => PHOTO_ROLE_LABELS[r]}
+            disabled={locked}
+          />
+          <SourceButtons onPick={(source) => pick(source, { kind: 'add', role })} disabled={locked} />
+          <View style={form.textButtons}>
+            <FormButton label="Cancel" variant="text" onPress={() => setAddingRole(null)} disabled={locked} />
+          </View>
+        </View>
+      ) : null}
 
       {selected ? (
         <>
-          <ThemedText type="small" themeColor="textSecondary">
+          <Text style={form.caption}>
             {`${PHOTO_ROLE_LABELS[selected.role]} photo${selected.isPrimary ? ' (shown in your closet)' : ''}. Take or choose another to retake it.`}
-          </ThemedText>
+          </Text>
           <SourceButtons onPick={(source) => pick(source, { kind: 'retake', id: selected.id })} disabled={locked} />
           {(!selected.isPrimary || selected.role !== 'front') && (
-            <View style={styles.row}>
+            <View style={form.textButtons}>
               {!selected.isPrimary && (
-                <View style={styles.cell}>
-                  <FormButton
-                    label="Make primary"
-                    variant="secondary"
-                    onPress={() => fields.makePrimary(selected.id)}
-                    disabled={locked}
-                  />
-                </View>
+                <FormButton
+                  label="Make primary"
+                  variant="text"
+                  onPress={() => fields.makePrimary(selected.id)}
+                  disabled={locked}
+                />
               )}
               {selected.role !== 'front' && (
-                <View style={styles.cell}>
-                  <FormButton
-                    label="Remove photo"
-                    variant="destructive"
-                    onPress={() => fields.removePhoto(selected.id)}
-                    disabled={locked}
-                  />
-                </View>
+                <FormButton
+                  label="Remove photo"
+                  variant="text"
+                  onPress={() => fields.removePhoto(selected.id)}
+                  disabled={locked}
+                />
               )}
             </View>
           )}
@@ -112,49 +149,21 @@ export function PhotoSetField({ fields, emptyHint, busy }: PhotoSetFieldProps) {
       ) : (
         <SourceButtons onPick={(source) => pick(source, { kind: 'add', role: 'front' })} disabled={locked} />
       )}
-
-      {selected &&
-        allowedNewRoles.length > 0 &&
-        (role === null ? (
-          <FormButton
-            label="Add another angle"
-            variant="secondary"
-            onPress={() => setAddingRole(allowedNewRoles[0])}
-            disabled={locked}
-          />
-        ) : (
-          <ThemedView type="surface" style={styles.addPanel}>
-            <ThemedText type="smallBold">Which angle?</ThemedText>
-            <ChipGroup
-              accessibilityLabel="Photo angle"
-              options={allowedNewRoles}
-              isSelected={(r) => r === role}
-              onPress={setAddingRole}
-              formatLabel={(r) => PHOTO_ROLE_LABELS[r]}
-              disabled={locked}
-            />
-            <SourceButtons onPick={(source) => pick(source, { kind: 'add', role })} disabled={locked} />
-            <FormButton label="Cancel" variant="secondary" onPress={() => setAddingRole(null)} disabled={locked} />
-          </ThemedView>
-        ))}
-    </>
+    </View>
   );
 }
 
 function SourceButtons({ onPick, disabled }: { onPick: (source: PhotoSource) => void; disabled: boolean }) {
+  const theme = useTheme();
   return (
-    <View style={styles.row}>
-      <View style={styles.cell}>
-        <FormButton label="Take photo" variant="secondary" onPress={() => onPick('camera')} disabled={disabled} />
-      </View>
-      <View style={styles.cell}>
-        <FormButton
-          label="Choose from library"
-          variant="secondary"
-          onPress={() => onPick('library')}
-          disabled={disabled}
-        />
-      </View>
+    <View style={itemFormLook(theme).buttons}>
+      <FormButton label="Take photo" variant="secondary" onPress={() => onPick('camera')} disabled={disabled} />
+      <FormButton
+        label="Choose from library"
+        variant="secondary"
+        onPress={() => onPick('library')}
+        disabled={disabled}
+      />
     </View>
   );
 }
@@ -162,14 +171,18 @@ function SourceButtons({ onPick, disabled }: { onPick: (source: PhotoSource) => 
 function Thumbnail({
   photo,
   uri,
+  width,
   selected,
   onPress,
 }: {
   photo: PhotoDraft;
   uri: string;
+  width: number;
   selected: boolean;
   onPress: () => void;
 }) {
+  const theme = useTheme();
+  const look = photoSetLook(theme);
   const label = `${PHOTO_ROLE_LABELS[photo.role]}${photo.isPrimary ? ', primary' : ''}`;
   return (
     <Pressable
@@ -177,44 +190,35 @@ function Thumbnail({
       accessibilityRole="button"
       accessibilityLabel={`${label} photo`}
       accessibilityState={{ selected }}
-      style={styles.thumbnailCell}>
-      <View style={[styles.thumbnail, selected && styles.thumbnailSelected]}>
-        <Image source={{ uri }} style={styles.thumbnailImage} contentFit="cover" />
+      style={({ pressed }) => [look.tile, { width, opacity: pressed ? theme.opacity.pressed : 1 }]}>
+      <View style={look.thumbnail(selected)}>
+        <Image source={{ uri }} style={look.thumbnailImage} contentFit="cover" />
       </View>
-      <ThemedText type="small" numberOfLines={1}>
+      <Text style={look.tileLabel} numberOfLines={1}>
         {photo.role === 'detail' ? 'Detail' : PHOTO_ROLE_LABELS[photo.role]}
-      </ThemedText>
-      {photo.isPrimary && (
-        <ThemedText type="small" themeColor="textSecondary">
-          Primary
-        </ThemedText>
-      )}
+      </Text>
+      {photo.isPrimary && <Text style={look.tileNote}>Primary</Text>}
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  preview: {
-    aspectRatio: 1,
-    borderRadius: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  previewImage: { width: '100%', height: '100%' },
-  thumbnails: { flexDirection: 'row', gap: spacing.sm },
-  thumbnailCell: { width: 72, alignItems: 'center', gap: spacing.xxs },
-  thumbnail: {
-    width: 72,
-    height: 72,
-    borderRadius: spacing.sm,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  thumbnailSelected: { borderColor: '#3c87f7' },
-  thumbnailImage: { flex: 1 },
-  row: { flexDirection: 'row', gap: spacing.sm },
-  cell: { flex: 1 },
-  addPanel: { borderRadius: spacing.lg, padding: spacing.lg, gap: spacing.sm },
-});
+function AddAngleTile({ width, disabled, onPress }: { width: number; disabled: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  const look = photoSetLook(theme);
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel="Add another angle"
+      accessibilityState={{ disabled }}
+      style={({ pressed }) => [look.tile, { width, opacity: disabled ? theme.opacity.disabled : 1 }, look.addTile(pressed)]}>
+      <Text style={look.addTilePlus} accessible={false}>
+        +
+      </Text>
+      <Text style={look.addTileText} accessible={false}>
+        Add another angle
+      </Text>
+    </Pressable>
+  );
+}

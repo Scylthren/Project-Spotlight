@@ -1,13 +1,37 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, Text } from 'react-native';
 
-import { ThemedText } from '@/components/themed-text';
-import { spacing } from '@/theme';
+import { buttonAccessibility, buttonLook, type ButtonLook } from '@/components/ui/button-style';
+import { useTheme } from '@/hooks/use-theme';
+import type { Theme } from '@/theme';
+
+type FormButtonVariant = 'primary' | 'secondary' | 'destructive' | 'text';
 
 interface FormButtonProps {
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  variant?: 'primary' | 'secondary' | 'destructive';
+  /**
+   * primary: ink fill; secondary: ink outline; destructive: outline in the
+   * danger color; text: a bare label (README "Buttons").
+   */
+  variant?: FormButtonVariant;
+  /** Read instead of `label` when the visible text is not enough. */
+  accessibilityLabel?: string;
+}
+
+/** The shared button look per variant; destructive is the outline in `danger`. */
+export function formButtonLook(theme: Theme, variant: FormButtonVariant, state: { pressed: boolean; disabled: boolean }): ButtonLook {
+  if (variant === 'primary') return buttonLook(theme, 'primary', state);
+  if (variant === 'text') return buttonLook(theme, 'text', state);
+  const look = buttonLook(theme, 'outline', state);
+  if (variant === 'secondary') return look;
+  const { danger } = theme.colors;
+  return {
+    ...look,
+    container: { ...look.container, borderColor: danger },
+    label: { ...look.label, color: danger },
+    boundary: danger,
+  };
 }
 
 /**
@@ -15,36 +39,17 @@ interface FormButtonProps {
  * (Pressable ignores them). Handlers still guard themselves, because a press
  * can land before the disabled state renders.
  */
-export function FormButton({ label, onPress, disabled = false, variant = 'primary' }: FormButtonProps) {
+export function FormButton({ label, onPress, disabled = false, variant = 'primary', accessibilityLabel }: FormButtonProps) {
+  const theme = useTheme();
+  const idle = formButtonLook(theme, variant, { pressed: false, disabled });
   return (
     <Pressable
+      {...buttonAccessibility(accessibilityLabel ?? label, disabled)}
       onPress={onPress}
       disabled={disabled}
-      accessibilityRole="button"
-      accessibilityState={{ disabled }}
-      style={({ pressed }) => [
-        styles.button,
-        styles[variant],
-        (pressed || disabled) && styles.pressed,
-      ]}>
-      <ThemedText style={TEXT_STYLES[variant]}>{label}</ThemedText>
+      hitSlop={idle.hitSlop}
+      style={({ pressed }) => formButtonLook(theme, variant, { pressed, disabled }).container}>
+      <Text style={idle.label}>{label}</Text>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: { borderRadius: spacing.lg, paddingVertical: spacing.lg, alignItems: 'center' },
-  primary: { backgroundColor: '#3c87f7' },
-  primaryText: { color: '#ffffff' },
-  secondary: { borderWidth: 1, borderColor: '#3c87f7' },
-  secondaryText: { color: '#3c87f7' },
-  destructive: { borderWidth: 1, borderColor: '#d93025' },
-  destructiveText: { color: '#d93025' },
-  pressed: { opacity: 0.6 },
-});
-
-const TEXT_STYLES = {
-  primary: styles.primaryText,
-  secondary: styles.secondaryText,
-  destructive: styles.destructiveText,
-} as const;

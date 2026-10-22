@@ -66,6 +66,8 @@ export function useItemFormFields(
   const [photos, setPhotosState] = useState<PhotoDraft[]>(() => [...initialPhotos]);
   /** Latest `photos`, for handlers that run after an await (the picker). */
   const photosRef = useRef(photos);
+  /** The name as typed; trimmed (and left out when blank) on save. */
+  const [name, setName] = useState(initial.name ?? '');
   const [category, setCategory] = useState<Category | null>(initial.category);
   const [colors, setColorsState] = useState<ItemColor[]>(() => initial.colors.map((c) => ({ ...c })));
   /** Latest `colors`, so quick taps and late detection results never act on a stale list. */
@@ -257,6 +259,7 @@ export function useItemFormFields(
     detection.reset();
     if (!isMounted()) return;
     setPhotos([...nextPhotos]);
+    setName(values.name ?? '');
     setCategory(values.category);
     setColors(values.colors.map((c) => ({ ...c })));
     setColorProblem(null);
@@ -268,7 +271,7 @@ export function useItemFormFields(
     setErrors([]);
   }
 
-  const values: ItemFormValues = { category, colors, seasons, tags };
+  const values: ItemFormValues = { name, category, colors, seasons, tags };
 
   return {
     photos,
@@ -282,6 +285,7 @@ export function useItemFormFields(
     suggestSettings,
     pickingPhoto: picker.busy,
     pickPhoto,
+    setName,
     setCategory,
     /** Matrix tap: select (first is primary) or deselect. Rules in core/color-selection.ts. */
     toggleColor: (paletteId: string) => applyColors((current) => toggleColor(current, paletteId)),

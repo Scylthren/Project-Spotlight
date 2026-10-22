@@ -110,9 +110,9 @@ describe('token guard detector', () => {
 });
 
 describe('token guard on the app source', () => {
-  // Each Gate 1.5 slice lowers this number as it restyles its files; slice 5
-  // sets it to 0. Never raise it: new files must use theme tokens.
-  const MAX_ALLOWLIST = 10;
+  // Gate 1.5 slices lowered this as they restyled their files; slice 5 set
+  // it to 0. Never raise it: new files must use theme tokens.
+  const MAX_ALLOWLIST = 0;
 
   it('keeps the allowlist within its cap, without duplicates', () => {
     expect(TOKEN_GUARD_ALLOWLIST.length).toBeLessThanOrEqual(MAX_ALLOWLIST);

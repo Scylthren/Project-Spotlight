@@ -1,27 +1,36 @@
 /**
  * What the closet tiles and the read-only item screen show (Closet.dc.html,
- * ItemDetail.dc.html), Gate 1 fields only: category, photos, colors, seasons
- * and style tags. Items have no name field, so the category stands in for it.
+ * ItemDetail.dc.html), Gate 1 fields only: name, category, photos, colors,
+ * seasons and style tags. An item without a name is called by its category.
  */
 import { describeItemColors } from './color-selection';
+import { itemDisplayName } from './item-name';
 import { CATEGORY_LABELS, SEASON_LABELS } from './labels';
 import { paletteName } from './palette';
 import { primaryPhoto } from './photo-set';
 import { SEASONS, type ClothingItem, type ItemPhoto, type PhotoRole } from './types';
 
 export interface ClosetTile {
-  /** The serif label under the photo: "Top". */
+  /** The serif label under the photo: the name, else the category ("Top"). */
   name: string;
-  /** The line under it: "Navy, white". */
+  /** The line under it: "Navy, white"; for a named item the category first: "Top · Navy, white". */
   meta: string;
-  /** Read for the whole tile: "Top, Navy, white". */
+  /** Read for the whole tile: "Top, Navy, white" or "Black band hoodie, Top, Navy, white". */
   accessibilityLabel: string;
 }
 
 export function describeClosetTile(item: ClothingItem): ClosetTile {
-  const name = CATEGORY_LABELS[item.category];
-  const meta = describeItemColors(item.colors);
-  return { name, meta, accessibilityLabel: meta ? `${name}, ${meta}` : name };
+  const name = itemDisplayName(item);
+  const colors = describeItemColors(item.colors);
+  if (item.name === undefined) {
+    return { name, meta: colors, accessibilityLabel: colors ? `${name}, ${colors}` : name };
+  }
+  const category = CATEGORY_LABELS[item.category];
+  return {
+    name,
+    meta: colors ? `${category} · ${colors}` : category,
+    accessibilityLabel: [name, category, colors].filter((part) => part.length > 0).join(', '),
+  };
 }
 
 /** One angle of the item screen's photo switcher. */
@@ -70,7 +79,10 @@ export interface DetailColor {
 }
 
 export interface ItemDetail {
+  /** The name, else the category. */
   title: string;
+  /** The category under a named item's title ("Top"); null when the title is already the category. */
+  subtitle: string | null;
   colors: DetailColor[];
   /** "Colors: Navy (primary), White". */
   colorsAccessibilityLabel: string;
@@ -90,7 +102,8 @@ export function describeItemDetail(item: ClothingItem): ItemDetail {
   }));
   const seasons = SEASONS.filter((s) => item.seasons.includes(s)).map((s) => SEASON_LABELS[s]);
   return {
-    title: CATEGORY_LABELS[item.category],
+    title: itemDisplayName(item),
+    subtitle: item.name === undefined ? null : CATEGORY_LABELS[item.category],
     colors,
     colorsAccessibilityLabel: `Colors: ${colors.map((c) => (c.primary ? `${c.name} (primary)` : c.name)).join(', ')}`,
     seasonsText: seasons.join(' · '),

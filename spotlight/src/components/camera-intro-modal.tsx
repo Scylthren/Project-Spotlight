@@ -1,12 +1,38 @@
 import { useEffect } from 'react';
-import { Modal, Platform, StyleSheet, View } from 'react-native';
+import { Modal, Platform, Text, View } from 'react-native';
 
 import { FormButton } from '@/components/form-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
 import { CAMERA_ACCESS_TEXT } from '@/core';
 import type { CameraAccess } from '@/hooks/use-camera-access';
+import { useTheme } from '@/hooks/use-theme';
+import type { Theme } from '@/theme';
+
+/** Permission.dc.html: a square card over a dimmed backdrop, serif title, three ways out. */
+export function cameraIntroLook(theme: Theme) {
+  const { colors, fonts, opacity, sizes, spacing, typography } = theme;
+  return {
+    backdrop: { flex: 1, justifyContent: 'center', padding: sizes.screenPadding } as const,
+    scrim: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+      backgroundColor: colors.scrim,
+      opacity: opacity.scrim,
+    } as const,
+    card: {
+      backgroundColor: colors.background,
+      paddingTop: spacing.xxl + spacing.xs,
+      paddingHorizontal: spacing.xxl,
+      paddingBottom: spacing.xl,
+      gap: spacing.md,
+    } as const,
+    title: { ...typography.headline, fontFamily: fonts.serif.semiBold, color: colors.text },
+    body: { ...typography.bodyLarge, color: colors.textBodySecondary },
+    buttons: { gap: spacing.sm, marginTop: spacing.sm } as const,
+  };
+}
 
 /**
  * Explains why Spotlight wants the camera before the system prompt. One
@@ -14,6 +40,8 @@ import type { CameraAccess } from '@/hooks/use-camera-access';
  * ways out. There is deliberately no "Don't Allow" button (App Review).
  */
 export function CameraIntroModal({ camera }: { camera: CameraAccess }) {
+  const theme = useTheme();
+  const look = cameraIntroLook(theme);
   const visible = camera.state.surface === 'intro';
   const { requesting } = camera.state;
   const { introClosed } = camera;
@@ -32,36 +60,29 @@ export function CameraIntroModal({ camera }: { camera: CameraAccess }) {
       animationType="fade"
       onRequestClose={camera.notNow}
       onDismiss={introClosed}>
-      <View style={styles.backdrop}>
-        <ThemedView style={styles.card} accessibilityViewIsModal>
-          <ThemedText type="subtitle" accessibilityRole="header">
+      <View style={look.backdrop}>
+        <View style={look.scrim} accessible={false} importantForAccessibility="no" />
+        <View style={look.card} accessibilityViewIsModal>
+          <Text style={look.title} accessibilityRole="header">
             {CAMERA_ACCESS_TEXT.introTitle}
-          </ThemedText>
-          <ThemedText>{CAMERA_ACCESS_TEXT.introBody}</ThemedText>
-          <FormButton
-            label={requesting ? 'Waiting...' : CAMERA_ACCESS_TEXT.introAllow}
-            onPress={camera.allow}
-            disabled={requesting}
-          />
-          <FormButton
-            label={CAMERA_ACCESS_TEXT.library}
-            variant="secondary"
-            onPress={camera.chooseLibrary}
-            disabled={requesting}
-          />
-          <FormButton label={CAMERA_ACCESS_TEXT.notNow} variant="secondary" onPress={camera.notNow} disabled={requesting} />
-        </ThemedView>
+          </Text>
+          <Text style={look.body}>{CAMERA_ACCESS_TEXT.introBody}</Text>
+          <View style={look.buttons}>
+            <FormButton
+              label={requesting ? 'Waiting...' : CAMERA_ACCESS_TEXT.introAllow}
+              onPress={camera.allow}
+              disabled={requesting}
+            />
+            <FormButton
+              label={CAMERA_ACCESS_TEXT.library}
+              variant="secondary"
+              onPress={camera.chooseLibrary}
+              disabled={requesting}
+            />
+            <FormButton label={CAMERA_ACCESS_TEXT.notNow} variant="text" onPress={camera.notNow} disabled={requesting} />
+          </View>
+        </View>
       </View>
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: spacing.xxl,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  card: { borderRadius: spacing.lg, padding: spacing.xxl, gap: spacing.lg },
-});

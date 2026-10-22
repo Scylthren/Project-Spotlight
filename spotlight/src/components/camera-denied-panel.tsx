@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
+import { AccessibilityInfo, Platform, Text, View } from 'react-native';
 
 import { FormButton } from '@/components/form-button';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
+import { itemFormLook } from '@/components/item-form-style';
 import { CAMERA_ACCESS_TEXT, deniedPanelAction } from '@/core';
 import type { CameraAccess } from '@/hooks/use-camera-access';
+import { useTheme } from '@/hooks/use-theme';
 
 /**
  * Shown in the form when camera access is off. Offers Settings, or the real
@@ -18,6 +17,8 @@ import type { CameraAccess } from '@/hooks/use-camera-access';
  * no live regions, so the title and body are announced when it appears.
  */
 export function CameraDeniedPanel({ camera, disabled }: { camera: CameraAccess; disabled: boolean }) {
+  const theme = useTheme();
+  const form = itemFormLook(theme);
   const shown = camera.state.surface === 'denied';
   const askAgain = deniedPanelAction(camera.state.permission) === 'ask-again';
   const body = askAgain ? CAMERA_ACCESS_TEXT.deniedBodyAskAgain : CAMERA_ACCESS_TEXT.deniedBodySettings;
@@ -32,27 +33,27 @@ export function CameraDeniedPanel({ camera, disabled }: { camera: CameraAccess; 
   const { requesting } = camera.state;
 
   return (
-    <ThemedView type="surface" style={styles.panel} accessibilityLiveRegion="polite">
-      <ThemedText type="smallBold" accessibilityRole="header">
+    <View style={form.panel} accessibilityLiveRegion="polite">
+      <Text
+        style={{ ...theme.typography.itemNameSmall, fontFamily: theme.fonts.serif.semiBold, color: theme.colors.text }}
+        accessibilityRole="header">
         {CAMERA_ACCESS_TEXT.deniedTitle}
-      </ThemedText>
-      <ThemedText type="small">{body}</ThemedText>
-      <FormButton
-        label={askAgain ? CAMERA_ACCESS_TEXT.askAgain : CAMERA_ACCESS_TEXT.openSettings}
-        onPress={askAgain ? camera.allow : camera.openSettings}
-        disabled={disabled || requesting}
-      />
-      <FormButton
-        label={CAMERA_ACCESS_TEXT.library}
-        variant="secondary"
-        onPress={camera.chooseLibrary}
-        disabled={disabled || requesting}
-      />
-      <FormButton label={CAMERA_ACCESS_TEXT.notNow} variant="secondary" onPress={camera.notNow} disabled={requesting} />
-    </ThemedView>
+      </Text>
+      <Text style={form.caption}>{body}</Text>
+      <View style={form.buttons}>
+        <FormButton
+          label={askAgain ? CAMERA_ACCESS_TEXT.askAgain : CAMERA_ACCESS_TEXT.openSettings}
+          onPress={askAgain ? camera.allow : camera.openSettings}
+          disabled={disabled || requesting}
+        />
+        <FormButton
+          label={CAMERA_ACCESS_TEXT.library}
+          variant="secondary"
+          onPress={camera.chooseLibrary}
+          disabled={disabled || requesting}
+        />
+        <FormButton label={CAMERA_ACCESS_TEXT.notNow} variant="text" onPress={camera.notNow} disabled={requesting} />
+      </View>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  panel: { borderRadius: spacing.lg, padding: spacing.lg, gap: spacing.sm },
-});

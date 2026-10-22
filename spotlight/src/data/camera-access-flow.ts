@@ -103,6 +103,9 @@ export class CameraAccessFlow {
   /** "Take photo" for `target`. */
   async takePhoto(target: PhotoTarget): Promise<string | null> {
     this.endPending();
+    // A picker still waiting for the intro to close answers an older tap or
+    // choice; this tap replaces it, so only one picker can open.
+    this.cancelAfterIntro();
     const seq = ++this.takeSeq;
     this.checkSeq++; // a check still running is older than this one; drop it
     const permission = await this.permissions.check();
@@ -205,7 +208,9 @@ export class CameraAccessFlow {
         this.pending = null;
         const target = take?.target ?? this.host.defaultTarget();
         const open = () => void this.pick(source, target, take);
-        if (afterIntroCloses) this.afterIntro = { open, take };
+        // Also wait while the intro is still closing from an earlier step, so no picker
+        // is presented over the iOS modal's close animation.
+        if (afterIntroCloses || this.introOnScreen) this.afterIntro = { open, take };
         else open();
         return;
       }

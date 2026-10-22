@@ -17,6 +17,10 @@ interface ChipProps {
   accessibilityHint?: string;
   /** For the dev gallery: draw the pressed state without a press. */
   forcePressed?: boolean;
+  /** Add chips only: false drops the "+" (a dashed action such as "Edit colors"). */
+  plus?: boolean;
+  /** Read instead of `label` when the visible text is not enough. */
+  accessibilityLabel?: string;
 }
 
 /** A square chip: filter, tag, style tag or the dashed "add" chip. */
@@ -30,12 +34,14 @@ export function Chip({
   disabled = false,
   accessibilityHint,
   forcePressed = false,
+  plus = true,
+  accessibilityLabel,
 }: ChipProps) {
   const theme = useTheme();
   const interactive = onPress !== undefined;
-  const a11y = chipAccessibility(variant, label, { selected, disabled, interactive });
+  const a11y = chipAccessibility(variant, accessibilityLabel ?? label, { selected, disabled, interactive });
   const idle = chipLook(theme, variant, { selected, disabled, pressed: forcePressed }, casing);
-  const text = <Text style={idle.label}>{chipText(variant, label)}</Text>;
+  const text = <Text style={idle.label}>{chipText(variant, label, plus)}</Text>;
 
   if (!interactive) {
     return (

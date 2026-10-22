@@ -11,6 +11,7 @@ import {
   type Season,
 } from './types';
 import { MAX_ITEM_COLORS } from './color-selection';
+import { isValidItemName, ITEM_NAME_MAX_LENGTH, normalizeItemName } from './item-name';
 import { isNormalizedHex, isPaletteId, normalizeHex, paletteColor } from './palette';
 import { isPhotoRole, photoSetProblems } from './photo-set';
 import { canonicalTagText, isNormalizedTag, MAX_TAGS_PER_ITEM, TAG_MAX_LENGTH } from './tags';
@@ -23,6 +24,8 @@ export type NewItemColorInput = Omit<ItemColor, 'hex'> & { hex?: string };
 
 export interface NewClothingItemInput {
   id: string;
+  /** As typed; trimmed by `createClothingItem`. Missing or blank means no name. */
+  name?: string;
   /** In display order. */
   photos: NewItemPhotoInput[];
   category: Category;
@@ -88,6 +91,9 @@ export function validateClothingItem(value: unknown): string[] {
 
   if (!isNonEmptyString(v.id)) errors.push('id must be a non-empty string');
   else if (!isTrimmedNonEmptyString(v.id)) errors.push('id must not have leading or trailing whitespace');
+  if (v.name !== undefined && !isValidItemName(v.name)) {
+    errors.push(`name must be a trimmed, non-empty string of at most ${ITEM_NAME_MAX_LENGTH} characters`);
+  }
   errors.push(...validatePhotos(v.photos));
   if (!isCategory(v.category)) errors.push(`category must be one of: ${CATEGORIES.join(', ')}`);
 
@@ -166,7 +172,7 @@ export function isValidClothingItem(value: unknown): value is ClothingItem {
 }
 
 /**
- * Builds a ClothingItem from user input. Trims id and each photo's id and path, numbers the
+ * Builds a ClothingItem from user input. Trims id, the name (a blank name is left out), and each photo's id and path, numbers the
  * photos' `sortOrder` by position, normalizes each color's hex to uppercase #RRGGBB (a
  * missing hex becomes the palette's reference hex), drops a repeated palette color
  * (keeping the first; more than MAX_ITEM_COLORS is rejected, not cut), normalizes tags (see `canonicalTagText`) and drops
@@ -178,8 +184,11 @@ export function createClothingItem(
   now: Date = new Date(),
 ): ValidationResult {
   const timestamp = now.toISOString();
+  const name = typeof input.name === 'string' ? normalizeItemName(input.name) : input.name;
   const candidate = {
     id: typeof input.id === 'string' ? input.id.trim() : input.id,
+    // No key at all when there is no name, so unnamed items compare equal to stored ones.
+    ...(name === undefined ? {} : { name }),
     photos: normalizePhotoInput(input.photos),
     category: input.category,
     colors: normalizeColorInput(input.colors),

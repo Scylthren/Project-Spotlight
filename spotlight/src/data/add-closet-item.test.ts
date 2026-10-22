@@ -421,3 +421,29 @@ describe('generateItemId', () => {
     expect(ids.size).toBe(1000);
   });
 });
+
+describe('addClosetItem: name', () => {
+  it('saves the typed name trimmed', async () => {
+    const { repository, deps } = setup();
+    const result = await addClosetItem(form({ name: '  Wide-leg jeans ' }), deps);
+    expect(result.ok && result.item.name).toBe('Wide-leg jeans');
+    expect((await repository.get('id-1'))?.name).toBe('Wide-leg jeans');
+  });
+
+  it('a blank name saves an item with no name', async () => {
+    const { repository, deps } = setup();
+    expect((await addClosetItem(form({ name: '   ' }), deps)).ok).toBe(true);
+    expect('name' in (await repository.get('id-1'))!).toBe(false);
+  });
+
+  it('a name over 60 characters is refused with a readable message, and nothing is stored', async () => {
+    const { repository, imageStore, imageProcessor, deps } = setup();
+    expect(await addClosetItem(form({ name: 'a'.repeat(61) }), deps)).toEqual({
+      ok: false,
+      errors: ['Names can be up to 60 characters.'],
+    });
+    expect(await repository.list()).toEqual([]);
+    expect(imageStore.files.size).toBe(0);
+    expect(imageProcessor.inputs).toEqual([]);
+  });
+});

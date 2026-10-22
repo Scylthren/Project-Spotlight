@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type Ref } from 'react';
 import { AccessibilityInfo, Text, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
@@ -27,6 +27,8 @@ type PassThrough = Pick<
 >;
 
 interface TextFieldProps extends PassThrough {
+  /** The underlying input (e.g. to blur it from a return-key handler). */
+  ref?: Ref<TextInput>;
   label: string;
   value: string;
   onChangeText: (text: string) => void;
@@ -58,6 +60,7 @@ export function TextField({
   labelHidden = false,
   onFocus,
   onBlur,
+  ref,
   ...rest
 }: TextFieldProps) {
   const theme = useTheme();
@@ -75,6 +78,7 @@ export function TextField({
       )}
       <TextInput
         {...rest}
+        ref={ref}
         {...textFieldAccessibility(label, { disabled, error, hint })}
         value={value}
         onChangeText={onChangeText}

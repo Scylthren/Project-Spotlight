@@ -1,37 +1,48 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 
 import { confirmDelete } from '@/components/confirm-delete';
 import { FormButton } from '@/components/form-button';
 import { ItemFormFields } from '@/components/item-form-fields';
+import { itemFormLook } from '@/components/item-form-style';
 import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view';
 import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { spacing } from '@/theme';
-import type { ClothingItem } from '@/core';
+import { itemDeleteSubject, type ClothingItem } from '@/core';
 import { useClosetItem } from '@/hooks/use-closet-item';
 import { useEditItemForm } from '@/hooks/use-edit-item-form';
 import { useIsMounted } from '@/hooks/use-is-mounted';
+import { useTheme } from '@/hooks/use-theme';
 
-/** The edit form for one item (opened from the item screen's Edit). Restyled in slice 5. */
+/** The edit form for one item (opened from the item screen's Edit). */
 export default function EditItemScreen() {
+  const theme = useTheme();
   const params = useLocalSearchParams<{ id: string }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
   const state = useClosetItem(id ?? '');
+  const { colors, spacing, typography } = theme;
 
-  if (state.status === 'loading') return <ActivityIndicator style={styles.center} />;
+  if (state.status === 'loading') {
+    return <ActivityIndicator color={colors.text} style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
   if (state.status !== 'ready') {
     return (
-      <ThemedView style={styles.center}>
-        <ThemedText style={styles.message}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: spacing.xxl,
+          gap: spacing.lg,
+          backgroundColor: colors.background,
+        }}>
+        <Text style={{ ...typography.bodyLarge, color: colors.textSecondary, textAlign: 'center' }}>
           {state.status === 'missing' ? 'This item is no longer in your closet.' : 'Could not load this item.'}
-        </ThemedText>
-        <View style={styles.backButton}>
+        </Text>
+        <View style={{ alignSelf: 'stretch' }}>
           <FormButton label="Back to closet" variant="secondary" onPress={leaveScreen} />
         </View>
-      </ThemedView>
+      </View>
     );
   }
   // Keyed so the form starts fresh from the stored item.
@@ -53,6 +64,8 @@ function leaveToCloset() {
 }
 
 function EditItem({ item }: { item: ClothingItem }) {
+  const theme = useTheme();
+  const look = itemFormLook(theme);
   const form = useEditItemForm(item);
   // The user may go back while a save or delete runs; it finishes, but must not navigate again.
   const isMounted = useIsMounted();
@@ -64,13 +77,13 @@ function EditItem({ item }: { item: ClothingItem }) {
   }
 
   async function onDelete() {
-    if ((await form.remove(() => confirmDelete(`this ${item.category}`))) && isMounted()) leaveToCloset();
+    if ((await form.remove(() => confirmDelete(itemDeleteSubject(item)))) && isMounted()) leaveToCloset();
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <KeyboardAwareScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[look.body, { paddingBottom: theme.spacing.jumbo }]}
         contentInsetAdjustmentBehavior="automatic"
         keyboardVerticalOffset={headerHeight}>
         <ItemFormFields
@@ -80,7 +93,7 @@ function EditItem({ item }: { item: ClothingItem }) {
           onDeleteSavedTag={form.deleteSavedTag}
           busy={form.busy}
         />
-        <KeyboardDismissArea style={styles.buttons}>
+        <KeyboardDismissArea style={look.buttons}>
           <FormButton
             label={form.busy ? 'Working...' : 'Save changes'}
             onPress={onSave}
@@ -89,15 +102,6 @@ function EditItem({ item }: { item: ClothingItem }) {
           <FormButton label="Delete item" variant="destructive" onPress={onDelete} disabled={form.busy} />
         </KeyboardDismissArea>
       </KeyboardAwareScrollView>
-    </ThemedView>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: spacing.xxl, paddingBottom: spacing.jumbo, gap: spacing.lg },
-  buttons: { gap: spacing.lg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl, gap: spacing.lg },
-  message: { textAlign: 'center' },
-  backButton: { alignSelf: 'stretch' },
-});

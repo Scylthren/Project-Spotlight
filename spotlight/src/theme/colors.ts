@@ -35,6 +35,8 @@ export interface ThemeColors {
   accent: string;
   /** Destructive actions and error messages. */
   danger: string;
+  /** Behind a modal card, drawn at `opacity.scrim` (Permission.dc.html backdrop). Black in both themes. */
+  scrim: string;
 }
 
 export type ColorName = keyof ThemeColors;
@@ -54,6 +56,7 @@ export const lightColors: ThemeColors = {
   textBodySecondary: '#4A4945',
   accent: '#C8102E',
   danger: '#C8102E',
+  scrim: '#000000',
 };
 
 export const darkColors: ThemeColors = {
@@ -76,4 +79,5 @@ export const darkColors: ThemeColors = {
   accent: '#FF5A6E',
   // Approved 2026-10-21 (README gap): the `danger` value from Profile.dc.html (7.85:1 on the background).
   danger: '#FF7A86',
+  scrim: '#000000',
 };

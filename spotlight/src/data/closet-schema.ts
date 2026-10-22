@@ -160,6 +160,9 @@ export const CLOSET_MIGRATIONS: readonly ClosetMigration[] = [
    );`,
   // 5: palette colors per item. See ITEM_COLORS_SQL.
   migrateToItemColors,
+  // 6: the optional item name (Gate 1.5). NULL means no name, so existing
+  // items load unnamed; the repository never writes an empty string.
+  `ALTER TABLE clothing_items ADD COLUMN name TEXT;`,
 ];
 
 export const CLOSET_SCHEMA_VERSION = CLOSET_MIGRATIONS.length;

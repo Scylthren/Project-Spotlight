@@ -207,6 +207,37 @@ describe('CameraAccessFlow: closing the intro (slice 5 review)', () => {
     expect(introVisible).toEqual([true, false]);
   });
 
+  it('a "Take photo" tap while the intro is closing replaces the waiting picker: only one picker opens', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    const first = flow.takePhoto(BACK);
+    await flush();
+    permissions.requests.push(GRANTED);
+    await flow.allow(); // the camera for BACK now waits for the close
+    const second = flow.takePhoto(FRONT);
+    expect(await first).toBeNull();
+    await flush();
+    expect(picks).toEqual([]); // the replacing picker also waits for the close
+    flow.introClosed();
+    expect(await second).toBe('draft-1');
+    await new Promise((r) => setTimeout(r, 80)); // past the 50 ms timeout too
+    expect(picks).toEqual([{ source: 'camera', target: FRONT }]);
+  });
+
+  it('the same during the entry prompt: library chosen, then "Take photo" before the close opens only the camera', async () => {
+    const { flow, permissions, picks } = setup(UNDETERMINED);
+    await flow.check();
+    flow.enter();
+    flow.chooseLibrary(); // the library waits for the close
+    permissions.current = GRANTED;
+    const taking = flow.takePhoto(BACK);
+    await flush();
+    expect(picks).toEqual([]); // waits for the close
+    flow.introClosed();
+    expect(await taking).toBe('draft-1');
+    await new Promise((r) => setTimeout(r, 80));
+    expect(picks).toEqual([{ source: 'camera', target: BACK }]);
+  });
+
   it('dispose after Allow but before the intro has closed: no pick, the tap ends with null', async () => {
     const { flow, permissions, picks } = setup(UNDETERMINED);
     const taking = flow.takePhoto(FRONT);

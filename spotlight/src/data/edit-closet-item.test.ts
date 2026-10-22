@@ -574,3 +574,35 @@ describe('editClosetItem with several photos', () => {
     expect(updates).toEqual([]);
   });
 });
+
+describe('editClosetItem: name', () => {
+  const unchangedForm = (item: ClothingItem, name?: string): EditItemForm => ({
+    ...(name === undefined ? {} : { name }),
+    photos: [KEPT_FRONT],
+    category: item.category,
+    colors: item.colors.map((c) => ({ ...c })),
+    seasons: [...item.seasons],
+    tags: [...item.tags],
+  });
+
+  it('adding a name is a change; it is saved trimmed', async () => {
+    const { original, repository, deps } = setup();
+    const result = await editClosetItem('item-1', unchangedForm(original, ' Olive parka '), deps);
+    expect(result).toEqual({ ok: true, item: { ...original, name: 'Olive parka', updatedAt: NOW.toISOString() }, changed: true });
+    expect((await repository.get('item-1'))?.name).toBe('Olive parka');
+  });
+
+  it('the same name (even with extra spaces) is no change; clearing it removes the name', async () => {
+    const original = makeItem({ photos: [OLD_PHOTO], name: 'Olive parka' });
+    const repository = new InMemoryClosetRepository([original]);
+    const deps = { ...setup().deps, repository };
+    expect(await editClosetItem('item-1', unchangedForm(original, 'Olive parka  '), deps)).toEqual({
+      ok: true,
+      item: original,
+      changed: false,
+    });
+    const cleared = await editClosetItem('item-1', unchangedForm(original, '  '), deps);
+    expect(cleared.ok && cleared.changed).toBe(true);
+    expect('name' in (await repository.get('item-1'))!).toBe(false);
+  });
+});

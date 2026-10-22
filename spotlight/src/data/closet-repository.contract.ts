@@ -328,6 +328,38 @@ export function describeClosetRepositoryContract(
       });
     });
 
+    describe('name', () => {
+      it('round-trips a name via get and list; an unnamed item has no name key', async () => {
+        const named = makeItem({ id: 'named', name: 'Black band hoodie' });
+        const unnamed = makeItem({ id: 'unnamed', createdAt: '2026-01-14T10:00:00.000Z' });
+        await repo.add(named);
+        await repo.add(unnamed);
+        expect(await repo.get('named')).toEqual(named);
+        expect(await repo.list()).toEqual([named, unnamed]);
+        expect('name' in (await repo.get('unnamed'))!).toBe(false);
+      });
+
+      it('update adds, changes, and removes the name', async () => {
+        await repo.add(makeItem());
+        await repo.update(makeItem({ name: 'Sky tee' }));
+        expect((await repo.get('item-1'))?.name).toBe('Sky tee');
+        await repo.update(makeItem({ name: 'Sky blue tee' }));
+        expect((await repo.get('item-1'))?.name).toBe('Sky blue tee');
+        await repo.update(makeItem());
+        expect(await repo.get('item-1')).toEqual(makeItem());
+      });
+
+      it('rejects an invalid name with code invalid and stores nothing', async () => {
+        for (const name of ['', '  padded ', 'a'.repeat(61)]) {
+          await expectRepoError(repo.add(makeItem({ name })), 'invalid');
+        }
+        expect(await repo.list()).toEqual([]);
+        await repo.add(makeItem({ name: 'Kept' }));
+        await expectRepoError(repo.update(makeItem({ name: '' })), 'invalid');
+        expect((await repo.get('item-1'))?.name).toBe('Kept');
+      });
+    });
+
     describe('colors', () => {
       const three = (): ItemColor[] => [
         makeColor('red', { hex: '#B5122B', source: 'auto' }),
