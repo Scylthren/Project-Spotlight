@@ -1,7 +1,7 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
 
-import { MockClosetTagger, type ClosetTagger } from '@/ai/closet-tagger';
+import type { ClosetTagger } from '@/ai/closet-tagger';
 import { EntryPromptSession, type CameraPermissions } from '@/data/camera-permissions';
 import type { ClosetRepository } from '@/data/closet-repository';
 import { ExpoCameraPermissions } from '@/data/expo-camera-permissions';
@@ -14,7 +14,7 @@ import { asSqlDatabase } from '@/data/expo-sqlite-database';
 import type { GarmentIsolator } from '@/data/garment-isolator';
 import type { ImageProcessor } from '@/data/image-processor';
 import type { ImageStore } from '@/data/image-store';
-import { PlaceholderTagImageSource, type TagImageSource } from '@/data/item-suggestions';
+import type { TagImageSource } from '@/data/item-suggestions';
 import { LocalGarmentIsolator } from '@/data/local-garment-isolator';
 import { SqliteMaintenanceLog } from '@/data/maintenance-log';
 import { startPhotoMetadataBackfill } from '@/data/photo-metadata-backfill';
@@ -22,6 +22,8 @@ import type { PhotoPicker } from '@/data/photo-picker';
 import { SqlitePhotoReferences } from '@/data/photo-references';
 import { SqliteClosetRepository } from '@/data/sqlite-closet-repository';
 import type { TemporaryFiles } from '@/data/temporary-files';
+
+import { createTaggingServices } from './tagging-services';
 
 export interface ClosetServices {
   repository: ClosetRepository;
@@ -36,11 +38,12 @@ export interface ClosetServices {
   /** Whether the Add screen's camera prompt was already shown this app session. */
   entryPromptSession: EntryPromptSession;
   /**
-   * Suggests tags for the front photo (Gate 2). The mock until slice 3 swaps
-   * in the real tagger; a failure never blocks saving.
+   * Suggests tags for the front photo (Gate 2): the tag-item edge function.
+   * A failure never blocks saving. Created with `tagImageSource` by
+   * `createTaggingServices`.
    */
   closetTagger: ClosetTagger;
-  /** Prepares the photo the tagger receives (a placeholder until slice 3). */
+  /** Prepares the photo the tagger receives (downscaled, metadata-free JPEG). */
   tagImageSource: TagImageSource;
 }
 
@@ -52,21 +55,20 @@ const ClosetServicesContext = createContext<ClosetServices | null>(null);
 /** Provides the real on-device services. Must be inside expo-sqlite's SQLiteProvider. */
 export function ClosetServicesProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
-  const services = useMemo<ClosetServices>(
-    () => ({
+  const services = useMemo<ClosetServices>(() => {
+    const imageProcessor = new ExpoImageProcessor();
+    return {
       repository: new SqliteClosetRepository(asSqlDatabase(db)),
       imageStore: new ExpoImageStore(),
-      imageProcessor: new ExpoImageProcessor(),
+      imageProcessor,
       photoPicker: new ExpoPhotoPicker(),
       temporaryFiles: new ExpoTemporaryFiles(),
       garmentIsolator: new LocalGarmentIsolator(),
       cameraPermissions: new ExpoCameraPermissions(),
       entryPromptSession: ENTRY_PROMPT_SESSION,
-      closetTagger: new MockClosetTagger(),
-      tagImageSource: new PlaceholderTagImageSource(),
-    }),
-    [db],
-  );
+      ...createTaggingServices(imageProcessor),
+    };
+  }, [db]);
   // One-time cleanup of photos stored before metadata stripping. Runs in the
   // background once the database is open (this provider only renders then);
   // it never blocks the UI and retries on the next launch if anything fails.

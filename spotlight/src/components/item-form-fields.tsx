@@ -80,6 +80,7 @@ export function ItemFormFields({
             formatLabel={(c) => CATEGORY_LABELS[c]}
             disabled={busy}
           />
+          {fields.categorySuggested ? <Text style={form.note}>Suggested</Text> : null}
         </View>
 
       </KeyboardDismissArea>
@@ -97,6 +98,7 @@ export function ItemFormFields({
             formatLabel={(s) => SEASON_LABELS[s]}
             disabled={busy}
           />
+          {fields.seasonsSuggested ? <Text style={form.note}>Suggested</Text> : null}
         </View>
       </KeyboardDismissArea>
 

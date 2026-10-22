@@ -18,8 +18,13 @@ import {
 } from '@/core/testing/jpeg-fixtures';
 import * as jpegMetadata from '@/core/jpeg-metadata';
 
+import { RemoteClosetTagger } from '@/ai/remote-closet-tagger';
+import { validateTagItemRequest } from '@/ai/tag-item-contract';
+
+import { InMemoryDevTokenStore } from './dev-token-store';
 import { ExpoImageProcessor } from './expo-image-processor';
 import type { TemporaryFiles } from './temporary-files';
+import { TAG_IMAGE_MAX_EDGE, UploadTagImageSource } from './upload-tag-image-source';
 
 interface FakeImage {
   width: number;
@@ -359,3 +364,68 @@ describe('ExpoImageProcessor metadata stripping', () => {
     expect(mockFs.files.size).toBe(0);
   });
 });
+
+describe('ExpoImageProcessor.prepareForUpload (tag image, Gate 2 slice 3)', () => {
+  it('downscales to the requested long edge, saves JPEG at 0.8, returns the stripped bytes, and deletes its file', async () => {
+    const temporaryFiles = new FakeTemporaryFiles();
+    const result = await new ExpoImageProcessor(temporaryFiles).prepareForUpload('file:///cache/ImagePicker/IMG.HEIC', 1024);
+    expect(mockManip.resizeCalls).toEqual([{ width: 1024, height: 768 }]);
+    expect(mockManip.saveCalls).toEqual([{ format: 'jpeg', compress: 0.8 }]);
+    expect(result).toEqual({ bytes: CLEAN_WITH_ICC, width: 1024, height: 768 });
+    expect(temporaryFiles.discarded).toHaveLength(1);
+    expect(mockFs.files.size).toBe(0);
+    expect(mockManip.released).toHaveLength(4);
+  });
+
+  it('handles portrait photos and never upscales', async () => {
+    mockManip.sourceSize = { width: 3024, height: 4032 };
+    expect(await new ExpoImageProcessor(new FakeTemporaryFiles()).prepareForUpload('file:///p.jpg', 1024)).toMatchObject({
+      width: 768,
+      height: 1024,
+    });
+    mockManip.resizeCalls = [];
+    mockManip.sourceSize = { width: 800, height: 600 };
+    expect(await new ExpoImageProcessor(new FakeTemporaryFiles()).prepareForUpload('file:///small.jpg', 1024)).toMatchObject({
+      width: 800,
+      height: 600,
+    });
+    expect(mockManip.resizeCalls).toEqual([]);
+  });
+
+  it('fails closed and leaves no files when stripping did not work', async () => {
+    strip.mockImplementationOnce((bytes) => bytes.slice());
+    await expect(new ExpoImageProcessor(new FakeTemporaryFiles()).prepareForUpload('file:///p.jpg', 1024)).rejects.toThrow(
+      /metadata is still present/,
+    );
+    expect(mockFs.files.size).toBe(0);
+  });
+
+  it('the bytes sent to tag-item carry no Exif, GPS or XMP, even from a camera file with location', async () => {
+    mockManip.encode = () => cameraLikeJpeg(1);
+    expect(jpegMetadata.hasLocationMetadata(cameraLikeJpeg(1))).toBe(true);
+    const sent: string[] = [];
+    const tagger = new RemoteClosetTagger({
+      url: 'https://example.supabase.co/functions/v1/tag-item',
+      tokenStore: new InMemoryDevTokenStore('ab'.repeat(32)),
+      fetch: (async (_url: unknown, init?: RequestInit) => {
+        sent.push(String(init?.body));
+        return { status: 503, text: async () => '{}' } as unknown as Response;
+      }) as unknown as typeof fetch,
+    });
+    const source = new UploadTagImageSource(new ExpoImageProcessor(new FakeTemporaryFiles()));
+    await tagger.tag(await source.read('file:///cache/ImagePicker/camera.jpg'));
+
+    expect(sent).toHaveLength(1);
+    const request = validateTagItemRequest(JSON.parse(sent[0]));
+    expect(request.ok).toBe(true);
+    const bytes = Uint8Array.from(atob(request.ok ? request.value.imageBase64 : ''), (c) => c.charCodeAt(0));
+    expect(bytes).toEqual(CLEAN_WITH_ICC);
+    const report = jpegMetadata.findJpegMetadata(bytes);
+    expect(report).toMatchObject({ exif: false, gps: false, xmp: false });
+    expect(jpegMetadata.isMetadataFree(report)).toBe(true);
+    expect(jpegMetadata.hasLocationMetadata(bytes)).toBe(false);
+    expect(mockManip.resizeCalls).toEqual([{ width: TAG_IMAGE_MAX_EDGE, height: 768 }]);
+    expect(mockFs.files.size).toBe(0);
+  });
+});
+

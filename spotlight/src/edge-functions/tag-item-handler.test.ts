@@ -14,12 +14,10 @@ import {
   type CappedBody,
   type TagItemHttpRequest,
 } from '../../../supabase/functions/tag-item/handler.ts';
-import {
-  STUB_TAG_ITEM_RESPONSE,
-  TAG_ITEM_MAX_BODY_BYTES,
-  validateTagItemResponse,
-} from '../../../supabase/functions/_shared/tag-item-contract.ts';
+import { TAG_ITEM_MAX_BODY_BYTES, validateTagItemResponse } from '../../../supabase/functions/_shared/tag-item-contract.ts';
 import { CONNECTION_CHECK_IMAGE } from '@/ai/connection-check';
+
+import { modelReply, VALID_MODEL_TAGS } from './testing/model-fakes';
 
 /** Built at run time so no token-like literal sits in the repo. */
 const TOKEN = 'ab'.repeat(32);
@@ -40,18 +38,26 @@ function request(overrides: Partial<TagItemHttpRequest> & { body?: string } = {}
   return { req, readBody: req.readBody === readBody ? readBody : null };
 }
 
-const env = { devToken: TOKEN };
+/** Built at run time so no key-like literal sits in the repo. */
+const API_KEY = ['test', 'key', 'x'.repeat(20)].join('-');
+const modelFetch = jest.fn(async () => modelReply(VALID_MODEL_TAGS));
+const env = { devToken: TOKEN, anthropicApiKey: API_KEY, fetch: modelFetch as unknown as typeof fetch, log: () => undefined };
+
+beforeEach(() => {
+  modelFetch.mockClear();
+});
 
 function errorCode(body: unknown): string | undefined {
   return (body as { error?: { code?: string } }).error?.code;
 }
 
 describe('handleTagItem', () => {
-  it('answers a valid, authorized request with the schema-valid stub', async () => {
+  it('answers a valid, authorized request with the model\'s tags (stub: false), schema-valid', async () => {
     const { req } = request();
     const result = await handleTagItem(req, env);
     expect(result.status).toBe(200);
-    expect(result.body).toEqual(STUB_TAG_ITEM_RESPONSE);
+    expect(result.body).toEqual({ apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false });
+    expect(modelFetch).toHaveBeenCalledTimes(1);
     expect(validateTagItemResponse(JSON.parse(JSON.stringify(result.body))).ok).toBe(true);
     expect(result.headers['Content-Type']).toMatch(/^application\/json/);
     expect(result.headers['Cache-Control']).toBe('no-store');
@@ -94,7 +100,7 @@ describe('handleTagItem', () => {
     ['too short', 'short-token'],
   ])('fails closed with 500 for a well-formed bearer token when DEV_TOKEN is %s', async (_name, devToken) => {
     const { req, readBody } = request();
-    const result = await handleTagItem(req, { devToken });
+    const result = await handleTagItem(req, { ...env, devToken });
     expect(result.status).toBe(500);
     expect(errorCode(result.body)).toBe('server_misconfigured');
     expect(readBody).not.toHaveBeenCalled();
@@ -108,7 +114,7 @@ describe('handleTagItem', () => {
   ])('returns 401 (not 500) for a %s header even when DEV_TOKEN is unset', async (_name, authorization) => {
     const { req } = request({ authorization });
     for (const devToken of [undefined, '', 'short-token']) {
-      const result = await handleTagItem(req, { devToken });
+      const result = await handleTagItem(req, { ...env, devToken });
       expect(result.status).toBe(401);
       expect(errorCode(result.body)).toBe('unauthorized');
     }

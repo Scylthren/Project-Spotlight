@@ -107,7 +107,10 @@ export interface ItemTags {
 export interface TagItemResponse {
   apiVersion: number;
   tags: ItemTags;
-  /** True while the function returns a fixed answer instead of calling the model. */
+  /**
+   * True only for a fixed, canned answer (the slice 1-2 stub and the app's
+   * mock tagger). The deployed function calls the model and answers false.
+   */
   stub: boolean;
 }
 
@@ -118,6 +121,14 @@ export const TAG_ITEM_ERROR_CODES = [
   'too_large',
   'server_misconfigured',
   'internal',
+  /** The model provider is down, overloaded (5xx, 529) or unreachable. */
+  'upstream_unavailable',
+  /** The model provider rate-limited the function (429). */
+  'upstream_rate_limited',
+  /** The model provider did not answer in time. */
+  'upstream_timeout',
+  /** The model provider refused the call itself (any other 4xx). */
+  'upstream_rejected',
 ] as const;
 export type TagItemErrorCode = (typeof TAG_ITEM_ERROR_CODES)[number];
 
@@ -125,7 +136,7 @@ export interface TagItemErrorResponse {
   error: { code: TagItemErrorCode; message: string };
 }
 
-/** The fixed answer of the stub (Gate 2 slices 1 and 2). */
+/** The fixed answer of the stub (Gate 2 slices 1 and 2; now only the app's mock tagger). */
 export const STUB_TAG_ITEM_RESPONSE: TagItemResponse = {
   apiVersion: TAG_ITEM_API_VERSION,
   tags: {

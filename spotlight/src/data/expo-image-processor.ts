@@ -5,13 +5,14 @@ import {
   assertStrippedCopy,
   findJpegMetadata,
   fitWithinMaxEdge,
+  MAX_STORED_IMAGE_EDGE,
   needsDownscale,
   orientationProblem,
   stripJpegMetadata,
 } from '@/core';
 
 import { ExpoTemporaryFiles } from './expo-temporary-files';
-import { STORED_IMAGE_JPEG_QUALITY, type ImageProcessor, type ProcessedImage } from './image-processor';
+import { STORED_IMAGE_JPEG_QUALITY, type ImageProcessor, type ProcessedImage, type UploadImage } from './image-processor';
 import { discardQuietly, type TemporaryFiles } from './temporary-files';
 
 /**
@@ -48,11 +49,25 @@ import { discardQuietly, type TemporaryFiles } from './temporary-files';
  *    exactly the stripped bytes and carries no metadata or location.
  *
  * Any failure rejects and deletes every file this call wrote.
+ *
+ * `prepareForUpload` runs the same steps with a smaller edge limit, returns
+ * the verified stripped bytes, and then deletes the file too.
  */
 export class ExpoImageProcessor implements ImageProcessor {
   constructor(private readonly temporaryFiles: TemporaryFiles = new ExpoTemporaryFiles()) {}
 
   async prepareForStorage(sourceUri: string): Promise<ProcessedImage> {
+    const { uri, width, height } = await this.process(sourceUri, MAX_STORED_IMAGE_EDGE);
+    return { uri, width, height };
+  }
+
+  async prepareForUpload(sourceUri: string, maxEdge: number): Promise<UploadImage> {
+    const { uri, width, height, bytes } = await this.process(sourceUri, maxEdge);
+    await discardQuietly(this.temporaryFiles, uri);
+    return { bytes, width, height };
+  }
+
+  private async process(sourceUri: string, maxEdge: number): Promise<ProcessedImage & { bytes: Uint8Array }> {
     const shared: { release(): void }[] = [];
     const written: string[] = [];
     const track = <T extends { release(): void }>(object: T): T => {
@@ -67,8 +82,8 @@ export class ExpoImageProcessor implements ImageProcessor {
     try {
       let image: ImageRef = track(await track(ImageManipulator.manipulate(sourceUri)).renderAsync());
 
-      if (needsDownscale(image)) {
-        image = track(await track(ImageManipulator.manipulate(image).resize(fitWithinMaxEdge(image))).renderAsync());
+      if (needsDownscale(image, maxEdge)) {
+        image = track(await track(ImageManipulator.manipulate(image).resize(fitWithinMaxEdge(image, maxEdge))).renderAsync());
       }
 
       const { saved, bytes } = await save(image);
@@ -79,9 +94,10 @@ export class ExpoImageProcessor implements ImageProcessor {
       const stripped = stripJpegMetadata(bytes);
       const file = new File(saved.uri);
       file.write(stripped);
-      assertStrippedCopy(await file.bytes(), stripped);
+      const onDisk = await file.bytes();
+      assertStrippedCopy(onDisk, stripped);
 
-      return { uri: saved.uri, width: saved.width, height: saved.height };
+      return { uri: saved.uri, width: saved.width, height: saved.height, bytes: onDisk };
     } catch (error) {
       for (const uri of written) await discardQuietly(this.temporaryFiles, uri);
       throw error;

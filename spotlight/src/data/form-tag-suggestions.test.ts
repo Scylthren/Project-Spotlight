@@ -1,19 +1,26 @@
 import { FakeClosetTagger, MockClosetTagger, type TagOutcome } from '@/ai/closet-tagger';
+import { RemoteClosetTagger } from '@/ai/remote-closet-tagger';
 import { STUB_TAG_ITEM_RESPONSE, type ItemTags } from '@/ai/tag-item-contract';
 import {
+  categorySeasonFields,
   EMPTY_ATTRIBUTE_FIELDS,
   EMPTY_ITEM_FORM,
   fieldsToAttributes,
+  pickCategory,
   setAttribute,
+  toggleFormSeason,
   type AttributeFields,
+  type CategorySeasonFields,
   type ItemColor,
 } from '@/core';
 
 import { addClosetItem } from './add-closet-item';
+import { InMemoryDevTokenStore } from './dev-token-store';
 import { FakeImageProcessor } from './image-processor';
 import { InMemoryClosetRepository } from './in-memory-closet-repository';
 import { FormTagSuggestions, type TagSuggestionHost } from './form-tag-suggestions';
-import { PlaceholderTagImageSource, suggestFromPhoto, toPhotoSuggestions, type TagImageSource } from './item-suggestions';
+import { suggestFromPhoto, toPhotoSuggestions, type TagImageSource } from './item-suggestions';
+import { FixedTagImageSource } from './testing/fixed-tag-image-source';
 import { MemoryImageStore } from './memory-image-store';
 import { RecordingTemporaryFiles } from './temporary-files';
 
@@ -40,50 +47,56 @@ function tagged(tags: Partial<ItemTags>, stub = false): TagOutcome {
   return { ok: true, tags: { ...NO_TAGS, ...tags }, stub };
 }
 
-/** A fake form: plain fields the test can read and change. */
-function setup(initial: AttributeFields = EMPTY_ATTRIBUTE_FIELDS) {
-  const form = {
-    attributes: initial,
-    front: 'draft-1' as string | null,
-    colors: [] as [string, ItemColor[]][],
-    suggesting: [] as boolean[],
-    active: true,
-  };
-  const host: TagSuggestionHost = {
+type FakeForm = {
+  attributes: AttributeFields;
+  categorySeason: CategorySeasonFields;
+  front: string | null;
+  colors: [string, ItemColor[]][];
+  suggesting: boolean[];
+  /** Every "No suggestions" flag change, in order. */
+  none: boolean[];
+  active: boolean;
+};
+
+function hostFor(form: FakeForm): TagSuggestionHost {
+  return {
     attributes: () => form.attributes,
     setAttributes: (next) => {
       form.attributes = next;
     },
+    categorySeason: () => form.categorySeason,
+    setCategorySeason: (next) => {
+      form.categorySeason = next;
+    },
     frontPhotoId: () => form.front,
     suggestColors: (id, colors) => form.colors.push([id, colors]),
     setSuggesting: (s) => form.suggesting.push(s),
+    setNoSuggestions: (none) => form.none.push(none),
     isActive: () => form.active,
   };
+}
+
+/** A fake form: plain fields the test can read and change. */
+function setup(initial: AttributeFields = EMPTY_ATTRIBUTE_FIELDS, initialCategorySeason = categorySeasonFields(null, [])) {
+  const form: FakeForm = {
+    attributes: initial,
+    categorySeason: initialCategorySeason,
+    front: 'draft-1',
+    colors: [],
+    suggesting: [],
+    none: [],
+    active: true,
+  };
   const tagger = new FakeClosetTagger();
-  const suggestions = new FormTagSuggestions(
-    { tagger, imageSource: new PlaceholderTagImageSource() },
-    host,
-    { onError: () => undefined },
-  );
-  return { form, tagger, suggestions };
+  const imageSource = new FixedTagImageSource();
+  const suggestions = new FormTagSuggestions({ tagger, imageSource }, hostFor(form), { onError: () => undefined });
+  return { form, tagger, suggestions, imageSource };
 }
 
 describe('FormTagSuggestions', () => {
   it('with the mock tagger, picking a photo pre-fills every attribute as auto (stub colors are not used)', async () => {
     const { form, suggestions } = setup();
-    const real = new FormTagSuggestions(
-      { tagger: new MockClosetTagger(), imageSource: new PlaceholderTagImageSource() },
-      {
-        attributes: () => form.attributes,
-        setAttributes: (next) => {
-          form.attributes = next;
-        },
-        frontPhotoId: () => 'draft-1',
-        suggestColors: (id, colors) => form.colors.push([id, colors]),
-        setSuggesting: (s) => form.suggesting.push(s),
-        isActive: () => true,
-      },
-    );
+    const real = new FormTagSuggestions({ tagger: new MockClosetTagger(), imageSource: new FixedTagImageSource() }, hostFor(form));
     expect(suggestions.pending).toBeNull();
     await real.frontPhotoPicked('draft-1', 'file:///front.jpg');
     const { type, pattern, material, fit, formality } = STUB_TAG_ITEM_RESPONSE.tags;
@@ -196,7 +209,7 @@ describe('FormTagSuggestions', () => {
     try {
       const never = new FakeClosetTagger();
       never.queue.push(() => new Promise<TagOutcome>(() => undefined));
-      const pending = suggestFromPhoto('x', { tagger: never, imageSource: new PlaceholderTagImageSource() }, { timeoutMs: 50 });
+      const pending = suggestFromPhoto('x', { tagger: never, imageSource: new FixedTagImageSource() }, { timeoutMs: 50 });
       await jest.advanceTimersByTimeAsync(50);
       expect(await pending).toBeNull();
     } finally {
@@ -281,11 +294,184 @@ describe('FormTagSuggestions', () => {
   });
 });
 
+describe('FormTagSuggestions: category, seasons, "No suggestions", one request per photo (slice 3)', () => {
+  it('a real answer fills an untouched category and seasons as auto', async () => {
+    const { form, tagger, suggestions } = setup();
+    tagger.queue.push(tagged({ category: 'outerwear', seasons: ['winter', 'autumn'] }));
+    await suggestions.frontPhotoPicked('draft-1', 'a');
+    expect(form.categorySeason).toEqual({
+      category: { value: 'outerwear', source: 'auto' },
+      seasons: { value: ['autumn', 'winter'], source: 'auto' },
+    });
+  });
+
+  it('a stub answer never sets category or seasons (canned values)', async () => {
+    const { form, tagger, suggestions } = setup();
+    tagger.queue.push(tagged({ category: 'top', seasons: ['spring'], fit: 'slim' }, true));
+    await suggestions.frontPhotoPicked('draft-1', 'a');
+    expect(form.categorySeason).toEqual(categorySeasonFields(null, []));
+    expect(form.attributes.fit).toEqual({ value: 'slim', source: 'auto' });
+  });
+
+  it('a category or season the user sets while waiting wins over a late reply', async () => {
+    const { form, tagger, suggestions } = setup();
+    const reply = deferred<TagOutcome>();
+    tagger.queue.push(() => reply.promise);
+    const running = suggestions.frontPhotoPicked('draft-1', 'a');
+    form.categorySeason = toggleFormSeason(pickCategory(form.categorySeason, 'bottom'), 'summer');
+    reply.resolve(tagged({ category: 'top', seasons: ['winter'] }));
+    await running;
+    expect(form.categorySeason).toEqual({
+      category: { value: 'bottom', source: 'user' },
+      seasons: { value: ['summer'], source: 'user' },
+    });
+  });
+
+  it('retaking the front clears suggested category and seasons at once; the user\'s stay', async () => {
+    const start = { category: { value: 'shoes' as const, source: 'auto' as const }, seasons: { value: ['winter' as const], source: 'user' as const } };
+    const { form, tagger, suggestions } = setup(EMPTY_ATTRIBUTE_FIELDS, start);
+    const reply = deferred<TagOutcome>();
+    tagger.queue.push(() => reply.promise);
+    form.front = 'draft-2';
+    const running = suggestions.frontPhotoPicked('draft-2', 'b');
+    expect(form.categorySeason).toEqual({ category: { value: null, source: 'auto' }, seasons: start.seasons });
+    reply.resolve({ ok: false, failure: 'timeout' });
+    await running;
+    expect(form.categorySeason).toEqual({ category: { value: null, source: 'auto' }, seasons: start.seasons });
+  });
+
+  it('never replaces the category and seasons of a saved item being edited', async () => {
+    const loaded = categorySeasonFields('dress', ['summer']);
+    const { form, tagger, suggestions } = setup(EMPTY_ATTRIBUTE_FIELDS, loaded);
+    tagger.queue.push(tagged({ category: 'top', seasons: ['winter'], fit: 'slim' }));
+    await suggestions.frontPhotoPicked('draft-1', 'a');
+    expect(form.categorySeason).toEqual(loaded);
+    expect(form.attributes.fit.value).toBe('slim');
+  });
+
+  it.each(['not-configured', 'no-token', 'unauthorized', 'offline', 'timeout', 'rejected', 'server', 'invalid-response'] as const)(
+    'shows "No suggestions" after a %s failure and clears it on the next pick',
+    async (failure) => {
+      const { form, tagger, suggestions } = setup();
+      tagger.queue.push({ ok: false, failure }, tagged({ fit: 'slim' }));
+      await suggestions.frontPhotoPicked('draft-1', 'a');
+      expect(form.none).toEqual([false, true]);
+      form.front = 'draft-2';
+      await suggestions.frontPhotoPicked('draft-2', 'b');
+      expect(form.none).toEqual([false, true, false]);
+    },
+  );
+
+  it('shows "No suggestions" when the answer has nothing usable (e.g. not a clothing photo), not when it has something', async () => {
+    const { form, tagger, suggestions } = setup();
+    tagger.queue.push(tagged({}), tagged({ colors: ['red'] }));
+    await suggestions.frontPhotoPicked('draft-1', 'a');
+    expect(form.none).toEqual([false, true]);
+    await suggestions.frontPhotoPicked('draft-1', 'b');
+    expect(form.none).toEqual([false, true, false]);
+  });
+
+  it('a failure for a photo that is no longer the front, or after reset, shows nothing', async () => {
+    const { form, tagger, suggestions } = setup();
+    const reply = deferred<TagOutcome>();
+    tagger.queue.push(() => reply.promise);
+    const running = suggestions.frontPhotoPicked('draft-1', 'a');
+    form.front = null;
+    reply.resolve({ ok: false, failure: 'offline' });
+    await running;
+    expect(form.none).toEqual([false]);
+
+    form.front = 'draft-1';
+    const second = deferred<TagOutcome>();
+    tagger.queue.push(() => second.promise);
+    const again = suggestions.frontPhotoPicked('draft-1', 'b');
+    suggestions.reset();
+    second.resolve({ ok: false, failure: 'offline' });
+    await again;
+    expect(form.none).toEqual([false, false, false]);
+  });
+
+  it('sends one request per photo: a second call for the photo in flight is ignored', async () => {
+    const { form, tagger, suggestions, imageSource } = setup();
+    const reply = deferred<TagOutcome>();
+    tagger.queue.push(() => reply.promise, tagged({ fit: 'relaxed' }));
+    const first = suggestions.frontPhotoPicked('draft-1', 'a');
+    const duplicate = suggestions.frontPhotoPicked('draft-1', 'a');
+    await duplicate;
+    reply.resolve(tagged({ fit: 'slim' }));
+    await first;
+    expect(imageSource.reads).toEqual(['a']);
+    expect(tagger.inputs).toHaveLength(1);
+    expect(form.attributes.fit).toEqual({ value: 'slim', source: 'auto' });
+    expect(form.suggesting).toEqual([true, false]);
+  });
+
+  it('after leaving the screen a late reply changes nothing (no fields, no flags)', async () => {
+    const { form, tagger, suggestions } = setup();
+    const reply = deferred<TagOutcome>();
+    tagger.queue.push(() => reply.promise);
+    const running = suggestions.frontPhotoPicked('draft-1', 'a');
+    suggestions.cancel();
+    form.active = false;
+    const before = JSON.stringify(form);
+    reply.resolve(tagged({ category: 'top', seasons: ['summer'], fit: 'slim', colors: ['red'] }));
+    await running;
+    expect(JSON.stringify(form)).toBe(before);
+  });
+
+  it('with the remote tagger and no saved token, shows "No suggestions" and saving still works', async () => {
+    const form: FakeForm = {
+      attributes: EMPTY_ATTRIBUTE_FIELDS,
+      categorySeason: categorySeasonFields(null, []),
+      front: 'draft-1',
+      colors: [],
+      suggesting: [],
+      none: [],
+      active: true,
+    };
+    const fetchMock = jest.fn();
+    const tagger = new RemoteClosetTagger({
+      url: 'https://example.supabase.co/functions/v1/tag-item',
+      tokenStore: new InMemoryDevTokenStore(),
+      fetch: fetchMock as unknown as typeof fetch,
+    });
+    const suggestions = new FormTagSuggestions({ tagger, imageSource: new FixedTagImageSource() }, hostFor(form));
+    await suggestions.frontPhotoPicked('draft-1', 'file:///front.jpg');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(form.none).toEqual([false, true]);
+    const result = await addClosetItem(
+      {
+        ...EMPTY_ITEM_FORM,
+        category: 'top',
+        colors: [{ paletteId: 'black', hex: '#111111', source: 'user' }],
+        seasons: ['winter'],
+        tags: [],
+        attributes: form.attributes,
+        photos: [{ kind: 'picked', id: 'draft-1', uri: 'file:///front.jpg', role: 'front', isPrimary: true }],
+      },
+      {
+        repository: new InMemoryClosetRepository(),
+        imageStore: new MemoryImageStore(),
+        imageProcessor: new FakeImageProcessor(),
+        temporaryFiles: new RecordingTemporaryFiles(),
+        newId: () => 'item-1',
+      },
+    );
+    expect(result.ok).toBe(true);
+  });
+});
+
 describe('toPhotoSuggestions', () => {
   it('ignores the colors of a stub answer and keeps real ones (at most three, unique)', () => {
     expect(toPhotoSuggestions({ ...NO_TAGS, colors: ['navy'] }, true).colors).toEqual([]);
     const real = toPhotoSuggestions({ ...NO_TAGS, colors: ['navy', 'navy', 'red', 'white', 'black'] as ItemTags['colors'] }, false);
     expect(real.colors.map((c) => c.paletteId)).toEqual(['navy', 'red', 'white']);
+  });
+
+  it('maps category and seasons from a real answer (season order) and ignores them from a stub', () => {
+    const tags: ItemTags = { ...NO_TAGS, category: 'shoes', seasons: ['winter', 'spring'] };
+    expect(toPhotoSuggestions(tags, false)).toMatchObject({ category: 'shoes', seasons: ['spring', 'winter'] });
+    expect(toPhotoSuggestions(tags, true)).toMatchObject({ category: null, seasons: [] });
   });
 
   it('keeps attribute suggestions from a stub answer', () => {

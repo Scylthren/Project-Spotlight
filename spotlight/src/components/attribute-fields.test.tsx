@@ -7,10 +7,11 @@ import { AttributeFields } from './attribute-fields';
 import { touchHeight } from './ui/testing/rendered-touch';
 
 /** Just the parts of the form fields `AttributeFields` uses. */
-function fakeFields(attributes: Fields, suggestingTags = false) {
+function fakeFields(attributes: Fields, suggestingTags = false, noSuggestions = false) {
   const fields = {
     values: { ...EMPTY_ITEM_FORM, attributes },
     suggestingTags,
+    noSuggestions,
     setItemType: jest.fn(),
     toggleAttribute: jest.fn(),
   };
@@ -99,5 +100,16 @@ describe('AttributeFields (rendered)', () => {
     expect(screen.queryByLabelText('Pattern choices')).toBeNull();
     await fireEvent.press(screen.getByRole('radio', { name: 'Formal' }));
     expect(fields.toggleAttribute).not.toHaveBeenCalled();
+  });
+
+  it('says "No suggestions" quietly when tagging gave nothing, and nothing once it is not the case', async () => {
+    const view = await render(<AttributeFields fields={fakeFields(EMPTY_ATTRIBUTE_FIELDS, false, true)} disabled={false} />);
+    expect(screen.getByText('No suggestions')).toBeTruthy();
+    expect(screen.queryByText('Suggesting details from the photo...')).toBeNull();
+    // Fields stay usable: the user fills them in.
+    expect(screen.getByRole('button', { name: 'Pattern, not set' })).not.toBeDisabled();
+    await view.rerender(<AttributeFields fields={fakeFields(EMPTY_ATTRIBUTE_FIELDS, true, false)} disabled={false} />);
+    expect(screen.queryByText('No suggestions')).toBeNull();
+    expect(screen.getByText('Suggesting details from the photo...')).toBeTruthy();
   });
 });

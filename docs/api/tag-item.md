@@ -1,9 +1,10 @@
 # tag-item
 
-Suggests tags for one garment photo. Gate 2 slices 1 and 2: the function returns a fixed stub answer and does not look at the image. Slice 3 sends the image to Claude.
+Suggests tags for one garment photo. Since Gate 2 slice 3 the function sends the image to Claude (model `claude-haiku-5-5`, ROADMAP D3) with a fixed prompt and a JSON schema, validates the reply, and answers `stub: false`. (Slices 1 and 2 returned a fixed stub; the app's `MockClosetTagger` still returns that stub in tests.)
 
 - **URL:** `POST https://<project-ref>.supabase.co/functions/v1/tag-item` (the app builds it from `EXPO_PUBLIC_SUPABASE_URL`).
-- **Source:** `supabase/functions/tag-item/` (thin Deno entry `index.ts`, logic in `handler.ts`), shared code in `supabase/functions/_shared/`.
+- **Source:** `supabase/functions/tag-item/` (thin Deno entry `index.ts`, logic in `handler.ts`, the model call in `claude.ts`, the fixed prompt and JSON schema in `prompt.ts`, reply checks in `model-reply.ts`), shared code in `supabase/functions/_shared/`.
+- **Secrets:** `DEV_TOKEN` (auth, below) and `ANTHROPIC_API_KEY` (the model key). Both exist only as Supabase function secrets.
 - **Types:** `supabase/functions/_shared/tag-item-contract.ts` is the single source of the request and response types, limits and validators. The app keeps a byte-identical copy at `spotlight/src/ai/tag-item-contract.ts`; `spotlight/src/ai/tag-item-contract.test.ts` fails when they drift. Edit the supabase file, then copy it.
 - **App client:** `RemoteClosetTagger` (`spotlight/src/ai/remote-closet-tagger.ts`), behind the `ClosetTagger` interface.
 
@@ -29,7 +30,7 @@ Until real accounts exist (Gate 4) the function is protected by a development-on
 | Field | Type | Rules |
 | --- | --- | --- |
 | `imageBase64` | string | Standard base64 (`A-Z a-z 0-9 + /`, `=` padding, length a multiple of 4), no `data:` prefix, no line breaks. Must start with the JPEG marker (`/9j/`). At most 2,000,000 characters (about 1.5 MB of JPEG). |
-| `contentType` | string | `"image/jpeg"` only. The app downscales, re-encodes and strips metadata before upload (slice 3). |
+| `contentType` | string | `"image/jpeg"` only. The app downscales the front photo to at most 1024 px on the long edge (never upscaling), re-encodes it as JPEG and strips its metadata before upload; it checks the exact bytes it sends carry no Exif, GPS, XMP or other metadata. |
 
 Unknown extra fields are ignored.
 
@@ -41,13 +42,13 @@ Unknown extra fields are ignored.
     "category": "top",
     "colors": ["navy", "white"],
     "seasons": ["spring", "autumn"],
-    "type": "Shirt",
+    "type": "Oxford shirt",
     "pattern": "striped",
     "material": "cotton",
     "fit": "regular",
-    "formality": "casual"
+    "formality": "smart-casual"
   },
-  "stub": true
+  "stub": false
 }
 ```
 
@@ -62,16 +63,24 @@ Unknown extra fields are ignored.
 | `tags.material` | string or null | `cotton`, `denim`, `wool`, `knit`, `linen`, `silk`, `leather`, `synthetic`, `other`. |
 | `tags.fit` | string or null | `slim`, `regular`, `relaxed`, `oversized`. |
 | `tags.formality` | string or null | `athletic`, `casual`, `smart-casual`, `formal`. |
-| `stub` | boolean | `true` while the function returns the fixed answer above. |
+| `stub` | boolean | `false` from the deployed function (a real model answer). `true` only for a canned answer (the slices 1-2 stub, the app's mock tagger); the app ignores a stub's category, seasons and colors. |
 
 The lists are ROADMAP decision D6 (ids use a hyphen where the label has a space: "Polka dot" is `polka-dot`, "Smart casual" is `smart-casual`) and match the app's `spotlight/src/core/item-attributes.ts` (drift-tested).
 
-Validation (`validateTagItemResponse`, used by the app and, from slice 3, by the function on the model's reply):
+Every field may be empty: `null` (or `[]` for lists) means "no suggestion" for that field. A photo that shows no garment (a screenshot of text, a pet, a landscape) gets every field empty, still with 200.
+
+How the function gets the tags (ROADMAP "Gate 2 slice 3 tagging rules"):
+- One call to the Messages API: the image block, then a short text; a fixed system prompt that lists every allowed value and says what to do for edge cases (no garment: everything empty; several garments: the most prominent; a worn garment: the garment; very dark or blurred: best guess or empty; swimwear, bags and other items without an exact category: the nearest category or null). Structured output (`output_config.format` `json_schema`) with an `enum` for every closed field, `null` allowed where above, every key required, no extra keys; `thinking` disabled, `effort` low, `max_tokens` 1024.
+- The reply is read field by field (`model-reply.ts`). `stop_reason` is checked first: `refusal`, `max_tokens` or anything but `end_turn`/`stop_sequence` counts as malformed, as does a first text block that is not a JSON object. A missing, malformed or out-of-list field is a problem: it becomes `null` (a list keeps only its valid entries; duplicates are dropped and colors are cut to 3 without counting as a problem). A type is trimmed and must be 1 to 30 characters.
+- Any problem (or a malformed reply) is retried once, if at least 3 s of the 16 s budget is left. Then the answer is the valid part of the better reply (fewer problems; the later one on a tie). If neither reply was readable, every field is empty (200).
+- Provider errors are not retried (see Errors). If an earlier attempt already gave usable tags, those are answered instead of the error.
+
+Validation in the app (`validateTagItemResponse`):
 - Unknown fields are ignored.
 - `category`, `colors`, `seasons` are strict: a value outside the vocabulary rejects the whole response (the app treats it as "no suggestion").
 - `type`, `pattern`, `material`, `fit`, `formality` are lenient: a missing field (an older server), a value outside the list, or a type that is empty or longer than 30 characters is read as `null` (that suggestion is dropped); the rest of the response is kept. Adding these fields did not change `apiVersion`.
 
-The app applies suggestions only to fields the user has not touched (D6). Colors from a `stub: true` answer are ignored (they are canned); from a real answer they replace the on-device color guess unless the user changed the colors (D7).
+The app applies suggestions only to fields the user has not touched (D6), including category and seasons (slice 3 rule). Category, seasons and colors from a `stub: true` answer are ignored (they are canned); from a real answer, colors replace the on-device color guess unless the user changed the colors (D7). When tagging fails or suggests nothing, the form says "No suggestions" and saving works as before.
 
 ## Errors
 Error bodies: `{ "error": { "code": "<code>", "message": "<text>" } }`. Messages are for developers, not shown to users.
@@ -82,16 +91,22 @@ Error bodies: `{ "error": { "code": "<code>", "message": "<text>" } }`. Messages
 | 401 | `unauthorized` | Missing, malformed or wrong `Authorization` header (also when the secret is misconfigured). Checked before the body is parsed. |
 | 400 | `too_large` | `Content-Length` or the actual body is over 2,100,000 bytes. |
 | 400 | `bad_request` | Body not readable as UTF-8, not JSON, or fails the request rules above. |
-| 500 | `server_misconfigured` | A well-formed bearer token, but the `DEV_TOKEN` secret is missing or too short. |
+| 500 | `server_misconfigured` | A well-formed bearer token, but the `DEV_TOKEN` secret is missing or too short, or the `ANTHROPIC_API_KEY` secret is missing or blank (checked after the token, before the body is parsed; there is no stub fallback). |
+| 503 | `upstream_rate_limited` | The model provider answered 429. Not retried. |
+| 503 | `upstream_unavailable` | The model provider answered 5xx (including 529 overloaded) or could not be reached. Not retried. |
+| 504 | `upstream_timeout` | The model call took longer than its limit (8 s per call, 16 s for all calls together). |
+| 502 | `upstream_rejected` | The model provider answered any other 4xx (for example a bad or revoked key, or an image it could not read). Not retried. |
 | 500 | `internal` | Unexpected error. |
 
-Other statuses can come from the Supabase gateway (for example 404 when the function is not deployed, 5xx on platform trouble).
+The `upstream_*` messages are fixed text; the provider's own error message is never passed on (it could echo input). Other statuses can come from the Supabase gateway (for example 404 when the function is not deployed, 5xx on platform trouble).
 
 ## Limits
 - Body: at most 2,100,000 bytes; image base64: at most 2,000,000 characters.
 - Before any answer, an unread or partly read body is read and discarded, because answering mid-upload left the connection hanging on the hosted runtime (503 after a minute). Bound: at most 8,000,000 bytes or 5 seconds, whichever comes first, then the stream is cancelled. A declared `Content-Length` over 8,000,000 bytes is cancelled at once without reading. This applies to every caller, authorized or not: an anonymous caller can make the function read up to 8 MB or for 5 s per request.
 - Bodies over 8 MB get no usable answer: the client sees the connection hang (curl gave up after 90 s in testing). The app never sends more than 2,100,000 bytes.
+- Model time (function): each call at most 8 s, all calls (the first and the one retry) at most 16 s; the retry starts only with at least 3 s left. This keeps the answer inside the app's timeout.
 - Client timeout (app): 20 seconds, then the app reports "timed out".
+- Cost: about one Haiku call per photo (two when the reply needs the retry); tokens per call are in the logs.
 - No rate limit yet, for authorized or unauthenticated calls (risk noted in `docs/plans/gate-2.md`).
 
 ## App failure mapping
@@ -103,10 +118,10 @@ Other statuses can come from the Supabase gateway (for example 404 when the func
 | `no-token` | No token saved on the device, or secure storage could not be read. No request is made. |
 | `unauthorized` | 401. |
 | `rejected` | 400. |
-| `server` | Any other non-200 status (404 not deployed, 5xx). |
+| `server` | Any other non-200 status (404 not deployed, 500 misconfigured, 502/503/504 provider trouble). |
 | `offline` | `fetch` failed before an answer (no network, DNS, TLS), or the connection dropped while reading. |
 | `timeout` | No complete answer within the timeout (request aborted). |
 | `invalid-response` | 200 with a body that is not JSON or fails `validateTagItemResponse`. |
 
 ## Logging
-The function logs nothing about requests. It never logs headers, the token or the image. An unexpected error logs only `tag-item: unexpected error`.
+One JSON line per model call, for cost and latency: `{"fn":"tag-item","event":"provider_call","model","attempt","status","stop_reason","input_tokens","output_tokens","latency_ms","outcome","problems"?}`. `status` is the HTTP status, or `network_error` / `timeout`; `outcome` is `ok`, `partial`, `malformed:<reason>`, or the provider error; `problems` lists invalid field names only, never values. The function never logs headers, the token, the key, the image or the reply text. An unexpected error logs only `tag-item: unexpected error`.

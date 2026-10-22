@@ -40,6 +40,9 @@ class BlockedProcessor implements ImageProcessor {
     this.log.push(`read ${sourceUri}`);
     return { uri: `file:///cache/ImageManipulator/out${++this.count}.jpg`, width: 10, height: 10 };
   }
+  async prepareForUpload(): Promise<never> {
+    throw new Error('not used in these tests');
+  }
 }
 
 const draft = (id: string, uri: string, role: PhotoDraft['role']): PhotoDraft => ({

@@ -1,4 +1,5 @@
 import {
+  CAMERA_ACCESS_TEXT,
   cameraAccessReducer,
   deniedPanelAction,
   INITIAL_CAMERA_ACCESS,
@@ -228,5 +229,14 @@ describe('deniedPanelAction', () => {
     expect(deniedPanelAction(DENIED_ASK_AGAIN)).toBe('ask-again');
     expect(deniedPanelAction(DENIED_SETTINGS)).toBe('open-settings');
     expect(deniedPanelAction(null)).toBe('open-settings');
+  });
+});
+
+describe('camera intro copy (Gate 2 slice 3)', () => {
+  it('no longer claims photos stay on the device, and says what is sent', () => {
+    const { introBody } = CAMERA_ACCESS_TEXT;
+    expect(introBody).not.toMatch(/stay on this device/i);
+    expect(introBody).toContain('without location data');
+    expect(introBody).toContain('Claude (Anthropic)');
   });
 });

@@ -167,7 +167,7 @@ export function deniedPanelAction(permission: CameraPermission | null): 'ask-aga
 export const CAMERA_ACCESS_TEXT = Object.freeze({
   introTitle: 'Photograph your clothes',
   introBody:
-    'Spotlight uses the camera so you can take a photo of each item for your closet. Photos stay on this device. You can also choose photos from your library instead.',
+    'Spotlight uses the camera so you can take a photo of each item for your closet. Photos are saved on this device. To suggest details, a smaller copy without location data is sent to our server and to Claude (Anthropic). You can also choose photos from your library instead.',
   introAllow: 'Continue',
   notNow: 'Not now',
   library: 'Choose from photo library',

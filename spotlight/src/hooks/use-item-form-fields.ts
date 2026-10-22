@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import {
   addTag,
   allowedNewRoles,
+  categorySeasonFields,
+  isSuggestedValue,
+  pickCategory,
+  toggleFormSeason,
+  type CategorySeasonFields,
   EMPTY_ATTRIBUTE_FIELDS,
   setAttribute,
   toggleAttribute,
@@ -18,7 +23,6 @@ import {
   removeTag,
   TAG_MESSAGES,
   toggleColor,
-  toggleSeason,
   toggleTag,
   type Category,
   type ColorSelectionResult,
@@ -61,8 +65,9 @@ const NO_PHOTOS: readonly PhotoDraft[] = Object.freeze([]);
  *
  * Tag suggestions (Gate 2): picking or retaking the front photo also asks the
  * `ClosetTagger` in the background (`FormTagSuggestions`). Suggestions fill
- * only attributes the user has not touched; the tagger's colors go through
- * the color detection (D7). Failures just leave the fields for the user.
+ * only the attributes, category and seasons the user has not touched; the
+ * tagger's colors go through the color detection (D7). Failures just leave
+ * the fields for the user and show "No suggestions".
  */
 export function useItemFormFields(
   initial: ItemFormValues = EMPTY_ITEM_FORM,
@@ -80,7 +85,12 @@ export function useItemFormFields(
   const photosRef = useRef(photos);
   /** The name as typed; trimmed (and left out when blank) on save. */
   const [name, setName] = useState(initial.name ?? '');
-  const [category, setCategory] = useState<Category | null>(initial.category);
+  /** Category and seasons with their sources (suggested or the user's); see core/category-season-suggestions.ts. */
+  const [categorySeason, setCategorySeasonState] = useState<CategorySeasonFields>(() =>
+    categorySeasonFields(initial.category, initial.seasons),
+  );
+  /** Latest `categorySeason`, so quick taps and late suggestions never act on a stale copy. */
+  const categorySeasonRef = useRef(categorySeason);
   const [colors, setColorsState] = useState<ItemColor[]>(() => initial.colors.map((c) => ({ ...c })));
   /** Latest `colors`, so quick taps and late detection results never act on a stale list. */
   const colorsRef = useRef(colors);
@@ -118,6 +128,8 @@ export function useItemFormFields(
   const attributesRef = useRef(attributes);
   /** True while the front photo is being tagged (shown as a hint; never blocks). */
   const [suggestingTags, setSuggestingTags] = useState(false);
+  /** True when the latest front photo got no suggestion ("No suggestions"; never blocks). */
+  const [noSuggestions, setNoSuggestions] = useState(false);
   const [suggestions] = useState(
     () =>
       new FormTagSuggestions(
@@ -125,15 +137,17 @@ export function useItemFormFields(
         {
           attributes: () => attributesRef.current,
           setAttributes: (next) => setAttributes(next),
+          categorySeason: () => categorySeasonRef.current,
+          setCategorySeason: (next) => setCategorySeason(next),
           frontPhotoId: () => photosRef.current.find((p) => p.role === 'front')?.id ?? null,
           suggestColors: (id, suggested) => detection.taggerColors(id, suggested),
           setSuggesting: (suggesting) => setSuggestingTags(suggesting),
+          setNoSuggestions: (none) => setNoSuggestions(none),
           isActive: () => isMounted(),
         },
         { onError: (error) => console.warn('Tag suggestion failed', error) },
       ),
   );
-  const [seasons, setSeasons] = useState<Season[]>(() => [...initial.seasons]);
   const [tags, setTags] = useState<string[]>(() => [...initial.tags]);
   /** What is typed in the tag box (also filters the saved tag list). */
   const [tagText, setTagText] = useState('');
@@ -174,6 +188,11 @@ export function useItemFormFields(
   function setAttributes(next: AttributeFields) {
     attributesRef.current = next;
     setAttributesState(next);
+  }
+
+  function setCategorySeason(next: CategorySeasonFields) {
+    categorySeasonRef.current = next;
+    setCategorySeasonState(next);
   }
 
   function setColors(next: ItemColor[]) {
@@ -305,11 +324,10 @@ export function useItemFormFields(
     if (!isMounted()) return;
     setPhotos([...nextPhotos]);
     setName(values.name ?? '');
-    setCategory(values.category);
+    setCategorySeason(categorySeasonFields(values.category, values.seasons));
     setColors(values.colors.map((c) => ({ ...c })));
     setColorProblem(null);
     setColorMatrix(null);
-    setSeasons([...values.seasons]);
     setTags([...values.tags]);
     setAttributes({ ...(values.attributes ?? EMPTY_ATTRIBUTE_FIELDS) });
     setTagText('');
@@ -317,7 +335,14 @@ export function useItemFormFields(
     setErrors([]);
   }
 
-  const values: ItemFormValues = { name, category, colors, seasons, tags, attributes };
+  const values: ItemFormValues = {
+    name,
+    category: categorySeason.category.value,
+    colors,
+    seasons: categorySeason.seasons.value,
+    tags,
+    attributes,
+  };
 
   return {
     photos,
@@ -332,7 +357,10 @@ export function useItemFormFields(
     pickingPhoto: picker.busy,
     pickPhoto,
     setName,
-    setCategory,
+    /** The user picks a category (it becomes theirs; suggestions leave it alone). */
+    setCategory: (next: Category | null) => setCategorySeason(pickCategory(categorySeasonRef.current, next)),
+    /** True while the category shown was suggested from the photo and not touched. */
+    categorySuggested: isSuggestedValue(categorySeason.category),
     /** Matrix tap: select (first is primary) or deselect. Rules in core/color-selection.ts. */
     toggleColor: (paletteId: string) => applyColors((current) => toggleColor(current, paletteId)),
     makePrimaryColor: (paletteId: string) => applyColors((current) => makePrimaryColor(current, paletteId)),
@@ -349,9 +377,13 @@ export function useItemFormFields(
       setColorMatrix(null);
       setColorProblem(null);
     },
-    toggleSeason: (season: Season) => setSeasons((s) => toggleSeason(s, season)),
+    toggleSeason: (season: Season) => setCategorySeason(toggleFormSeason(categorySeasonRef.current, season)),
+    /** True while the seasons shown were suggested from the photo and not touched. */
+    seasonsSuggested: isSuggestedValue(categorySeason.seasons),
     /** True while the front photo is being tagged. */
     suggestingTags,
+    /** True when the latest front photo got no suggestion (show "No suggestions"). */
+    noSuggestions,
     /** The type as typed (marks it the user's). */
     setItemType: (text: string) => setAttributes(setAttribute(attributesRef.current, 'type', text)),
     /** A tap on a choice: picks it, or clears it when already picked (marks it the user's). */

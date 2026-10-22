@@ -1,32 +1,26 @@
 import type { ClosetTagger, TagImage } from '@/ai/closet-tagger';
 import type { ItemTags } from '@/ai/tag-item-contract';
 import {
+  ATTRIBUTE_NAMES,
+  CATEGORIES,
   cleanAttributeSuggestions,
   isPaletteId,
   MAX_ITEM_COLORS,
   paletteColor,
+  SEASONS,
   type AttributeSuggestions,
+  type Category,
   type ItemColor,
+  type Season,
 } from '@/core';
 
 /**
- * Turns a photo into the image the tagger receives. Slice 3 adds the real one
- * (downscale, re-encode, strip metadata, base64).
+ * Turns a photo into the image the tagger receives. The app's one is
+ * `UploadTagImageSource` (downscale, re-encode, strip and verify metadata,
+ * base64). Tests use a fixed test-only source from data/testing.
  */
 export interface TagImageSource {
   read(photoUri: string): Promise<TagImage>;
-}
-
-/**
- * Gate 2 slice 2 placeholder: the app's tagger is `MockClosetTagger`, which
- * ignores the image, so no photo is read. It returns an empty image; if the
- * remote tagger were wired to it by mistake, the function rejects it (400)
- * and the form simply gets no suggestion.
- */
-export class PlaceholderTagImageSource implements TagImageSource {
-  async read(): Promise<TagImage> {
-    return { base64: '', contentType: 'image/jpeg' };
-  }
 }
 
 /** What a photo suggests for the form. */
@@ -40,6 +34,20 @@ export interface PhotoSuggestions {
    * photo, so the on-device guess stays).
    */
   colors: ItemColor[];
+  /** The suggested category, or null. Null for a stub answer (canned). */
+  category: Category | null;
+  /** Suggested seasons in season order. Empty for a stub answer (canned). */
+  seasons: Season[];
+}
+
+/** True when the answer suggested nothing usable at all (e.g. not a clothing photo). */
+export function isEmptySuggestion(suggestions: PhotoSuggestions): boolean {
+  return (
+    suggestions.category === null &&
+    suggestions.seasons.length === 0 &&
+    suggestions.colors.length === 0 &&
+    ATTRIBUTE_NAMES.every((name) => suggestions.attributes[name] == null)
+  );
 }
 
 /** Suggestion that takes longer than this counts as "no suggestion" (above the remote tagger's own 20 s). */
@@ -51,7 +59,12 @@ export interface SuggestOptions {
   onError?: (error: unknown) => void;
 }
 
-/** Maps the tagger's tags to form suggestions (see `PhotoSuggestions`). */
+/**
+ * Maps the tagger's tags to form suggestions (see `PhotoSuggestions`). A stub
+ * answer's colors, category and seasons are ignored (canned, they say
+ * nothing about the photo, and a canned category would push every item into
+ * one category); its D6 attributes are kept, as in slice 2.
+ */
 export function toPhotoSuggestions(tags: ItemTags, stub: boolean): PhotoSuggestions {
   const colors: ItemColor[] = [];
   if (!stub) {
@@ -70,6 +83,8 @@ export function toPhotoSuggestions(tags: ItemTags, stub: boolean): PhotoSuggesti
       formality: tags.formality,
     }),
     colors,
+    category: !stub && (CATEGORIES as readonly unknown[]).includes(tags.category) ? tags.category : null,
+    seasons: stub || !Array.isArray(tags.seasons) ? [] : SEASONS.filter((season) => tags.seasons.includes(season)),
   };
 }
 

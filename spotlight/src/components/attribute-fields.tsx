@@ -62,6 +62,10 @@ export function AttributeFields({ fields, disabled }: AttributeFieldsProps) {
         <Text style={form.caption} accessibilityLiveRegion="polite">
           Suggesting details from the photo...
         </Text>
+      ) : fields.noSuggestions ? (
+        <Text style={form.caption} accessibilityLiveRegion="polite">
+          No suggestions
+        </Text>
       ) : null}
       <View style={look.grid}>
         {GRID_CHOICES.map((name) => {

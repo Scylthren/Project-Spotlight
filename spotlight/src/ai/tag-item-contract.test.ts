@@ -14,6 +14,7 @@ import {
   TAG_TYPE_MAX_LENGTH,
   TAG_ITEM_MAX_BODY_BYTES,
   TAG_ITEM_MAX_IMAGE_BASE64_LENGTH,
+  TAG_ITEM_ERROR_CODES,
   TAG_SEASONS,
   tagItemErrorCode,
   validateTagItemRequest,
@@ -47,6 +48,11 @@ describe('tag-item contract drift', () => {
     }
     for (const field of ['type', 'pattern', 'material', 'fit', 'formality']) expect(doc).toContain(`\`tags.${field}\``);
     expect(doc).toContain(`1 to ${TAG_TYPE_MAX_LENGTH} characters`);
+  });
+
+  it('documents every error code in docs/api/tag-item.md', () => {
+    const doc = readText(joinPath(REPO_ROOT, 'docs/api/tag-item.md'));
+    for (const code of TAG_ITEM_ERROR_CODES) expect(doc).toContain(`\`${code}\``);
   });
 
   it('documents the limits in docs/api/tag-item.md', () => {
