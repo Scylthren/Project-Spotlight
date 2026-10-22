@@ -69,21 +69,31 @@ function variant(
 }
 
 /**
+ * Bodoni Moda sets a deep descent (0.4 em) and capitals 0.75 em tall, so a
+ * line box of 1.0-1.05 em clips the tops of capitals on device. Serif lines
+ * get at least 1.2 em; the mockups' tighter CSS line heights don't carry over.
+ * Accents above capitals reach 1.05 em and can still clip at 1.2 em.
+ */
+export const SERIF_MIN_LINE_HEIGHT = 1.2;
+
+const serifLine = (fontSize: number) => Math.ceil(fontSize * SERIF_MIN_LINE_HEIGHT);
+
+/**
  * The type scale in points. Sizes, line heights and tracking come from the
  * mockups (390 pt wide, so CSS px = pt). Titles track in px; uppercase UI
  * labels track in em, converted per size.
  */
 export const typography = {
-  /** Screen titles in the masthead ("Closet", "Me"): 48px, line-height 1, -1px. */
-  display: variant(fonts.serif.bold, 48, 48, { pt: -1 }),
-  /** Smaller screen titles (Today.dc.html "Look of the day"): 40px, line-height 1, -1px. */
-  title: variant(fonts.serif.bold, 40, 40, { pt: -1 }),
-  /** Step headers and the item name on the detail screen: 32px, line-height 1.05, -0.5px. */
-  headline: variant(fonts.serif.regular, 32, 34, { pt: -0.5 }),
+  /** Screen titles in the masthead ("Closet", "Me"): 48px, -1px. */
+  display: variant(fonts.serif.bold, 48, serifLine(48), { pt: -1 }),
+  /** Smaller screen titles (Today.dc.html "Look of the day"): 40px, -1px. */
+  title: variant(fonts.serif.bold, 40, serifLine(40), { pt: -1 }),
+  /** Step headers and the item name on the detail screen: 32px, -0.5px. */
+  headline: variant(fonts.serif.regular, 32, serifLine(32), { pt: -0.5 }),
   /** Item names in forms and headers. */
-  itemName: variant(fonts.serif.regular, 28, 29),
+  itemName: variant(fonts.serif.regular, 28, serifLine(28)),
   /** Item names under closet tiles. */
-  itemNameSmall: variant(fonts.serif.regular, 17, 20),
+  itemNameSmall: variant(fonts.serif.regular, 17, serifLine(17)),
   /** Style tags and italic asides. */
   styleTag: variant(fonts.serif.italic, 14, 18),
   bodyLarge: variant(fonts.sans.regular, 15, 22),

@@ -48,7 +48,8 @@ Run all of these from the `spotlight/` folder (the Expo app), not the repo root.
 - Work in vertical slices: types, logic, UI, tests, together. Do not build all the data layer and then all the UI.
 - UI work follows docs/design/; build new screens styled from the start using the theme and shared components.
 - Every feature gets at least one test. Do not weaken or delete a test to make it pass.
-- Use `implementer-tester` to build a slice. Run `architect-reviewer` before reporting a slice or gate as done.
+- Use `implementer-tester` to build a slice. Run `architect-reviewer` before reporting a slice or gate as done. The reviewer runs on Sonnet to save tokens (set in its frontmatter). For the final review before a gate report, override it to Opus when spawning it.
+- After committing a slice, push to origin. After tagging a gate, also push the tag (`git push origin <tag>`). If a push is rejected, stop and tell the human; never force-push.
 - Evals in `evals/` call the real AI and cost money. Run them after prompt or model changes and at gates, and append results to `evals/results.md`.
 - Add no dependency without asking and explaining why.
 - Stop at each gate. Do not start the next gate until the human approves. At a gate, report what was built, the measured numbers against the criteria, and known issues.

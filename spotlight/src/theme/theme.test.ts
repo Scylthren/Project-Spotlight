@@ -9,6 +9,7 @@ import {
   fonts,
   lightColors,
   resolveColorScheme,
+  SERIF_MIN_LINE_HEIGHT,
   themes,
   typography,
   type ThemeColors,
@@ -119,9 +120,17 @@ describe('typography', () => {
   });
 
   it('uses the px tracking the mockups give titles as points, unconverted', () => {
-    expect(typography.display).toMatchObject({ fontSize: 48, lineHeight: 48, letterSpacing: -1 });
-    expect(typography.title).toMatchObject({ fontSize: 40, lineHeight: 40, letterSpacing: -1 });
-    expect(typography.headline).toMatchObject({ fontSize: 32, lineHeight: 34, letterSpacing: -0.5 });
+    expect(typography.display).toMatchObject({ fontSize: 48, lineHeight: 58, letterSpacing: -1 });
+    expect(typography.title).toMatchObject({ fontSize: 40, lineHeight: 48, letterSpacing: -1 });
+    expect(typography.headline).toMatchObject({ fontSize: 32, lineHeight: 39, letterSpacing: -0.5 });
+  });
+
+  it('gives every serif variant room for Bodoni capitals above its deep descent', () => {
+    const serif: string[] = Object.values(fonts.serif);
+    for (const v of Object.values(typography)) {
+      if (!serif.includes(v.fontFamily)) continue;
+      expect(v.lineHeight).toBeGreaterThanOrEqual(v.fontSize * SERIF_MIN_LINE_HEIGHT);
+    }
   });
 
   it('uses only loaded font families, serif for display and sans for UI text', () => {

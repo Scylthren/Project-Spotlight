@@ -7,7 +7,9 @@ import { tabBarAppearance } from '@/theme/navigation';
  * The native tab bar with the mockup's labels, icons and colors (no center
  * Scan button, no custom bar). Labels are uppercase text because native tabs
  * cannot transform text; screen readers get the plain words.
- * Icons: SF Symbols on iOS, Material Symbols on Android.
+ * Icons: SF Symbols on iOS, Material Symbols on Android. Add uses a filled
+ * circle with a plus, the nearest native match to the mockup's round ink
+ * Scan button.
  */
 export default function AppTabs() {
   const theme = useTheme();
@@ -24,12 +26,12 @@ export default function AppTabs() {
       disableTransparentOnScrollEdge>
       <NativeTabs.Trigger name="index" accessibilityLabel="Closet">
         <NativeTabs.Trigger.Label>CLOSET</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="cabinet" md="door_sliding" />
+        <NativeTabs.Trigger.Icon sf="hanger" md="checkroom" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="add" accessibilityLabel="Add item">
         <NativeTabs.Trigger.Label>ADD</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="plus" md="add" />
+        <NativeTabs.Trigger.Icon sf="plus.circle.fill" md="add_circle" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="me" accessibilityLabel="Me">

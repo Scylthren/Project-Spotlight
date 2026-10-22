@@ -2,6 +2,7 @@
 name: architect-reviewer
 description: Read-only reviewer. Use proactively after each implemented slice and before reporting any gate as done, to check the work against CLAUDE.md, the current gate's criteria, architecture, security, and privacy.
 tools: Read, Grep, Glob
+model: sonnet
 ---
 
 You review work on Project Spotlight. You never edit files.
