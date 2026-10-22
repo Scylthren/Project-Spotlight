@@ -4,7 +4,7 @@ import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { CAMERA_ACCESS_TEXT, deniedPanelAction } from '@/core';
 import type { CameraAccess } from '@/hooks/use-camera-access';
 
@@ -32,7 +32,7 @@ export function CameraDeniedPanel({ camera, disabled }: { camera: CameraAccess; 
   const { requesting } = camera.state;
 
   return (
-    <ThemedView type="backgroundElement" style={styles.panel} accessibilityLiveRegion="polite">
+    <ThemedView type="surface" style={styles.panel} accessibilityLiveRegion="polite">
       <ThemedText type="smallBold" accessibilityRole="header">
         {CAMERA_ACCESS_TEXT.deniedTitle}
       </ThemedText>
@@ -54,5 +54,5 @@ export function CameraDeniedPanel({ camera, disabled }: { camera: CameraAccess; 
 }
 
 const styles = StyleSheet.create({
-  panel: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  panel: { borderRadius: spacing.lg, padding: spacing.lg, gap: spacing.sm },
 });

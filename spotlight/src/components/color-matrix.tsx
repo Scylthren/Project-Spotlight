@@ -6,7 +6,7 @@ import { ColorSwatch } from '@/components/color-swatch';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { COLOR_MATRIX_HELP, describeMatrix, paletteColor, type ItemColor, type SwatchDescription } from '@/core';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -62,7 +62,7 @@ export function ColorMatrix({
           </View>
           <ScrollView contentContainerStyle={styles.content}>
             {notice ? (
-              <ThemedView type="backgroundSelected" style={styles.notice} accessibilityLiveRegion="polite">
+              <ThemedView type="hairline" style={styles.notice} accessibilityLiveRegion="polite">
                 <ThemedText type="smallBold">{notice}</ThemedText>
               </ThemedView>
             ) : null}
@@ -155,8 +155,8 @@ function SelectedColors({ colors, onToggle, onMakePrimary, disabled }: SelectedC
       {colors.map((c, rank) => {
         const name = paletteColor(c.paletteId)?.name ?? c.paletteId;
         return (
-          <ThemedView key={c.paletteId} type="backgroundElement" style={styles.selectedRow}>
-            <ColorSwatch hex={c.hex} size={28} backgroundHex={theme.backgroundElement} />
+          <ThemedView key={c.paletteId} type="surface" style={styles.selectedRow}>
+            <ColorSwatch hex={c.hex} size={28} backgroundHex={theme.colors.surface} />
             <ThemedText type="smallBold" style={styles.selectedName}>
               {name}
               <ThemedText type="small" themeColor="textSecondary">
@@ -206,35 +206,35 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
+    gap: spacing.lg,
+    paddingHorizontal: spacing.xxl,
+    paddingTop: spacing.lg,
   },
   title: { flex: 1 },
   done: { width: 96 },
-  content: { padding: Spacing.four, gap: Spacing.three },
-  notice: { borderRadius: Spacing.two, padding: Spacing.three },
+  content: { padding: spacing.xxl, gap: spacing.lg },
+  notice: { borderRadius: spacing.sm, padding: spacing.lg },
   errorText: { color: '#d93025' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: Spacing.three },
-  cell: { width: '25%', alignItems: 'center', gap: Spacing.one, paddingHorizontal: Spacing.half },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.lg },
+  cell: { width: '25%', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.xxs },
   ring: { padding: 3, borderRadius: 30, borderWidth: 2, borderColor: 'transparent' },
   ringSelected: { borderColor: ACCENT },
   cellText: { textAlign: 'center' },
   badge: { color: ACCENT, fontSize: 12, lineHeight: 16 },
   pressed: { opacity: 0.6 },
-  selectedList: { gap: Spacing.two },
+  selectedList: { gap: spacing.sm },
   selectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    padding: Spacing.two,
-    borderRadius: Spacing.two,
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: spacing.sm,
   },
   selectedName: { flex: 1 },
   smallButton: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.two,
-    borderRadius: Spacing.two,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: spacing.sm,
     borderWidth: 1,
     borderColor: ACCENT,
   },

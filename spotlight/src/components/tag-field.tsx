@@ -5,7 +5,7 @@ import { ChipGroup } from '@/components/chip-group';
 import { confirmDelete } from '@/components/confirm-delete';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { describeTagDeletion, filterTags, TAG_MAX_LENGTH, tagReturnKeyAction, type TagSummary } from '@/core';
 import type { ItemFormFields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
@@ -74,13 +74,13 @@ export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagF
           submitBehavior="submit"
           returnKeyType="done"
           placeholder="New tag"
-          placeholderTextColor={theme.textSecondary}
+          placeholderTextColor={theme.colors.textSecondary}
           autoCapitalize="none"
           autoCorrect={false}
           maxLength={TAG_MAX_LENGTH * 2}
           editable={!disabled}
           accessibilityLabel="New tag"
-          style={[styles.input, { color: theme.text, backgroundColor: theme.backgroundElement }]}
+          style={[styles.input, { color: theme.colors.text, backgroundColor: theme.colors.surface }]}
         />
         <View style={styles.addButton}>
           <FormButton label="Add" variant="secondary" onPress={fields.addTypedTag} disabled={disabled} />
@@ -124,8 +124,8 @@ export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagF
 }
 
 const styles = StyleSheet.create({
-  inputRow: { flexDirection: 'row', gap: Spacing.two, alignItems: 'center' },
-  input: { flex: 1, borderRadius: Spacing.two, padding: Spacing.three, fontSize: 16 },
+  inputRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  input: { flex: 1, borderRadius: spacing.sm, padding: spacing.lg, fontSize: 16 },
   addButton: { width: 88 },
   errorText: { color: '#d93025' },
 });

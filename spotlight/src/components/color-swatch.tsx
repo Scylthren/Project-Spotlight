@@ -18,7 +18,7 @@ interface ColorSwatchProps {
  */
 export function ColorSwatch({ hex, size, backgroundHex }: ColorSwatchProps) {
   const theme = useTheme();
-  const strong = needsSwatchOutline(hex, backgroundHex ?? theme.background);
+  const strong = needsSwatchOutline(hex, backgroundHex ?? theme.colors.background);
   return (
     <View
       accessible={false}
@@ -30,7 +30,7 @@ export function ColorSwatch({ hex, size, backgroundHex }: ColorSwatchProps) {
           height: size,
           borderRadius: size / 2,
           backgroundColor: hex,
-          borderColor: strong ? theme.text : theme.textSecondary,
+          borderColor: strong ? theme.colors.text : theme.colors.textSecondary,
           borderWidth: strong ? 2 : StyleSheet.hairlineWidth,
         },
       ]}

@@ -9,7 +9,7 @@ import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view
 import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import type { ClothingItem } from '@/core';
 import { useClosetItem } from '@/hooks/use-closet-item';
 import { useEditItemForm } from '@/hooks/use-edit-item-form';
@@ -86,9 +86,9 @@ function EditItem({ item }: { item: ClothingItem }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: Spacing.four, paddingBottom: Spacing.six, gap: Spacing.three },
-  buttons: { gap: Spacing.three },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.four, gap: Spacing.three },
+  content: { padding: spacing.xxl, paddingBottom: spacing.jumbo, gap: spacing.lg },
+  buttons: { gap: spacing.lg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xxl, gap: spacing.lg },
   message: { textAlign: 'center' },
   backButton: { alignSelf: 'stretch' },
 });

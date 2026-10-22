@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClosetGrid } from '@/components/closet-grid';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { useClosetServices } from '@/hooks/closet-services';
 import { useClosetItems } from '@/hooks/use-closet-items';
 
@@ -46,6 +46,6 @@ export default function ClosetScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.two },
-  message: { textAlign: 'center', padding: Spacing.four },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  message: { textAlign: 'center', padding: spacing.xxl },
 });

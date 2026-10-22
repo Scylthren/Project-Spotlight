@@ -8,6 +8,7 @@ import { DatabaseErrorBoundary } from '@/components/database-error-boundary';
 import { CLOSET_DATABASE_NAME, DatabaseOpenError, migrateClosetDatabase } from '@/data/closet-schema';
 import { asSqlDatabase } from '@/data/expo-sqlite-database';
 import { ClosetServicesProvider } from '@/hooks/closet-services';
+import { useAppFonts } from '@/hooks/use-app-fonts';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -24,6 +25,10 @@ function failClosetDatabase(error: Error): never {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const fontsReady = useAppFonts();
+  // Render nothing until the fonts are ready (or failed or timed out): the
+  // native splash stays up, since AnimatedSplashOverlay hides it on layout.
+  if (!fontsReady) return null;
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />

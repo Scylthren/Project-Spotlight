@@ -5,7 +5,7 @@ import { ColorSwatch } from '@/components/color-swatch';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { paletteName } from '@/core';
 import type { ItemFormFields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
@@ -50,8 +50,8 @@ export function ColorField({ fields, disabled }: ColorFieldProps) {
                 accessibilityLabel={`${name}, ${rank === 0 ? 'primary color' : 'secondary color'}${c.source === 'auto' ? ', detected' : ''}`}
                 accessibilityHint="Opens the color chooser"
                 style={({ pressed }) => (pressed || disabled) && styles.pressed}>
-                <ThemedView type="backgroundElement" style={[styles.chip, rank === 0 && styles.primaryChip]}>
-                  <ColorSwatch hex={c.hex} size={18} backgroundHex={theme.backgroundElement} />
+                <ThemedView type="surface" style={[styles.chip, rank === 0 && styles.primaryChip]}>
+                  <ColorSwatch hex={c.hex} size={18} backgroundHex={theme.colors.surface} />
                   <ThemedText type={rank === 0 ? 'smallBold' : 'small'}>{name}</ThemedText>
                   {rank === 0 && (
                     <ThemedText type="small" themeColor="textSecondary">
@@ -95,14 +95,14 @@ export function ColorField({ fields, disabled }: ColorFieldProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.four,
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.xxl,
     borderWidth: 1,
     borderColor: 'transparent',
   },

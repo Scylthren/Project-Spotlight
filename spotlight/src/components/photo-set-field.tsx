@@ -8,7 +8,7 @@ import { ChipGroup } from '@/components/chip-group';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { PHOTO_ROLE_LABELS, primaryPhoto, type PhotoDraft, type PhotoRole, type PhotoTarget } from '@/core';
 import type { PhotoSource } from '@/data/photo-picker';
 import type { ItemFormFields as Fields } from '@/hooks/use-item-form-fields';
@@ -48,7 +48,7 @@ export function PhotoSetField({ fields, emptyHint, busy }: PhotoSetFieldProps) {
 
   return (
     <>
-      <ThemedView type="backgroundElement" style={styles.preview}>
+      <ThemedView type="surface" style={styles.preview}>
         {selected ? (
           <Image
             source={{ uri: fields.previewUri(selected) }}
@@ -123,7 +123,7 @@ export function PhotoSetField({ fields, emptyHint, busy }: PhotoSetFieldProps) {
             disabled={locked}
           />
         ) : (
-          <ThemedView type="backgroundElement" style={styles.addPanel}>
+          <ThemedView type="surface" style={styles.addPanel}>
             <ThemedText type="smallBold">Which angle?</ThemedText>
             <ChipGroup
               accessibilityLabel="Photo angle"
@@ -196,25 +196,25 @@ function Thumbnail({
 const styles = StyleSheet.create({
   preview: {
     aspectRatio: 1,
-    borderRadius: Spacing.three,
+    borderRadius: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   previewImage: { width: '100%', height: '100%' },
-  thumbnails: { flexDirection: 'row', gap: Spacing.two },
-  thumbnailCell: { width: 72, alignItems: 'center', gap: Spacing.half },
+  thumbnails: { flexDirection: 'row', gap: spacing.sm },
+  thumbnailCell: { width: 72, alignItems: 'center', gap: spacing.xxs },
   thumbnail: {
     width: 72,
     height: 72,
-    borderRadius: Spacing.two,
+    borderRadius: spacing.sm,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'transparent',
   },
   thumbnailSelected: { borderColor: '#3c87f7' },
   thumbnailImage: { flex: 1 },
-  row: { flexDirection: 'row', gap: Spacing.two },
+  row: { flexDirection: 'row', gap: spacing.sm },
   cell: { flex: 1 },
-  addPanel: { borderRadius: Spacing.three, padding: Spacing.three, gap: Spacing.two },
+  addPanel: { borderRadius: spacing.lg, padding: spacing.lg, gap: spacing.sm },
 });

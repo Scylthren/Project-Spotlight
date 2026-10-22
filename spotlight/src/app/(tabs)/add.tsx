@@ -8,7 +8,7 @@ import { KeyboardAwareScrollView } from '@/components/keyboard-aware-scroll-view
 import { KeyboardDismissArea } from '@/components/keyboard-dismiss-area';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { sizes, spacing } from '@/theme';
 import { useAddItemForm } from '@/hooks/use-add-item-form';
 import { useIsMounted } from '@/hooks/use-is-mounted';
 
@@ -49,8 +49,8 @@ export default function AddItemScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
-    padding: Spacing.four,
-    paddingBottom: BottomTabInset + Spacing.four,
-    gap: Spacing.three,
+    padding: spacing.xxl,
+    paddingBottom: sizes.bottomTabInset + spacing.xxl,
+    gap: spacing.lg,
   },
 });

@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 
 interface ChipGroupProps<T extends string> {
   options: readonly T[];
@@ -58,7 +58,7 @@ export function ChipGroup<T extends string>({
             }
             style={({ pressed }) => (pressed || disabled) && styles.pressed}>
             <ThemedView
-              type={selected ? 'backgroundSelected' : 'backgroundElement'}
+              type={selected ? 'hairline' : 'surface'}
               style={[styles.chip, selected && styles.selected]}>
               <ThemedText type={selected ? 'smallBold' : 'small'}>{formatLabel(option)}</ThemedText>
             </ThemedView>
@@ -70,11 +70,11 @@ export function ChipGroup<T extends string>({
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   chip: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.four,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.xxl,
     borderWidth: 1,
     borderColor: 'transparent',
   },

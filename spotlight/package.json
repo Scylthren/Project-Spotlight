@@ -6,6 +6,8 @@
     "node": ">=22.13"
   },
   "dependencies": {
+    "@expo-google-fonts/archivo": "^0.4.2",
+    "@expo-google-fonts/bodoni-moda": "^0.4.2",
     "@expo/ui": "~57.0.25",
     "expo": "~57.0.30",
     "expo-constants": "~57.0.22",

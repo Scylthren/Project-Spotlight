@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { DatabaseOpenError, describeDatabaseError } from '@/data/closet-schema';
 
 interface Props {
@@ -52,5 +52,5 @@ export class DatabaseErrorBoundary extends Component<Props, State> {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { flex: 1, justifyContent: 'center', padding: Spacing.four, gap: Spacing.three },
+  content: { flex: 1, justifyContent: 'center', padding: spacing.xxl, gap: spacing.lg },
 });

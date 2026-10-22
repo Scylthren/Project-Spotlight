@@ -10,14 +10,15 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-21 by orchestrator (Gate 1.5 plan approved; slice 1 next)_
+_Last updated: 2026-10-21 by orchestrator (Gate 1.5 slice 1 reviewed, approved values applied, committed)_
 
-- **Gate:** 1.5 (Design foundation), plan **approved**, no slice started. Decisions in ROADMAP "Gate 1.5 answers". No app code written for it. Gates 0 and 1 are approved (tag `gate-1` on `e889592`).
-- **Committed:** Gate 1 in `2e6bf13`; approval in `e889592`; Gate 1.5 plan docs (ROADMAP Gate 1.5, Design lines, Polish, "Proposed, not approved", design decision; CLAUDE.md design line; `docs/design/`) in the commit after it.
-- **Verified 2026-10-21 (macOS, Gate 1 tree):** tsc pass; lint pass; `npm test` 41 suites, 742 tests pass; ios/android export pass. Device check done by the human. Nothing re-run since (docs-only changes).
-- **Known issues (for later):** a new "Take photo" tap while the iOS camera intro is closing can open two pickers (fix: cancel `afterIntro` in `takePhoto`).
-- **Next step:** slice 1 in a new session. Each slice is its own session: implementer-tester, architect-reviewer, update this file. Stop at the Gate 1.5 report. Do not start Gate 2.
-- **Open questions:** detection thresholds need tuning on real photos; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode. Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist.
+- **Gate:** 1.5 (Design foundation). Slice 1 (theme tokens and fonts) **done and committed** (see `git log`). Slices 2-5 not started. Gates 0 and 1 are approved (tag `gate-1` on `e889592`).
+- **Slice 1 contents:** `src/theme/` (light/dark colors, 9 font faces, type scale, spacing, borders, sizes, contrast, `resolveColorScheme`), `useTheme()` returns `Theme` (`theme.colors.*`), fonts load behind the splash with a 4 s timeout, token guard in `src/theme/token-guard-rules.js` (hex/rgb/hsl, named colors in color keys, literal `fontSize`) used by `eslint.config.js`; the Jest test loads the real ESLint config. Allowlist 10 files, capped by `MAX_ALLOWLIST = 10`; each slice lowers the cap, slice 5 sets 0.
+- **Verified 2026-10-21 (macOS, committed tree):** tsc pass; lint pass; `npm test` 45 suites, 772 tests pass; ios/android export pass. Font rendering on a device: unverified.
+- **Known issues (for later):** a "Take photo" tap during the iOS camera intro close can open two pickers (fix: cancel `afterIntro` in `takePhoto`). Navigation theme and StatusBar still use React Navigation defaults (slice 2). Guard gaps listed in `token-guard-rules.js` (computed font sizes, web-only `animated-icon.module.css`).
+- **Carry into later slices (approved, ROADMAP "Gate 1.5 dark values"):** slices 3 and 5 use a darker border meeting 3:1 where it is an input's only boundary (README light border is 2.02:1); slice 5 gives `animated-icon.tsx` the theme background so the allowlist empties.
+- **Next step:** slice 2 (Appearance setting, navigation, tab bar) in a new session. Stop at the Gate 1.5 report. Do not start Gate 2.
+- **Open questions:** detection thresholds need tuning on real photos; Android keyboard padding relies on `useHeaderHeight` and Expo Go's soft-input mode. Gate 2: reword "Photos stay on this device" in app.json and the camera intro once uploads exist. Display variant uses line height = font size (48/48); check Android doesn't clip Bodoni accents.
 
 ## Gate 1.5 plan (approved 2026-10-21)
 Each slice keeps the existing tests passing unchanged. The token guard starts with an allowlist of not-yet-restyled files; each slice removes its files from it, and slice 5 leaves it empty.
@@ -31,6 +32,13 @@ Decisions: see ROADMAP "Gate 1.5 answers". Fonts approved; install in slice 1 wi
 
 ## Log
 Newest first.
+
+### 2026-10-21 — Gate 1.5 slice 1 done (theme tokens and fonts)
+- Added `src/theme/`, fonts (`@expo-google-fonts/bodoni-moda`, `@expo-google-fonts/archivo`) and the token guard; removed `constants/theme.ts` and `global.css`; screens mapped to tokens without restyling.
+- architect-reviewer (Sonnet): PASS WITH NOTES. Follow-ups applied: allowlist cap, guard test loads real ESLint config (removing the guard block fails 8 tests), named-color selector, narrower test exemption, serif title tracking from mockup px.
+- Human approved the 5 dark values and both suggestions (ROADMAP "Gate 1.5 dark values").
+- Evidence (orchestrator re-run): tsc pass; lint pass; `npm test` 45 suites, 772 tests; ios and android export pass.
+- Next: slice 2 in a new session.
 
 ### 2026-10-21 — Gate 1.5 plan approved
 - Human: fonts approved, keep NativeTabs, adopt read-only detail, agent proposes dark values, add closet search and category filters, keep "autumn". Other conflicts take the defaults. Recorded in ROADMAP (criteria and decisions) and the plan above.

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 
 interface FormButtonProps {
   label: string;
@@ -33,7 +33,7 @@ export function FormButton({ label, onPress, disabled = false, variant = 'primar
 }
 
 const styles = StyleSheet.create({
-  button: { borderRadius: Spacing.three, paddingVertical: Spacing.three, alignItems: 'center' },
+  button: { borderRadius: spacing.lg, paddingVertical: spacing.lg, alignItems: 'center' },
   primary: { backgroundColor: '#3c87f7' },
   primaryText: { color: '#ffffff' },
   secondary: { borderWidth: 1, borderColor: '#3c87f7' },

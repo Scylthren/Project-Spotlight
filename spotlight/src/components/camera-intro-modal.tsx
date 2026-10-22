@@ -4,7 +4,7 @@ import { Modal, Platform, StyleSheet, View } from 'react-native';
 import { FormButton } from '@/components/form-button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { CAMERA_ACCESS_TEXT } from '@/core';
 import type { CameraAccess } from '@/hooks/use-camera-access';
 
@@ -60,8 +60,8 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'center',
-    padding: Spacing.four,
+    padding: spacing.xxl,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  card: { borderRadius: Spacing.three, padding: Spacing.four, gap: Spacing.three },
+  card: { borderRadius: spacing.lg, padding: spacing.xxl, gap: spacing.lg },
 });

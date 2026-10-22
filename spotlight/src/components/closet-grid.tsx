@@ -4,7 +4,7 @@ import { FlatList, Pressable, StyleSheet } from 'react-native';
 import { capitalize } from '@/components/chip-group';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { sizes, spacing } from '@/theme';
 import { describeItemColors, primaryPhoto, type ClothingItem } from '@/core';
 
 const COLUMNS = 3;
@@ -31,7 +31,7 @@ export function ClosetGrid({ items, resolveImageUri, onPressItem, header }: Clos
           accessibilityRole="button"
           accessibilityLabel={`Edit ${describeItemColors(item.colors)} ${item.category}`}
           style={({ pressed }) => [styles.cell, pressed && styles.pressed]}>
-          <ThemedView type="backgroundElement" style={styles.tile}>
+          <ThemedView type="surface" style={styles.tile}>
             <PrimaryImage item={item} resolveImageUri={resolveImageUri} />
           </ThemedView>
           <ThemedText type="small" numberOfLines={1}>
@@ -55,14 +55,14 @@ function PrimaryImage({ item, resolveImageUri }: { item: ClothingItem; resolveIm
 
 const styles = StyleSheet.create({
   content: {
-    padding: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    gap: Spacing.three,
+    padding: spacing.lg,
+    paddingBottom: sizes.bottomTabInset + spacing.lg,
+    gap: spacing.lg,
   },
-  row: { gap: Spacing.three },
+  row: { gap: spacing.lg },
   // Fixed fraction keeps the last row's cells the same width as full rows.
-  cell: { width: `${100 / COLUMNS - 4}%`, gap: Spacing.half },
-  tile: { aspectRatio: 1, borderRadius: Spacing.two, overflow: 'hidden' },
+  cell: { width: `${100 / COLUMNS - 4}%`, gap: spacing.xxs },
+  tile: { aspectRatio: 1, borderRadius: spacing.sm, overflow: 'hidden' },
   image: { flex: 1 },
   pressed: { opacity: 0.7 },
 });

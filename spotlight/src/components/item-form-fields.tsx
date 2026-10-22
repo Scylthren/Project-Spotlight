@@ -8,7 +8,7 @@ import { PhotoSetField } from '@/components/photo-set-field';
 import { TagField } from '@/components/tag-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { spacing } from '@/theme';
 import { CATEGORIES, SEASONS, type TagSummary } from '@/core';
 import type { ItemFormFields as Fields } from '@/hooks/use-item-form-fields';
 
@@ -89,7 +89,7 @@ export function ItemFormFields({
 
 const styles = StyleSheet.create({
   // Same gap as the screens' content containers.
-  section: { gap: Spacing.three },
-  errors: { gap: Spacing.one },
+  section: { gap: spacing.lg },
+  errors: { gap: spacing.xs },
   errorText: { color: '#d93025' },
 });
