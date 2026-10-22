@@ -65,5 +65,5 @@ export function ClosetGrid({ items, resolveImageUri, onPressItem, emptyMessage }
 function PrimaryImage({ item, resolveImageUri }: { item: ClothingItem; resolveImageUri: (ref: string) => string }) {
   const photo = primaryPhoto(item.photos);
   if (!photo) return null;
-  return <Image source={{ uri: resolveImageUri(photo.path) }} style={{ flex: 1 }} contentFit="contain" />;
+  return <Image source={{ uri: resolveImageUri(photo.path) }} style={{ flex: 1 }} contentFit="cover" />;
 }
