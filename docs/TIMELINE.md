@@ -10,7 +10,7 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-22 by orchestrator (slice 1 device checks passed)_
+_Last updated: 2026-10-22 by orchestrator (D6 and D7 answered)_
 
 - **Gate:** 2 in progress (plan `docs/plans/gate-2.md`; D1, D4, D5 answered, see ROADMAP). Gate 1.5 approved and tagged `gate-1.5`; Gates 0 and 1 approved.
 - **Slice 1 (backend skeleton with stub), reviewed (PASS WITH NOTES) and committed:** `supabase/` at the repo root (`supabase init`, linked to `lithblsvhrxfdkjhnhdy`, no database password used). Function `tag-item` (`verify_jwt = false`): checks `Authorization: Bearer` against the `DEV_TOKEN` secret (constant-time compare, fails closed with 500 if the secret is missing or short), 405 non-POST, 401 bad token, 400 bad or oversized body, 200 with a fixed schema-valid stub. Logic in plain TS (`supabase/functions/_shared/`, `tag-item/handler.ts`); `index.ts` is a thin Deno adapter. Deployed with `--use-api`. API doc `docs/api/tag-item.md`.
@@ -24,7 +24,7 @@ _Last updated: 2026-10-22 by orchestrator (slice 1 device checks passed)_
 - **Device checks for slice 1 (human reported all passing 2026-10-22; platforms not stated):** Me tab Backend section in both themes; paste the token (secure field, paste works); Test connection: OK with the token, "Wrong token" after saving a wrong one, "Offline" in airplane mode; token survives an app restart; Clear works; section absent in a release build (unverified); web shows "Secure storage is not available" (web not a target).
 - **Known issues (for later):** Backend section code is in the release bundle (render gated by `__DEV__`). No rate limit on the function, and unauthenticated invocations are not rate-limited either (each can make it read up to 8 MB or 5 s). The drift test's doc check only looks for the limit numbers in `docs/api/tag-item.md`, not the shapes. `supabase/functions/tag-item/index.ts` is not Deno type-checked and the Deno files are not linted (outside ESLint's base path; handler and shared files are type-checked through the tests); run `deno check` in slice 3 if Deno is available via the CLI. Earlier: forced-scheme flash; `hanger` needs iOS 16+; serif accent clipping; token-guard gaps; typed routes regenerate only on `expo start`; dashed borders on Android unverified; gallery `!__DEV__` redirect unverified; npm audit deferred to the next SDK upgrade.
 - **Review notes still deferred:** slice 5: name `maxLength` counts UTF-16 units; thumbnails pressable while busy. slice 4: item screen spinner-only loading; no rendered test of screen wiring. Earlier: radios report `checked` and `selected`; swatch sizes 26/40 and chevron stroke raw numbers.
-- **Next step:** the human answers D6 (tag values) and D7 (AI colors vs on-device guess; search over new tags). Then slice 2.
+- **Next step:** slice 2 (tags in the closet, mock tagger), only when the human says to start it. D6 and D7 are answered (ROADMAP).
 - **Open questions:** whether to record the slice 1 decisions (contract copy + drift test, `apiVersion`, drain, 400 for oversized) in ROADMAP; detection thresholds need tuning on real photos; reword "Photos stay on this device" once uploads exist (slice 3).
 
 ## Gate plans
@@ -33,6 +33,9 @@ _Last updated: 2026-10-22 by orchestrator (slice 1 device checks passed)_
 
 ## Log
 Newest first.
+
+### 2026-10-22 — Gate 2 D6 and D7 answered
+- Human accepted the proposed tag lists (D6) and said yes to AI colors replacing the on-device guess and to search over the new tags (D7). Recorded in ROADMAP. Human asked not to start slice 2 yet.
 
 ### 2026-10-22 — Gate 2 slice 1 device check
 - Human: the dev token works on the phone (token copied via the clipboard; the file path is `/Users/arcno/.config/spotlight/dev-token`) and every slice 1 device check passes.
