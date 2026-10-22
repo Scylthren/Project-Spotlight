@@ -1,6 +1,6 @@
 # Project Spotlight
 
-> A clothing catalog app that scans your wardrobe and builds outfits from prompts like *"For summer"* or *"Emo vibes"*, built as a hands-on project in **agent-driven development**.
+> A clothing catalog app that scans your wardrobe and builds outfits from prompts like *"For summer"* or *"Ballroom"*, built as a hands-on project in **agent-driven development**.
 
 <p align="center">
   <img src="docs/media/closet-dark.png" width="200" alt="Closet screen, dark mode">
