@@ -57,13 +57,13 @@ The function drops invalid outfits (after one retry for the whole reply) and ret
 - SQLite migration 8: `outfits (id, request, rationale, rating, created_at, model)` and `outfit_items (outfit_id, item_id, position)`. Both repositories (SQLite and in-memory) behind `ClosetRepository` or a sibling `OutfitRepository` (implementer proposes).
 - Save from Results; thumbs up/down on Results and in the Lookbook (tap again clears).
 - Lookbook screen from `Lookbook.dc.html`: "Lookbook", "N saved", one row per look (photos, request, date, rating), open a look, delete a look. Occasion filters (Night out, Everyday) left out (not approved).
-- Deleting a closet item per D4x.
-- **Done when:** a saved look and its rating survive a restart; old databases migrate; deleting an item behaves per D4x.
+- Deleting a closet item per D5.
+- **Done when:** a saved look and its rating survive a restart; old databases migrate; deleting an item behaves per D5.
 - **Edge cases:** saving the same look twice (one entry); a look whose items were all deleted; very many saved looks (list performance).
 
 ### Slice 5: Outfit eval
 **Goal:** the validation criterion measured automatically and the "would wear" target measured by the human.
-- `evals/outfits/`: the sample closet per D6x (about 40 items as JSON, committed), 20 requests (agent drafts a mix: seasons, occasions, vibes, a few hard or impossible ones; the human edits), a runner that calls the deployed function, and a report.
+- `evals/outfits/`: the sample closet per D7 (about 40 items as JSON, committed), 20 requests (agent drafts a mix: seasons, occasions, vibes, a few hard or impossible ones; the human edits), a runner that calls the deployed function, and a report.
 - Automatic: invalid outputs reaching the response (target 0), looks per request, tokens, cost per request, latency p50/p95.
 - Human rating: the runner writes a review file (each request with its looks as item names and photos where available); the human marks per request whether they would wear at least one look; a scorer computes the percentage (target at least 70 percent). Results appended to `evals/results.md`.
 - If the target is missed: tune the prompt or try the next model up (D2), re-run, report both.
@@ -80,11 +80,11 @@ Opus architect review, eval results, device checklist (the human's own 10 reques
 - **D4. Looks per request and wait time.** *Recommended:* 3 looks per request (as in the mockup), app timeout 30 s, function budget 25 s.
 
 **Before slice 4**
-- **D4x. Deleting an item that is in a saved look.** *Recommended:* keep the look and show the deleted piece as "Removed from closet"; a look with no pieces left is deleted. Alternative: delete every look that used the item.
+- **D5. Deleting an item that is in a saved look.** *Recommended:* keep the look and show the deleted piece as "Removed from closet"; a look with no pieces left is deleted. Alternative: delete every look that used the item.
 - **D6. What the ratings do.** *Recommended:* store them only in Gate 3 (as the roadmap says). Feeding recent thumbs-down looks back into the prompt is a later idea.
 
 **Before slice 5**
-- **D6x. Sample closet for the eval.** Options: (a) a JSON export of your real closet from the app (a small dev-only "Export closet as JSON" on the Me tab, tags only, no photos); (b) the 30 labelled eval photos' labels plus about 10 items you describe; (c) a synthetic closet the agent writes. *Recommended: (a)*, because you rate looks you would actually wear, and the export is also useful for Gate 4. Kept outside git like the eval photos, with a hash committed.
+- **D7. Sample closet for the eval.** Options: (a) a JSON export of your real closet from the app (a small dev-only "Export closet as JSON" on the Me tab, tags only, no photos); (b) the 30 labelled eval photos' labels plus about 10 items you describe; (c) a synthetic closet the agent writes. *Recommended: (a)*, because you rate looks you would actually wear, and the export is also useful for Gate 4. Kept outside git like the eval photos, with a hash committed.
 - **Eval requests.** The agent drafts 20; you edit them before the run.
 
 ## Risks
