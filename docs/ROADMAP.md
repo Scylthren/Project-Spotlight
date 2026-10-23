@@ -61,9 +61,10 @@ Done when:
 - Eval set in `evals/outfits/`: 20 requests against a sample closet of about 40 items. Proposed target: for at least 70 percent of requests, you would actually wear one of the suggestions.
 - Saved outfits, a thumbs up or down, and the originating prompt are stored.
 - Loading and failure states exist for slow or failed AI calls.
+- Added 2026-10-23 (human): Look of the day (`Today.dc.html`, "For today" weather mode, "Surprise me" random mode, Shuffle), "Match today's weather" on the Style screen, the "Use local weather" setting, and Lookbook filters by occasion and season. The 7:30 AM notification stays out.
 
 Human check: run your own 10 requests on your own closet and rate them.
-Design: `StylePrompt.dc.html` (request), `Results.dc.html` (outfits with rationale), `Lookbook.dc.html` (saved outfits). Only the parts in the criteria above; the mockups' extras are listed under "Proposed, not approved".
+Design: `StylePrompt.dc.html` (request), `Results.dc.html` (outfits with rationale), `Lookbook.dc.html` (saved outfits). Plus `Today.dc.html`. Only the parts in the criteria above; the mockups' other extras are listed under "Proposed, not approved".
 
 ## Gate 3.5: Outfit preview on a mannequin
 *Shelved 2026-10-23 by the human (see Decisions, "Mannequin shelved"). Not scheduled; the criteria below are kept for when it returns.*
@@ -110,9 +111,8 @@ Human check: use the app on Android for a day, then decide on public release.
 
 ## Proposed, not approved
 Shown in the mockups but not in any gate. The human decides; agents don't build these.
-- "Look of the day" (`Today.dc.html`): weather-based and random ("Surprise me") modes plus Shuffle. Also its entry point on `StylePrompt.dc.html` ("Match today's weather", "Look of the day") and the Profile notification toggles ("Look of the day, 7:30 AM", "Use local weather"). Weather needs location and a weather service.
 - "Pairs well with" on `ItemDetail.dc.html`.
-- From `Results.dc.html`: "Swap piece" and "Restyle". From `Lookbook.dc.html`: filtering saved looks by occasion ("Night out", "Everyday").
+- From `Results.dc.html`: "Swap piece" and "Restyle". (Lookbook occasion filters moved to Gate 3, 2026-10-23.)
 - From `ItemDetail.dc.html`: "Style this piece" (starts a Gate 3 request from one item).
 - From `Profile.dc.html`: the stats row (pieces, saved looks, days styled), "Sizes & fit", "Style preferences", "Export my closet", "Help & feedback", avatar and @username.
 - A custom in-app camera (`Camera.dc.html`), which would need `expo-camera`.
@@ -151,3 +151,5 @@ Shown in the mockups but not in any gate. The human decides; agents don't build 
 - Gate 2 D9 and D10 (2026-10-23, human): multi-select import makes one item per photo (other angles are added later through Edit), and one import takes at most 20 photos. The review list has no mockup; the agent designs it from the theme and shared components and the human checks it on the phone.
 - Gate 2 approved (2026-10-23, human): human check done, iOS device checks done (Android not stated). Library privacy line approved and added after the tag: "A smaller copy of each photo, without location data, is sent to our server and to Claude (Anthropic) to suggest details." under the Take/Choose buttons and in the import panel.
 - Mannequin shelved (2026-10-23, human): Gate 3.5 (2D mannequin preview) is shelved with no target gate, alongside cutouts. Gate 3 shows outfits with the items' own photos. Gate 3 is planned next.
+- Gate 3 decisions (2026-10-23, human; plan `docs/plans/gate-3.md`): D1 five tabs (Closet, Style, Add, Looks, Me), Results pushed from Style. D2 start with Haiku 5.5, the eval also runs Sonnet 5.5 and the human's ratings decide. D3 a look is a top and a bottom or a dress; exactly one pair of shoes when the closet has shoes; outerwear optional (max 1); 0 to 5 accessories. D4 3 looks per request, app timeout 30 s, function budget 25 s. D5 deleting an item keeps saved looks with the piece shown as "Removed from closet"; a look with no pieces left is deleted. D6 ratings are stored only. D7 eval closet is a dev-only JSON export of the real closet (tags only, outside git, hash committed).
+- Gate 3 additions (2026-10-23, human): Look of the day, Match today's weather and Lookbook occasion filters approved for Gate 3. D8 location via `expo-location` (new dependency approved), foreground only, rounded to about 10 km before leaving the phone, typed city fallback. D9 weather from Open-Meteo fetched by our function (free tier non-commercial only, under 10,000 calls a day, CC-BY 4.0 credit shown; paid plan needed for a public release; terms checked 2026-10-23). D10 no Look of the day notification for now. D11 occasions picked by the user on save (optional), no AI occasion.

@@ -10,7 +10,7 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-23 by orchestrator (Gate 3 plan proposed; mannequin shelved)_
+_Last updated: 2026-10-23 by orchestrator (Gate 3 plan approved, all decisions answered; slice 1 next)_
 
 - **Gate:** 2 approved by the human 2026-10-23, tagged `gate-2` at `bb112d4` and pushed. Gate 3 not started. Plan `docs/plans/gate-2.md`; decisions D1-D11 answered (ROADMAP). Cutouts shelved (slice 5 dropped, cutout criteria marked shelved in ROADMAP Gate 2). Slices 1-4 and 6 committed and device-checked; slice 7 (gate review and report) done. Gate 1.5 approved and tagged `gate-1.5`; Gates 0 and 1 approved.
 - **Backend:** `supabase/` at the repo root, linked to `lithblsvhrxfdkjhnhdy`. One function, `tag-item` (`verify_jwt = false`, deployed with `--use-api`): dev token check (`DEV_TOKEN` secret, constant-time, fails closed), 405/401/400 rules, body max 2,100,000 bytes, drains unread bodies (8 MB / 5 s cap). Calls Claude Haiku 5.5 with plain fetch (`tag-item/{prompt,model-reply,claude}.ts`): enum JSON schema, `thinking: disabled`, `effort: low`, one retry on a bad reply within a 16 s budget (8 s per call); provider errors map to 503/504/502 codes. One JSON log line per call (no image, reply or key). No tables, no Storage, no migrations (RLS not applicable yet). API doc `docs/api/tag-item.md`.
@@ -25,15 +25,19 @@ _Last updated: 2026-10-23 by orchestrator (Gate 3 plan proposed; mannequin shelv
 - **Privacy line (after the tag):** `PHOTO_UPLOAD_NOTICE` (`src/core/camera-access.ts`) shown under Take/Choose (`SourceButtons`) and in the import panel; rendered tests in `item-form.test.tsx` and `import.test.tsx`. tsc, lint pass; `npm test` 91 suites, 1541 tests. Not checked on a device.
 - **Known issues (gate report list):** Android device checks for Gate 2 not stated (iOS done); no rate limit on the function, unauthenticated calls can make it read up to 8 MB / 5 s; Anthropic console spend limit unverified; release builds cannot tag until Gate 4 (token only in `__DEV__`), Backend section code is in the release bundle; bundle secret check is manual; `tag-item/index.ts` not Deno-checked or linted; dashboard log lines unverified; 16 s function budget vs 20 s app timeout; requests not cancelled on leaving a screen or discarding an import; no "retry suggestions"; import duplicates only by `assetId` within one batch; no rendered test of import navigation; small window can leave an import session open until the next import; stale SDK 57 comments in `data/expo-image-processor.ts` (upright reasoning not re-checked on 58) and `data/expo-photo-picker.ts`; fit and other-colors accuracy low; closet screenshots get no tags; cutouts shelved affects Gate 3.5. Earlier: forced-scheme flash; serif accent clipping; typed routes regenerate only on `expo start`; dashed borders on Android unverified; npm audit at SDK 58 (4 high in Expo CLI dev tooling).
 - **Review notes still deferred:** user-cleared attribute stored as absent so a retake may re-suggest it; type and name `maxLength` count UTF-16 units; one bad attribute row hides the item; thumbnails pressable while busy; item screen spinner-only loading; radios report `checked` and `selected`; swatch sizes 26/40 and chevron stroke raw numbers; detection thresholds need tuning on real photos.
-- **Next step:** Gate 3 plan proposed in `docs/plans/gate-3.md` (6 slices, decisions D1-D7). Waiting for the human's answers; nothing built. Mannequin (Gate 3.5) shelved (ROADMAP, CLAUDE.md non-goals line updated). 
+- **Next step:** Gate 3 slice 1 (`generate-outfits` with a stub) when the human starts it. Plan `docs/plans/gate-3.md` approved: 7 slices, D1-D11 answered (ROADMAP); Look of the day, weather and occasion filters added to the gate. Nothing built yet. Mannequin (Gate 3.5) shelved (ROADMAP, CLAUDE.md non-goals line updated). 
 
 ## Gate plans
 - Gate 1.5 (approved 2026-10-21, done): five slices, see `git log` and ROADMAP decisions.
-- Gate 3: `docs/plans/gate-3.md`, proposed 2026-10-23, decisions open.
+- Gate 3: `docs/plans/gate-3.md`, approved 2026-10-23, all decisions answered; not started.
 - Gate 2: `docs/plans/gate-2.md`; all decisions answered; slices 1-4, 6, 7 done; slice 5 (cutouts) shelved. Approved and tagged 2026-10-23.
 
 ## Log
 Newest first.
+
+### 2026-10-23 — Gate 3 decisions answered
+- Human accepted D1-D7 recommendations; D3 changed: shoes required when the closet has any, 0-5 accessories. Approved Look of the day, Match today's weather and occasion filters for Gate 3; then D8 phone location (`expo-location` approved), D9 Open-Meteo via our function, D10 no notification, D11 user-picked occasion.
+- Open-Meteo terms checked (non-commercial free tier, <10,000 calls/day, per-IP limits, CC-BY 4.0). Plan gains slice 5 (weather and Look of the day); eval is slice 6, review slice 7. Recorded in ROADMAP. No code changed.
 
 ### 2026-10-23 — Gate 3 planned, mannequin shelved
 - Human shelved the mannequin (Gate 3.5) and asked for the Gate 3 plan. Recorded in ROADMAP (Gate 3.5 marked shelved, decision added) and the CLAUDE.md non-goals line.
