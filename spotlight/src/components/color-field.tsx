@@ -9,8 +9,14 @@ import { paletteName, type ItemColor } from '@/core';
 import type { ItemFormFields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
 
+/** What the color field reads and calls: the item form, or an import draft (slice 6). */
+export type ColorFieldModel = Pick<
+  ItemFormFields,
+  'values' | 'openColorMatrix' | 'detectingColors' | 'colorMatrix' | 'colorProblem' | 'toggleColor' | 'makePrimaryColor' | 'closeColorMatrix'
+>;
+
 interface ColorFieldProps {
-  fields: ItemFormFields;
+  fields: ColorFieldModel;
   disabled: boolean;
 }
 

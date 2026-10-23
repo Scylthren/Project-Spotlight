@@ -1,4 +1,4 @@
-import { describePickProblem, QueuedPhotoPicker } from './photo-picker';
+import { describePickProblem, QueuedMultiPhotoPicker, QueuedPhotoPicker } from './photo-picker';
 
 describe('QueuedPhotoPicker', () => {
   it('returns queued results in order, then cancelled, and records each source', async () => {
@@ -48,5 +48,20 @@ describe('describePickProblem', () => {
       message: 'Could not open your photos: boom',
       suggestSettings: false,
     });
+  });
+});
+
+describe('QueuedMultiPhotoPicker', () => {
+  it('returns queued results in order, then cancelled, and records each limit', async () => {
+    const photos = [{ uri: 'file:///a.jpg', width: 1, height: 1, assetId: 'a' }];
+    const picker = new QueuedMultiPhotoPicker([{ status: 'picked', photos }]);
+    expect(await picker.pickMany(20)).toEqual({ status: 'picked', photos });
+    expect(await picker.pickMany(20)).toEqual({ status: 'cancelled' });
+    expect(picker.calls).toEqual([20, 20]);
+  });
+
+  it('describes a failed multi-pick like a library pick', () => {
+    expect(describePickProblem({ status: 'picked', photos: [] }, 'library')).toBeNull();
+    expect(describePickProblem({ status: 'error', message: 'boom' }, 'library')?.message).toBe('Could not open your photos: boom');
   });
 });

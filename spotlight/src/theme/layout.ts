@@ -46,6 +46,11 @@ export const sizes = {
   formPhotoHeight: 330,
   /** The angle thumbnails and the "Add another angle" tile under it (Angles.dc.html). */
   angleTileHeight: 120,
+  /** A photo in the import review list (Gate 2 slice 6; no mockup, 4:5 like a closet tile). */
+  importThumbnailWidth: 88,
+  importThumbnailHeight: 110,
+  /** Color circles in an import review row. */
+  importSwatchSize: 14,
   /** Color circles in the Add/Edit form's color chips (SaveItem.dc.html). */
   formSwatchSize: 26,
   /** Color circles in the color matrix (ColorMatrix.dc.html). */

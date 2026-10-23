@@ -66,6 +66,12 @@ function ThemedNavigation() {
               {/* The item screen draws its own back and Edit buttons over the photo. */}
               <Stack.Screen name="item/[id]/index" options={{ headerShown: false, title: 'Item' }} />
               <Stack.Screen name="item/[id]/edit" options={{ title: 'Edit item' }} />
+              {/* Import review: no back button or swipe; leaving discards the drafts, so the screen asks first. */}
+              <Stack.Screen
+                name="import/index"
+                options={{ title: 'Review photos', headerBackVisible: false, gestureEnabled: false }}
+              />
+              <Stack.Screen name="import/[draftId]" options={{ title: 'Check piece' }} />
             </Stack>
           </ClosetServicesProvider>
         </SQLiteProvider>

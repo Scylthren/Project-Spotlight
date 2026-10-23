@@ -1,6 +1,6 @@
 # Gate 2 plan: backend skeleton and tagging
 
-**Status: proposed (2026-10-22). Answered so far: D1, D4 (`expo-secure-store`), D5 (yes), D6 (lists as proposed), D7 (yes to both); see ROADMAP decisions.** Criteria are in `docs/ROADMAP.md` Gate 2. Nothing here is built until the human answers the decisions below. Recommendations are marked; the human can override any of them.
+**Status: proposed (2026-10-22). Answered so far: D1, D4 (`expo-secure-store`), D5 (yes), D6 (lists as proposed), D7 (yes to both), D9 (yes), D10 (cap 20; agent designs the review list); see ROADMAP decisions.** Criteria are in `docs/ROADMAP.md` Gate 2. Nothing here is built until the human answers the decisions below. Recommendations are marked; the human can override any of them.
 
 ## Shape of the gate
 The phone sends a photo to our Supabase edge functions. One function asks Claude for tags. Another (depending on decision D2) returns a cutout. The app saves the results locally, next to the item, as it does today. Gate 2 adds **no database tables and no Supabase Storage**: the functions are stateless, and accounts, RLS and sync stay in Gate 4. That keeps the gate small and avoids storing anyone's photos on a server.

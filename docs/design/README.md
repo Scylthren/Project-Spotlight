@@ -34,6 +34,7 @@ The visual direction for Spotlight. `mockups/` has one file per screen. Each one
 | `Today.dc.html` | not in roadmap | "Look of the day" with weather-based and random ("Surprise me") modes plus Shuffle. A candidate addition to Gate 3 or later; the human decides. |
 | `Welcome.dc.html` | 4 | Sign in and create account. |
 | `Profile.dc.html` | design gate, then 4 | The Appearance setting (Light, Dark, System) comes in the design gate. Account details, log out and delete account come in Gate 4. |
+| (no mockup) | 2 | Import review and per-photo details (`app/import/`, `components/import/`), designed from the theme and the Add form's pieces in Gate 2 slice 6 (D10). Check on the phone. |
 | `Loading.dc.html` | polish | A glowing "O" in SPOTLIGHT while the rest of the screen dims. Build it in `AnimatedSplashOverlay`. The native splash stays a static black screen with the wordmark. |
 
 ## Known conflicts to resolve, not silently follow

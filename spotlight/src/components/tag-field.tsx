@@ -9,8 +9,14 @@ import { describeTagDeletion, filterTags, TAG_MAX_LENGTH, tagReturnKeyAction, ty
 import type { ItemFormFields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
 
+/** What the tag field reads and calls: the item form, or an import draft (slice 6). */
+export type TagFieldModel = Pick<
+  ItemFormFields,
+  'values' | 'tagText' | 'setTagText' | 'addTypedTag' | 'removeTag' | 'toggleTag' | 'tagProblem'
+>;
+
 interface TagFieldProps {
-  fields: ItemFormFields;
+  fields: TagFieldModel;
   savedTags: { tags: TagSummary[]; error: string | null };
   onDeleteSavedTag: (summary: TagSummary, confirm: () => Promise<boolean>) => void;
   disabled: boolean;

@@ -14,11 +14,12 @@ import { asSqlDatabase } from '@/data/expo-sqlite-database';
 import type { GarmentIsolator } from '@/data/garment-isolator';
 import type { ImageProcessor } from '@/data/image-processor';
 import type { ImageStore } from '@/data/image-store';
+import { ImportSessions } from '@/data/import-session';
 import type { TagImageSource } from '@/data/item-suggestions';
 import { LocalGarmentIsolator } from '@/data/local-garment-isolator';
 import { SqliteMaintenanceLog } from '@/data/maintenance-log';
 import { startPhotoMetadataBackfill } from '@/data/photo-metadata-backfill';
-import type { PhotoPicker } from '@/data/photo-picker';
+import type { MultiPhotoPicker, PhotoPicker } from '@/data/photo-picker';
 import { SqlitePhotoReferences } from '@/data/photo-references';
 import { SqliteClosetRepository } from '@/data/sqlite-closet-repository';
 import type { TemporaryFiles } from '@/data/temporary-files';
@@ -30,6 +31,10 @@ export interface ClosetServices {
   imageStore: ImageStore;
   imageProcessor: ImageProcessor;
   photoPicker: PhotoPicker;
+  /** Multi-select from the library for imports (Gate 2 slice 6). */
+  multiPhotoPicker: MultiPhotoPicker;
+  /** The import being reviewed, shared by the review and draft screens (in memory only). */
+  importSessions: ImportSessions;
   temporaryFiles: TemporaryFiles;
   /** Finds the garment in a photo; used for color detection (slice 4). */
   garmentIsolator: GarmentIsolator;
@@ -49,6 +54,8 @@ export interface ClosetServices {
 
 /** One per app session (module lifetime), so remounting the provider does not show the prompt again. */
 const ENTRY_PROMPT_SESSION = new EntryPromptSession();
+/** One per app session, so a remounted provider does not lose the import under review. */
+const IMPORT_SESSIONS = new ImportSessions();
 
 const ClosetServicesContext = createContext<ClosetServices | null>(null);
 
@@ -57,11 +64,14 @@ export function ClosetServicesProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
   const services = useMemo<ClosetServices>(() => {
     const imageProcessor = new ExpoImageProcessor();
+    const photoPicker = new ExpoPhotoPicker();
     return {
       repository: new SqliteClosetRepository(asSqlDatabase(db)),
       imageStore: new ExpoImageStore(),
       imageProcessor,
-      photoPicker: new ExpoPhotoPicker(),
+      photoPicker,
+      multiPhotoPicker: photoPicker,
+      importSessions: IMPORT_SESSIONS,
       temporaryFiles: new ExpoTemporaryFiles(),
       garmentIsolator: new LocalGarmentIsolator(),
       cameraPermissions: new ExpoCameraPermissions(),

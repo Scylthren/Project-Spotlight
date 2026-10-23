@@ -22,3 +22,4 @@ export * from './appearance';
 export * from './labels';
 export * from './closet-filter';
 export * from './item-detail';
+export * from './import-batch';

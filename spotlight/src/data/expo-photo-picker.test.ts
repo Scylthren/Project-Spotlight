@@ -2,7 +2,7 @@
  * Tests ExpoPhotoPicker against a fake expo-image-picker (the native module is
  * not available in Jest). jest.mock is hoisted above the import by babel-jest.
  */
-import { ExpoPhotoPicker } from './expo-photo-picker';
+import { ExpoPhotoPicker, multiSelectOptions } from './expo-photo-picker';
 
 const ASSET = { uri: 'file:///cache/ImagePicker/IMG.jpg', width: 4032, height: 3024 };
 
@@ -69,6 +69,49 @@ describe('ExpoPhotoPicker', () => {
     expect(await new ExpoPhotoPicker().pick('camera')).toEqual({
       status: 'error',
       message: 'Camera not available on simulator',
+    });
+  });
+});
+
+describe('ExpoPhotoPicker.pickMany', () => {
+  it('opens the library with multi-select, the limit, and selection order, without camera permission', async () => {
+    mockPicker.result = {
+      canceled: false,
+      assets: [
+        { ...ASSET, assetId: 'A' },
+        { uri: 'file:///cache/ImagePicker/B.jpg', width: 3024, height: 4032, assetId: null },
+      ],
+    };
+    expect(await new ExpoPhotoPicker().pickMany(20)).toEqual({
+      status: 'picked',
+      photos: [
+        { ...ASSET, assetId: 'A' },
+        { uri: 'file:///cache/ImagePicker/B.jpg', width: 3024, height: 4032, assetId: null },
+      ],
+    });
+    expect(mockPicker.calls).toEqual([
+      { fn: 'library', options: { ...OPTIONS, allowsMultipleSelection: true, selectionLimit: 20, orderedSelection: true } },
+    ]);
+    expect(multiSelectOptions(20).selectionLimit).toBe(20);
+  });
+
+  it('keeps every returned photo even beyond the limit (the import enforces it), with a missing file as an empty uri', async () => {
+    const assets = Array.from({ length: 22 }, (_, i) => ({ uri: `file:///cache/${i}.jpg`, width: 1, height: 1 }));
+    mockPicker.result = { canceled: false, assets: [...assets, { width: 1, height: 1 }] };
+    const result = await new ExpoPhotoPicker().pickMany(20);
+    expect(result.status === 'picked' && result.photos.length).toBe(23);
+    expect(result.status === 'picked' && result.photos[22]).toEqual({ uri: '', width: 1, height: 1, assetId: null });
+  });
+
+  it('reports a cancel, an empty result, and a thrown error (e.g. an iCloud download that failed)', async () => {
+    mockPicker.result = { canceled: true, assets: null };
+    expect(await new ExpoPhotoPicker().pickMany(20)).toEqual({ status: 'cancelled' });
+    mockPicker.result = { canceled: false, assets: [] };
+    expect(await new ExpoPhotoPicker().pickMany(20)).toEqual({ status: 'cancelled' });
+    mockPicker.fail = new Error('The operation could not be completed');
+    expect(await new ExpoPhotoPicker().pickMany(20)).toEqual({
+      status: 'error',
+      message: 'The operation could not be completed',
     });
   });
 });

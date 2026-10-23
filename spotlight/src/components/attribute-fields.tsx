@@ -29,8 +29,11 @@ const FORMALITY_OPTIONS = FORMALITIES.map((value) => ({
   accessibilityLabel: attributeValueLabel(value),
 }));
 
+/** What the attribute fields read and call: the item form, or an import draft (slice 6). */
+export type AttributeFieldsModel = Pick<ItemFormFields, 'values' | 'suggestingTags' | 'noSuggestions' | 'setItemType' | 'toggleAttribute'>;
+
 interface AttributeFieldsProps {
-  fields: ItemFormFields;
+  fields: AttributeFieldsModel;
   disabled: boolean;
 }
 
