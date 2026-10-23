@@ -56,4 +56,4 @@ Run all of these from the `spotlight/` folder (the Expo app), not the repo root.
 - Stop at each gate. Do not start the next gate until the human approves. At a gate, report what was built, the measured numbers against the criteria, and known issues.
 
 ## Non-goals for the MVP
-Social features, shopping or recommendations for items the user does not own, a web client, and sync across devices before Gate 4. Realistic virtual try-on (AI-rendered clothes on a body) is a possible post-launch stretch. The MVP preview is the 2D mannequin in Gate 3.5.
+Social features, shopping or recommendations for items the user does not own, a web client, and sync across devices before Gate 4. Realistic virtual try-on (AI-rendered clothes on a body) is a possible post-launch stretch. The 2D mannequin preview (Gate 3.5) is shelved; outfits show the items' own photos.

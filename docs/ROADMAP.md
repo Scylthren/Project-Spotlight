@@ -66,6 +66,8 @@ Human check: run your own 10 requests on your own closet and rate them.
 Design: `StylePrompt.dc.html` (request), `Results.dc.html` (outfits with rationale), `Lookbook.dc.html` (saved outfits). Only the parts in the criteria above; the mockups' extras are listed under "Proposed, not approved".
 
 ## Gate 3.5: Outfit preview on a mannequin
+*Shelved 2026-10-23 by the human (see Decisions, "Mannequin shelved"). Not scheduled; the criteria below are kept for when it returns.*
+
 Done when:
 - A generated or saved outfit can be shown on a 2D mannequin. Cutouts are layered by category (outerwear over top over bottom, shoes at the feet) and scaled to fit fixed slots on the figure.
 - Items with no cutout show as a card beside the mannequin instead of on it.
@@ -148,3 +150,4 @@ Shown in the mockups but not in any gate. The human decides; agents don't build 
 - Cutouts shelved (2026-10-23, human): background removal is dropped from Gate 2 and shelved with no target gate. Hosted APIs (Photoroom $0.02 per image plus $20/month, Replicate about $0.0005 per image), on-device (iOS Vision / Android ML Kit; needs a development build and leaves Expo Go) and a self-hosted model were all judged too much hassle for now. D2 is closed as "none"; D8 (primary photo only) stands for when it returns. Gate 2's cutout check and slice 5 are removed. `GarmentIsolator` and the original-photo-plus-optional-cutout rule stay as they are; no cutout is ever produced. Impact: Gate 3.5's mannequin layers cutouts, so without them every item would show as a card beside the figure; revisit cutouts (or Gate 3.5's design) before Gate 3.5. Development builds at Gate 4 make on-device cutouts the natural option then.
 - Gate 2 D9 and D10 (2026-10-23, human): multi-select import makes one item per photo (other angles are added later through Edit), and one import takes at most 20 photos. The review list has no mockup; the agent designs it from the theme and shared components and the human checks it on the phone.
 - Gate 2 approved (2026-10-23, human): human check done, iOS device checks done (Android not stated). Library privacy line approved and added after the tag: "A smaller copy of each photo, without location data, is sent to our server and to Claude (Anthropic) to suggest details." under the Take/Choose buttons and in the import panel.
+- Mannequin shelved (2026-10-23, human): Gate 3.5 (2D mannequin preview) is shelved with no target gate, alongside cutouts. Gate 3 shows outfits with the items' own photos. Gate 3 is planned next.
