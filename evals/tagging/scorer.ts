@@ -7,7 +7,10 @@
  * - primary_color is the first color returned; other_colors is scored as
  *   overlap (matched / (expected + returned - matched)) with the rest.
  * - seasons are scored twice: exact set, and overlap (same formula).
- * - type matches case-insensitively, with single spaces, or any alternative.
+ * - type passes when the words of any alternative appear, in order, in the
+ *   returned type ("t-shirt" matches "Graphic t-shirt"), ignoring capitals
+ *   and treating hyphens and other punctuation as spaces. `none` matches no
+ *   answer. Free text varies too much for exact matching (human, 2026-10-23).
  * - A row whose category is `none` passes only when no category comes back.
  * - A photo the function rejects or errors on (or that could not be
  *   prepared) scores 0 on every labelled field.
@@ -177,6 +180,22 @@ interface PhotoScore {
   got: string;
 }
 
+function typeWords(text: string): string[] {
+  return (normalizeType(text) ?? '').split(/[^\p{L}\p{N}]+/u).filter((word) => word.length > 0);
+}
+
+/** True when `expected` (null: no answer) matches the returned type, by words in order. */
+export function typeMatches(expected: string | null, got: string | null): boolean {
+  if (expected === null || got === null) return expected === got;
+  const want = typeWords(expected);
+  const have = typeWords(got);
+  if (want.length === 0) return false;
+  for (let start = 0; start + want.length <= have.length; start += 1) {
+    if (want.every((word, offset) => have[start + offset] === word)) return true;
+  }
+  return false;
+}
+
 /** Per-field scores for one photo; `tags` null means the photo failed (every field 0). */
 export function scorePhoto(expectation: Expectation, tags: ItemTags | null, failure: string | null): PhotoScore[] {
   const scores: PhotoScore[] = [];
@@ -217,9 +236,13 @@ export function scorePhoto(expectation: Expectation, tags: ItemTags | null, fail
   }
   if (expectation.type) {
     const got = tags?.type ?? null;
-    single('type', expectation.type, got === null ? null : normalizeType(got));
-    // Show the type as returned, not lower-cased.
-    if (!failed) scores[scores.length - 1].got = fmtAlt(got);
+    scores.push({
+      field: 'type',
+      points: !failed && expectation.type.some((alternative) => typeMatches(alternative, got)) ? 1 : 0,
+      expected: fmtAlternatives(expectation.type),
+      // Show the type as returned, not lower-cased.
+      got: gotText(fmtAlt(got)),
+    });
   }
   single('pattern', expectation.pattern, tags?.pattern ?? null);
   single('material', expectation.material, tags?.material ?? null);

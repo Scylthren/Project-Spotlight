@@ -45,7 +45,7 @@ One row per photo. Leave a cell **blank** to skip scoring that field for that ph
 | `primary_color` | The main color | `black`, `charcoal`, `grey`, `light-grey`, `white`, `cream`, `beige`, `tan`, `camel`, `brown`, `navy`, `denim-blue`, `blue`, `sky-blue`, `teal`, `green`, `forest-green`, `olive`, `sage`, `yellow`, `mustard`, `orange`, `red`, `burgundy`, `pink`, `purple`, `lavender` |
 | `other_colors` | Up to 2 more colors, separated by `;` | Same colors |
 | `seasons` | Seasons separated by `;`, or `all` | `spring`, `summer`, `autumn`, `winter` |
-| `type` | Short name, up to 30 characters ("Hoodie", "Denim jacket") | Free text, matched ignoring capitals |
+| `type` | Short name, up to 30 characters ("Hoodie", "Denim jacket") | Free text. Passes when your words appear in the answer, in order: `t-shirt` matches "Graphic t-shirt", `bag` matches "Leather bag". Capitals and hyphens don't matter. |
 | `pattern` | One value | `solid`, `striped`, `checked`, `floral`, `graphic`, `polka-dot`, `animal`, `other` |
 | `material` | One value | `cotton`, `denim`, `wool`, `knit`, `linen`, `silk`, `leather`, `synthetic`, `other` |
 | `fit` | One value | `slim`, `regular`, `relaxed`, `oversized` |

@@ -17,6 +17,7 @@ import {
   scorePhoto,
   scoreRun,
   TARGETS,
+  typeMatches,
   type FieldScore,
   type ScoreField,
 } from '../../../evals/tagging/scorer.ts';
@@ -101,6 +102,30 @@ describe('scorePhoto', () => {
       fit: 1,
       formality: 1,
     });
+  });
+
+  it('type passes when the words of an alternative appear in order in the answer', () => {
+    expect(typeMatches('t-shirt', 'Graphic t-shirt')).toBe(true);
+    expect(typeMatches('T-Shirt', 'graphic T SHIRT')).toBe(true);
+    expect(typeMatches('button-up shirt', 'Floral button-up shirt')).toBe(true);
+    expect(typeMatches('wallet', 'Leather wallet')).toBe(true);
+    expect(typeMatches('necklace', 'Jade pendant necklace')).toBe(true);
+    expect(typeMatches('Oxford Shirt', 'Oxford Shirt')).toBe(true);
+    // Whole words, in order: no partial words, no reordering, nothing extra.
+    expect(typeMatches('heels', 'Strappy sandals')).toBe(false);
+    expect(typeMatches('tee', 'Teeshirt')).toBe(false);
+    expect(typeMatches('shirt button-up', 'Button-up shirt')).toBe(false);
+    expect(typeMatches('messenger bag', 'Leather briefcase')).toBe(false);
+    expect(typeMatches('denim jacket', 'Jacket')).toBe(false);
+    // none matches only no answer.
+    expect(typeMatches(null, null)).toBe(true);
+    expect(typeMatches(null, 'Belt')).toBe(false);
+    expect(typeMatches('belt', null)).toBe(false);
+
+    const [expectation] = expectations(`a.heic,${hash('a')},,,,,Tee|T-shirt,,,,,`);
+    expect(pointsOf(scorePhoto(expectation, { ...TAGS, type: 'Graphic t-shirt' }, null))).toEqual({ type: 1 });
+    expect(pointsOf(scorePhoto(expectation, { ...TAGS, type: 'Polo shirt' }, null))).toEqual({ type: 0 });
+    expect(pointsOf(scorePhoto(expectation, null, 'timeout'))).toEqual({ type: 0 });
   });
 
   it('primary color is the first color returned, not any color', () => {
