@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { createRef } from 'react';
-import { StyleSheet, type TextInput } from 'react-native';
+import { StyleSheet, type TextInputInstance } from 'react-native';
 
 import { CAMERA_ACCESS_TEXT, INITIAL_CAMERA_ACCESS, type CameraAccessState } from '@/core';
 import type { CameraAccess } from '@/hooks/use-camera-access';
@@ -114,7 +114,7 @@ describe('form controls', () => {
   });
 
   it('TextField forwards a ref to its input (the tag box blurs itself)', async () => {
-    const ref = createRef<TextInput>();
+    const ref = createRef<TextInputInstance>();
     await render(<TextField ref={ref} label="New tag" labelHidden value="" onChangeText={() => {}} />);
     expect(ref.current).not.toBeNull();
   });

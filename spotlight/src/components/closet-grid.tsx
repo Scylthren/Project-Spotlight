@@ -34,7 +34,7 @@ export function ClosetGrid({ items, resolveImageUri, onPressItem, emptyMessage }
           <Text style={look.message} accessibilityRole="text">
             {emptyMessage}
           </Text>
-        ) : null
+        ) : undefined
       }
       renderItem={({ item, index }) => {
         const tile = describeClosetTile(item);

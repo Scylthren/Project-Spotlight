@@ -6,7 +6,8 @@ import {
   TabTriggerSlotProps,
   TabListProps,
 } from 'expo-router/ui';
-import { Pressable, Text, View } from 'react-native';
+import type { Ref } from 'react';
+import { Pressable, Text, View, type HostInstance } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
 
@@ -32,10 +33,13 @@ export default function AppTabs() {
 }
 
 /** A tab: tracked uppercase label, ink when focused (the native tab bar's look on web). */
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+export function TabButton({ children, isFocused, ref, ...props }: TabTriggerSlotProps) {
   const { colors, opacity, spacing, typography, borders } = useTheme();
+  // expo-router 58 types this ref as RefAttributes<View>, which on React Native
+  // 0.88 names the component, not the instance Pressable hands back.
+  const hostRef = ref as Ref<HostInstance> | undefined;
   return (
-    <Pressable {...props} style={({ pressed }) => ({ opacity: pressed ? opacity.pressed : 1 })}>
+    <Pressable {...props} ref={hostRef} style={({ pressed }) => ({ opacity: pressed ? opacity.pressed : 1 })}>
       <View
         style={{
           paddingVertical: spacing.xs,

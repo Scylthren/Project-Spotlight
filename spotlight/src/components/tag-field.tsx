@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Text, View, type TextInput } from 'react-native';
+import { Text, View, type TextInputInstance } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
 import { confirmDelete } from '@/components/confirm-delete';
@@ -34,7 +34,7 @@ export function TagField({ fields, savedTags, onDeleteSavedTag, disabled }: TagF
   const itemTags = fields.values.tags;
   const matches = filterTags(savedTags.tags, fields.tagText);
   const byName = new Map(savedTags.tags.map((t) => [t.name, t]));
-  const input = useRef<TextInput>(null);
+  const input = useRef<TextInputInstance>(null);
 
   function onReturnKey() {
     if (tagReturnKeyAction(fields.tagText) === 'close-keyboard') input.current?.blur();
