@@ -46,7 +46,7 @@ Constraints that shape everything below:
 - If targets are missed: tune the prompt or try the next model up (D3), re-run, report both.
 - **Edge cases:** ambiguous labels (navy vs black; a cardigan as top or outerwear): the scorer accepts a listed alternative where the human gives one; photos the function rejects count as misses.
 
-### Slice 5: Cutouts
+### Slice 5: Cutouts (shelved 2026-10-23 by the human; see ROADMAP "Cutouts shelved")
 **Goal:** each item can have a background-removed cutout next to its untouched original, and the grid shows it.
 - Implementation per D2, behind `GarmentIsolator`. Today's `LocalGarmentIsolator` (color detection, no stored output) stays; the interface gains a cutout result or a sibling interface is added (the implementer proposes which; either way the mock returns no cutout).
 - Cutout for the primary (front) photo only (D8). PNG with transparency, stored locally beside the original; migration 8 adds an optional cutout path; existing items keep working with none.
@@ -64,7 +64,7 @@ Constraints that shape everything below:
 - **Edge cases:** the app is backgrounded or killed mid-import (drafts lost; nothing half-saved); the same photo picked twice or already in the closet; iCloud photos that must download first; HEIC and very large images; Android returning photos in a different order; the user cancels the review; the cap is reached.
 
 ### Slice 7: Gate review and report
-Opus architect review, eval and cutout results, device checklist (scan 10 items, the correction flow, import), platform-specific code list, the updated camera intro text, and the Gate 2 report.
+Opus architect review, eval results (cutouts shelved), device checklist (scan 10 items, the correction flow, import), platform-specific code list, the updated camera intro text, and the Gate 2 report.
 
 ## Decisions needed from the human
 

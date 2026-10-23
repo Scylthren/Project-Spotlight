@@ -10,7 +10,7 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-23 by orchestrator (D8 answered; D2 research in progress)_
+_Last updated: 2026-10-23 by orchestrator (cutouts shelved; slice 6 next, needs D9 and D10)_
 
 - **Gate:** 2 in progress (plan `docs/plans/gate-2.md`; D1, D4, D5 answered, see ROADMAP). Gate 1.5 approved and tagged `gate-1.5`; Gates 0 and 1 approved.
 - **Slice 1 (backend skeleton with stub), reviewed (PASS WITH NOTES) and committed:** `supabase/` at the repo root (`supabase init`, linked to `lithblsvhrxfdkjhnhdy`, no database password used). Function `tag-item` (`verify_jwt = false`): checks `Authorization: Bearer` against the `DEV_TOKEN` secret (constant-time compare, fails closed with 500 if the secret is missing or short), 405 non-POST, 401 bad token, 400 bad or oversized body, 200 with a fixed schema-valid stub. Logic in plain TS (`supabase/functions/_shared/`, `tag-item/handler.ts`); `index.ts` is a thin Deno adapter. Deployed with `--use-api`. API doc `docs/api/tag-item.md`.
@@ -32,15 +32,19 @@ _Last updated: 2026-10-23 by orchestrator (D8 answered; D2 research in progress)
 - **Device checks for slice 1 (human reported all passing 2026-10-22; platforms not stated):** Me tab Backend section in both themes; paste the token (secure field, paste works); Test connection: OK with the token, "Wrong token" after saving a wrong one, "Offline" in airplane mode; token survives an app restart; Clear works; section absent in a release build (unverified); web shows "Secure storage is not available" (web not a target).
 - **Known issues (for later):** Backend section code is in the release bundle (render gated by `__DEV__`). No rate limit on the function, and unauthenticated invocations are not rate-limited either (each can make it read up to 8 MB or 5 s). The drift test's doc check only looks for the limit numbers in `docs/api/tag-item.md`, not the shapes. `supabase/functions/tag-item/index.ts` is not Deno type-checked and the Deno files are not linted (outside ESLint's base path; handler and shared files are type-checked through the tests); run `deno check` in slice 3 if Deno is available via the CLI. Earlier: forced-scheme flash; `hanger` needs iOS 16+; serif accent clipping; token-guard gaps; typed routes regenerate only on `expo start`; dashed borders on Android unverified; gallery `!__DEV__` redirect unverified; npm audit checked at SDK 58 (see above).
 - **Review notes still deferred:** slice 5: name `maxLength` counts UTF-16 units; thumbnails pressable while busy. slice 4: item screen spinner-only loading; no rendered test of screen wiring. Earlier: radios report `checked` and `selected`; swatch sizes 26/40 and chevron stroke raw numbers.
-- **Next step:** D2 (background removal). Desk research done (below, unverified where noted); next is a side-by-side sample on about 8 eval photos with Photoroom (10 free calls) and Replicate (about $0.0005 per image), which needs the human to create accounts and store the API keys outside the repo, and consent to sending those photos to both providers. Slice 4 follow-ups (fit, other colors, closet shots) are for later.
+- **Next step:** slice 6 (multi-select import) when the human starts it; needs D9 (one photo per item on import, recommended) and D10 (batch cap, recommended 20, and the review list design). Cutouts (slice 5) are shelved: no work on them. Slice 4 follow-ups (fit, other colors, closet shots) are for later. Before Gate 3.5: revisit cutouts or the mannequin design.
 - **Open questions:** slice 3 review notes for the human: retry once on provider 5xx/529/network when budget allows (reviewer recommends; currently none); 16 s function budget vs the app's 20 s timeout leaves little margin on slow uploads (paid call lost, degrades to "No suggestions"); library picks via the system picker may show no disclosure text (consider a line near the pick buttons or Me tab); add closet screenshots to the slice 4 eval (prompt says null, model tags the main garment); request not aborted when leaving the screen (one paid call at most, reply ignored); release builds have no token so always "No suggestions" until Gate 4. Earlier: user-cleared attribute stored as absent so a retake may re-suggest it; type `maxLength` counts UTF-16 units; one bad attribute row hides the item; detection thresholds need tuning on real photos.
 
 ## Gate plans
 - Gate 1.5 (approved 2026-10-21, done): five slices, see `git log` and ROADMAP decisions.
-- Gate 2: `docs/plans/gate-2.md`; D1, D4-D7 answered; slices 1-3 committed and device-checked; slice 4 done (targets pass after review).
+- Gate 2: `docs/plans/gate-2.md`; D1, D4-D7 answered; slices 1-3 committed and device-checked; slice 4 done (targets pass after review); slice 5 (cutouts) shelved.
 
 ## Log
 Newest first.
+
+### 2026-10-23 — Cutouts shelved
+- After the D2 research and a look at standalone options (on-device via iOS Vision / Android ML Kit, or a self-hosted model), the human dropped cutouts for now: slice 5 and the Gate 2 cutout check are removed, D2 closed as "none". No code changed; `GarmentIsolator` stays and never produces a cutout.
+- Recorded in ROADMAP with the Gate 3.5 impact (the mannequin layers cutouts) and the Gate 4 development build as the natural point to revisit.
 
 ### 2026-10-23 — D8 answered, D2 research
 - Human: only the primary photo gets a cutout (D8, ROADMAP).
