@@ -112,6 +112,27 @@ export interface TagItemResponse {
    * mock tagger). The deployed function calls the model and answers false.
    */
   stub: boolean;
+  /**
+   * Optional (Gate 2 slice 4): what the model calls behind this answer cost,
+   * for the tagging eval. The app ignores it (`validateTagItemResponse`
+   * drops it); the eval reads it with `readTagItemUsage`.
+   */
+  usage?: TagItemUsage;
+}
+
+/**
+ * Model usage behind one answer, summed over every call the function made
+ * for it (the first call and the one retry, when there was one).
+ */
+export interface TagItemUsage {
+  /** The model alias the function called, for example "claude-haiku-5-5". */
+  model: string;
+  /** Number of model calls made (1 or 2), including calls that failed. */
+  attempts: number;
+  /** Input tokens over all calls; a call that reported none counts 0. */
+  inputTokens: number;
+  /** Output tokens over all calls; a call that reported none counts 0. */
+  outputTokens: number;
 }
 
 export const TAG_ITEM_ERROR_CODES = [
@@ -240,6 +261,19 @@ export function readTagType(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const text = value.trim().replace(/\s+/g, ' ');
   return text.length > 0 && [...text].length <= TAG_TYPE_MAX_LENGTH ? text : null;
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/** Reads `usage` from a 200 body, or null when it is missing or malformed. */
+export function readTagItemUsage(body: unknown): TagItemUsage | null {
+  if (!isRecord(body) || !isRecord(body.usage)) return null;
+  const { model, attempts, inputTokens, outputTokens } = body.usage;
+  if (typeof model !== 'string' || model.length === 0) return null;
+  if (!isCount(attempts) || !isCount(inputTokens) || !isCount(outputTokens)) return null;
+  return { model, attempts, inputTokens, outputTokens };
 }
 
 /** Reads the error code from an error body, or null when it is not one. */

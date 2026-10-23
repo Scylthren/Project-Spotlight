@@ -1,0 +1,16 @@
+{
+  "//": "Type-checks the eval command line (cli.ts) with Node's types. The other modules are also checked by spotlight's tsc through their Jest tests. Run: npm run typecheck (from spotlight/).",
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "typeRoots": ["../../spotlight/node_modules/@types"]
+  },
+  "files": ["cli.ts"]
+}

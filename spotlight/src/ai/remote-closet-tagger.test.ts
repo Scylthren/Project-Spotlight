@@ -66,6 +66,18 @@ describe('RemoteClosetTagger', () => {
     });
   });
 
+  it('accepts and ignores the optional usage object (Gate 2 slice 4)', async () => {
+    const withUsage = { ...STUB_TAG_ITEM_RESPONSE, stub: false, usage: { model: 'claude-haiku-5-5', attempts: 2, inputTokens: 3000, outputTokens: 120 } };
+    const { tagger } = setup({ respond: mockFetch(async () => jsonResponse(200, withUsage)) });
+    expect(await tagger.tag(CONNECTION_CHECK_IMAGE)).toEqual({ ok: true, tags: STUB_TAG_ITEM_RESPONSE.tags, stub: false });
+  });
+
+  it('ignores a malformed usage object', async () => {
+    const badUsage = { ...STUB_TAG_ITEM_RESPONSE, stub: false, usage: 'lots' };
+    const { tagger } = setup({ respond: mockFetch(async () => jsonResponse(200, badUsage)) });
+    expect(await tagger.tag(CONNECTION_CHECK_IMAGE)).toEqual({ ok: true, tags: STUB_TAG_ITEM_RESPONSE.tags, stub: false });
+  });
+
   it('makes no request without a URL', async () => {
     const { tagger, fetchMock } = setup({ url: null });
     expect(await tagger.tag(CONNECTION_CHECK_IMAGE)).toEqual({ ok: false, failure: 'not-configured' });

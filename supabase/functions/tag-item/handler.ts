@@ -22,10 +22,12 @@ import {
   type TagItemErrorCode,
   type TagItemErrorResponse,
   type TagItemResponse,
+  type TagItemUsage,
 } from '../_shared/tag-item-contract.ts';
 
 import { callTagModel, type ProviderEnv, type ProviderError } from './claude.ts';
 import { EMPTY_TAGS, type ReadTags } from './model-reply.ts';
+import { TAG_MODEL } from './prompt.ts';
 
 export type CappedBody = { ok: true; text: string } | { ok: false; reason: 'too_large' | 'unreadable' };
 
@@ -121,7 +123,7 @@ export async function handleTagItem(request: TagItemHttpRequest, env: TagItemEnv
     budgetMs: env.budgetMs ?? PROVIDER_BUDGET_MS,
   });
   if (outcome.kind === 'error') return PROVIDER_FAILURES[outcome.error];
-  const response: TagItemResponse = { apiVersion: TAG_ITEM_API_VERSION, tags: outcome.tags, stub: false };
+  const response: TagItemResponse = { apiVersion: TAG_ITEM_API_VERSION, tags: outcome.tags, stub: false, usage: outcome.usage };
   return { status: 200, headers: { ...JSON_HEADERS }, body: response };
 }
 
@@ -150,27 +152,33 @@ interface TagWithModelOptions extends ProviderEnv {
  * - A provider error (429, 5xx, 529, network, timeout, other 4xx) is not
  *   retried: it answers with the matching error, unless an earlier attempt
  *   already gave usable tags.
+ * - `usage` sums the tokens of every call made for this answer (a call that
+ *   reported no tokens counts 0) and counts the calls, failed ones included.
  */
 export async function tagWithModel(
   imageBase64: string,
   options: TagWithModelOptions,
-): Promise<{ kind: 'tags'; tags: ItemTags } | { kind: 'error'; error: ProviderError }> {
+): Promise<{ kind: 'tags'; tags: ItemTags; usage: TagItemUsage } | { kind: 'error'; error: ProviderError }> {
   const deadline = options.now() + options.budgetMs;
+  const usage: TagItemUsage = { model: TAG_MODEL, attempts: 0, inputTokens: 0, outputTokens: 0 };
   let best: ReadTags | null = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
     const remaining = deadline - options.now();
     if (attempt > 1 && remaining < PROVIDER_MIN_RETRY_MS) break;
     const result = await callTagModel(imageBase64, attempt, Math.min(options.attemptTimeoutMs, remaining), options);
+    usage.attempts = attempt;
     if (result.kind === 'error') {
       if (best) break;
       return result;
     }
-    const { reply } = result;
+    const { reply, tokens } = result;
+    usage.inputTokens += tokens.inputTokens ?? 0;
+    usage.outputTokens += tokens.outputTokens ?? 0;
     if (reply.kind === 'malformed') continue;
     if (!best || reply.problems.length <= best.problems.length) best = reply;
     if (reply.problems.length === 0) break;
   }
-  return { kind: 'tags', tags: best ? best.tags : { ...EMPTY_TAGS, colors: [], seasons: [] } };
+  return { kind: 'tags', tags: best ? best.tags : { ...EMPTY_TAGS, colors: [], seasons: [] }, usage };
 }
 
 /** The part of `ReadableStreamDefaultReader` that `readCapped` uses. */

@@ -23,7 +23,13 @@ export interface ProviderEnv {
 
 export type ProviderError = 'unavailable' | 'rate_limited' | 'timeout' | 'rejected';
 
-export type ProviderResult = { kind: 'reply'; reply: ModelReply } | { kind: 'error'; error: ProviderError };
+/** Tokens the provider reported for one call; null when the reply did not say. */
+export interface CallTokens {
+  inputTokens: number | null;
+  outputTokens: number | null;
+}
+
+export type ProviderResult = { kind: 'reply'; reply: ModelReply; tokens: CallTokens } | { kind: 'error'; error: ProviderError };
 
 /** How an HTTP status from the provider is reported (anything but 200). */
 export function classifyProviderStatus(status: number): ProviderError {
@@ -149,17 +155,21 @@ export async function callTagModel(
     }
     const body = result.body as { stop_reason?: unknown; usage?: { input_tokens?: unknown; output_tokens?: unknown } } | null;
     const reply = readModelReply(body);
+    const tokens: CallTokens = {
+      inputTokens: numberOrNull(body?.usage?.input_tokens),
+      outputTokens: numberOrNull(body?.usage?.output_tokens),
+    };
     logCall(env, {
       attempt,
       status: 200,
       stopReason: typeof body?.stop_reason === 'string' ? body.stop_reason : null,
-      inputTokens: numberOrNull(body?.usage?.input_tokens),
-      outputTokens: numberOrNull(body?.usage?.output_tokens),
+      inputTokens: tokens.inputTokens,
+      outputTokens: tokens.outputTokens,
       latencyMs: latency(),
       outcome: reply.kind === 'malformed' ? `malformed:${reply.reason}` : reply.problems.length > 0 ? 'partial' : 'ok',
       problems: reply.kind === 'tags' ? reply.problems : undefined,
     });
-    return { kind: 'reply', reply };
+    return { kind: 'reply', reply, tokens };
   } finally {
     clearTimeout(timer);
   }

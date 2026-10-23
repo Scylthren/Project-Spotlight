@@ -4,6 +4,7 @@ import { joinPath, readText, REPO_ROOT } from '@/security/testing/node-files';
 import { CONNECTION_CHECK_IMAGE } from './connection-check';
 import {
   STUB_TAG_ITEM_RESPONSE,
+  readTagItemUsage,
   readTagType,
   TAG_CATEGORIES,
   TAG_COLORS,
@@ -182,6 +183,41 @@ describe('validateTagItemResponse', () => {
     ['a duplicated season', (b) => ({ ...b, tags: { ...b.tags, seasons: ['spring', 'spring'] } })],
   ])('rejects %s', (_name, mutate) => {
     expect(validateTagItemResponse(mutate(valid())).ok).toBe(false);
+  });
+});
+
+describe('usage (Gate 2 slice 4)', () => {
+  const usage = { model: 'claude-haiku-5-5', attempts: 2, inputTokens: 3010, outputTokens: 130 };
+
+  it('validateTagItemResponse accepts a body with usage and drops it (the app ignores it)', () => {
+    const body = { ...JSON.parse(JSON.stringify(STUB_TAG_ITEM_RESPONSE)), usage };
+    expect(validateTagItemResponse(body)).toEqual({ ok: true, value: STUB_TAG_ITEM_RESPONSE });
+    expect(validateTagItemResponse({ ...body, usage: 'garbage' })).toEqual({ ok: true, value: STUB_TAG_ITEM_RESPONSE });
+  });
+
+  it('readTagItemUsage reads a well-formed usage object', () => {
+    expect(readTagItemUsage({ ...STUB_TAG_ITEM_RESPONSE, usage })).toEqual(usage);
+    expect(readTagItemUsage({ usage: { ...usage, extra: 1 } })).toEqual(usage);
+  });
+
+  it.each<[string, unknown]>([
+    ['no body', null],
+    ['no usage', STUB_TAG_ITEM_RESPONSE],
+    ['usage not an object', { usage: [1] }],
+    ['an empty model', { usage: { ...usage, model: '' } }],
+    ['a negative token count', { usage: { ...usage, inputTokens: -1 } }],
+    ['a fractional count', { usage: { ...usage, outputTokens: 1.5 } }],
+    ['a string count', { usage: { ...usage, attempts: '2' } }],
+    ['a missing count', { usage: { model: 'm', attempts: 1, inputTokens: 1 } }],
+  ])('readTagItemUsage returns null for %s', (_name, body) => {
+    expect(readTagItemUsage(body)).toBeNull();
+  });
+
+  it('documents usage in docs/api/tag-item.md', () => {
+    const doc = readText(joinPath(REPO_ROOT, 'docs/api/tag-item.md'));
+    for (const field of ['usage', 'usage.model', 'usage.attempts', 'usage.inputTokens', 'usage.outputTokens']) {
+      expect(doc).toContain(`\`${field}\``);
+    }
   });
 });
 

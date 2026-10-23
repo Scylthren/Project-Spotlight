@@ -1,2 +1,8 @@
 .env*
 .DS_Store
+
+# Tagging eval: photos live outside git (only labels and hashes are committed);
+# raw runs are local. See evals/tagging/README.md.
+evals/tagging/photos/
+evals/tagging/runs/
+evals/tagging/*.tmp

@@ -41,6 +41,7 @@ Run all of these from the `spotlight/` folder (the Expo app), not the repo root.
 - Lint: `npm run lint` (runs `expo lint`, ESLint flat config in `eslint.config.js`)
 - Unit tests: `npm test` (Jest with the `jest-expo` preset; config in `package.json`). Single file: `npm test -- src/core/clothing-item.test.ts`
 - `spotlight/tsconfig.json` lists `compilerOptions.types` explicitly (`jest`, `expo/types`). Any new global `@types/*` package must be added there or its globals will not be visible.
+- Tagging eval: `npm run eval:tagging -- <init|check|run|score>` (see `evals/tagging/README.md`). `run` calls the deployed function, costs money, needs macOS (`sips`) and the dev token. `npm run typecheck` and `npm run lint` also cover `evals/`.
 - Bundle sanity check without a device: `npx expo export --platform ios --output-dir <scratch dir outside the repo>`
 - Camera and photo-library features need a real device. List them as manual checks.
 

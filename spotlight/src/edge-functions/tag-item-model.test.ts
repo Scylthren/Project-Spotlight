@@ -34,6 +34,7 @@ import {
   TAG_MATERIALS,
   TAG_PATTERNS,
   TAG_SEASONS,
+  readTagItemUsage,
   tagItemErrorCode,
   validateTagItemResponse,
   type ItemTags,
@@ -84,6 +85,15 @@ function setup(replies: (Response | Error | (() => Promise<Response>))[], overri
   };
   return { env, fetchMock, logs, run: () => handleTagItem(req(), env) };
 }
+
+/** The `usage` the function reports for `attempts` calls with these token totals. */
+function usage(attempts: number, inputTokens: number, outputTokens: number) {
+  return { model: 'claude-haiku-5-5', attempts, inputTokens, outputTokens };
+}
+
+/** modelReply's default tokens per call. */
+const ONE_CALL = usage(1, 1234, 56);
+const TWO_CALLS = usage(2, 2468, 112);
 
 function code(body: unknown): string | null {
   return tagItemErrorCode(body);
@@ -258,7 +268,7 @@ describe('handleTagItem with the model', () => {
     const { fetchMock, run } = setup([modelReply(VALID_MODEL_TAGS)]);
     const result = await run();
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false });
+    expect(result.body).toEqual({ apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false, usage: ONE_CALL });
     expect(validateTagItemResponse(JSON.parse(JSON.stringify(result.body))).ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
@@ -344,7 +354,7 @@ describe('handleTagItem with the model', () => {
     const { fetchMock, run } = setup([modelReply('{"category": "top", '), modelReply(VALID_MODEL_TAGS)]);
     const result = await run();
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.body).toEqual({ apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false });
+    expect(result.body).toEqual({ apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false, usage: TWO_CALLS });
   });
 
   it.each(['refusal', 'max_tokens'])('treats stop_reason %s as malformed and retries once', async (stopReason) => {
@@ -360,21 +370,26 @@ describe('handleTagItem with the model', () => {
     const result = await run();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ apiVersion: 1, tags: { ...VALID_MODEL_TAGS, category: null, colors: ['navy'] }, stub: false });
+    expect(result.body).toEqual({
+      apiVersion: 1,
+      tags: { ...VALID_MODEL_TAGS, category: null, colors: ['navy'] },
+      stub: false,
+      usage: TWO_CALLS,
+    });
   });
 
   it('does not retry a fully valid reply', async () => {
     const { fetchMock, run } = setup([modelReply(EMPTY)]);
     const result = await run();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.body).toEqual({ apiVersion: 1, tags: EMPTY, stub: false });
+    expect(result.body).toEqual({ apiVersion: 1, tags: EMPTY, stub: false, usage: ONE_CALL });
   });
 
   it('keeps the earlier partial reply when the retry is malformed', async () => {
     const { fetchMock, run } = setup([modelReply({ ...VALID_MODEL_TAGS, fit: 'baggy' }), modelReply('nope')]);
     const result = await run();
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(result.body).toEqual({ apiVersion: 1, tags: { ...VALID_MODEL_TAGS, fit: null }, stub: false });
+    expect(result.body).toEqual({ apiVersion: 1, tags: { ...VALID_MODEL_TAGS, fit: null }, stub: false, usage: TWO_CALLS });
   });
 
   it('answers with no suggestion (every field empty, 200) when both attempts are malformed', async () => {
@@ -382,7 +397,7 @@ describe('handleTagItem with the model', () => {
     const result = await run();
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ apiVersion: 1, tags: EMPTY, stub: false });
+    expect(result.body).toEqual({ apiVersion: 1, tags: EMPTY, stub: false, usage: TWO_CALLS });
   });
 
   it('treats a 200 whose body is not JSON as a malformed reply', async () => {
@@ -454,7 +469,13 @@ describe('handleTagItem with the model', () => {
 
   it('a provider error on the retry keeps the earlier partial reply; with nothing usable it answers the error', async () => {
     const partial = setup([modelReply({ ...VALID_MODEL_TAGS, material: 'tweed' }), fakeResponse(429, '{}')]);
-    expect((await partial.run()).body).toEqual({ apiVersion: 1, tags: { ...VALID_MODEL_TAGS, material: null }, stub: false });
+    // The failed retry counts as an attempt; only the first call reported tokens.
+    expect((await partial.run()).body).toEqual({
+      apiVersion: 1,
+      tags: { ...VALID_MODEL_TAGS, material: null },
+      stub: false,
+      usage: usage(2, 1234, 56),
+    });
 
     const nothing = setup([modelReply('oops'), fakeResponse(529, '{}')]);
     const result = await nothing.run();
@@ -476,7 +497,7 @@ describe('handleTagItem with the model', () => {
     );
     const result = await run();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result.body).toEqual({ apiVersion: 1, tags: EMPTY, stub: false });
+    expect(result.body).toEqual({ apiVersion: 1, tags: EMPTY, stub: false, usage: ONE_CALL });
   });
 
   it('gives the retry only what is left of the budget', async () => {
@@ -513,6 +534,28 @@ describe('handleTagItem with the model', () => {
     expect(PROVIDER_BUDGET_MS).toBe(16_000);
     expect(PROVIDER_BUDGET_MS).toBeLessThan(20_000);
     expect(PROVIDER_MIN_RETRY_MS).toBeLessThan(PROVIDER_ATTEMPT_TIMEOUT_MS);
+  });
+
+  it('reports usage: the summed tokens of every call, in the 200 body only', async () => {
+    const { run } = setup([
+      modelReply({ ...VALID_MODEL_TAGS, fit: 'baggy' }, { inputTokens: 1500, outputTokens: 70 }),
+      modelReply(VALID_MODEL_TAGS, { inputTokens: 1510, outputTokens: 60 }),
+    ]);
+    const result = await run();
+    expect((result.body as { usage?: unknown }).usage).toEqual(usage(2, 3010, 130));
+    expect(readTagItemUsage(JSON.parse(JSON.stringify(result.body)))).toEqual(usage(2, 3010, 130));
+  });
+
+  it('counts tokens a reply does not report as 0', async () => {
+    const { run } = setup([fakeResponse(200, '<html>'), modelReply(VALID_MODEL_TAGS, { inputTokens: 900, outputTokens: 40 })]);
+    expect((await run()).body).toMatchObject({ usage: usage(2, 900, 40) });
+  });
+
+  it('error answers carry no usage', async () => {
+    const { run } = setup([fakeResponse(429, '{}')]);
+    const result = await run();
+    expect(result.status).toBe(503);
+    expect(result.body).not.toHaveProperty('usage');
   });
 
   it('classifies provider statuses', () => {

@@ -56,9 +56,18 @@ describe('handleTagItem', () => {
     const { req } = request();
     const result = await handleTagItem(req, env);
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false });
+    expect(result.body).toEqual({
+      apiVersion: 1,
+      tags: VALID_MODEL_TAGS,
+      stub: false,
+      usage: { model: 'claude-haiku-5-5', attempts: 1, inputTokens: 1234, outputTokens: 56 },
+    });
     expect(modelFetch).toHaveBeenCalledTimes(1);
-    expect(validateTagItemResponse(JSON.parse(JSON.stringify(result.body))).ok).toBe(true);
+    // The app's validator accepts the body and drops `usage`.
+    expect(validateTagItemResponse(JSON.parse(JSON.stringify(result.body)))).toEqual({
+      ok: true,
+      value: { apiVersion: 1, tags: VALID_MODEL_TAGS, stub: false },
+    });
     expect(result.headers['Content-Type']).toMatch(/^application\/json/);
     expect(result.headers['Cache-Control']).toBe('no-store');
   });

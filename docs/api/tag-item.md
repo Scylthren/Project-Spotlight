@@ -48,7 +48,8 @@ Unknown extra fields are ignored.
     "fit": "regular",
     "formality": "smart-casual"
   },
-  "stub": false
+  "stub": false,
+  "usage": { "model": "claude-haiku-5-5", "attempts": 1, "inputTokens": 1843, "outputTokens": 74 }
 }
 ```
 
@@ -64,6 +65,11 @@ Unknown extra fields are ignored.
 | `tags.fit` | string or null | `slim`, `regular`, `relaxed`, `oversized`. |
 | `tags.formality` | string or null | `athletic`, `casual`, `smart-casual`, `formal`. |
 | `stub` | boolean | `false` from the deployed function (a real model answer). `true` only for a canned answer (the slices 1-2 stub, the app's mock tagger); the app ignores a stub's category, seasons and colors. |
+| `usage` | object, optional | Added in Gate 2 slice 4 for the tagging eval (`evals/tagging/`); `apiVersion` unchanged. What the model calls behind this answer used, summed over every call made for it (the first call and the one retry). Only in 200 answers from the model; error bodies never carry it. The app ignores it (`validateTagItemResponse` drops it, also when malformed); the eval reads it with `readTagItemUsage`, which returns null unless every field below is well-formed. |
+| `usage.model` | string | The model alias called (`claude-haiku-5-5`). |
+| `usage.attempts` | number | Model calls made: 1, or 2 with the retry. A call that failed (provider error after a usable first reply) still counts. |
+| `usage.inputTokens` | number | Input tokens over all calls, as the provider reported them; a call that reported none counts 0. |
+| `usage.outputTokens` | number | Output tokens over all calls, same rule. |
 
 The lists are ROADMAP decision D6 (ids use a hyphen where the label has a space: "Polka dot" is `polka-dot`, "Smart casual" is `smart-casual`) and match the app's `spotlight/src/core/item-attributes.ts` (drift-tested).
 
@@ -106,7 +112,7 @@ The `upstream_*` messages are fixed text; the provider's own error message is ne
 - Bodies over 8 MB get no usable answer: the client sees the connection hang (curl gave up after 90 s in testing). The app never sends more than 2,100,000 bytes.
 - Model time (function): each call at most 8 s, all calls (the first and the one retry) at most 16 s; the retry starts only with at least 3 s left. This keeps the answer inside the app's timeout.
 - Client timeout (app): 20 seconds, then the app reports "timed out".
-- Cost: about one Haiku call per photo (two when the reply needs the retry); tokens per call are in the logs.
+- Cost: about one Haiku call per photo (two when the reply needs the retry); tokens per call are in the logs, and the totals per answer are in `usage`.
 - No rate limit yet, for authorized or unauthenticated calls (risk noted in `docs/plans/gate-2.md`).
 
 ## App failure mapping

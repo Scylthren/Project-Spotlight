@@ -53,9 +53,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "expo lint && npm run -s lint:evals",
+    "lint:evals": "cd .. && eslint --no-warn-ignored --max-warnings 0 -c spotlight/eslint.config.js evals",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p ../evals/tagging/tsconfig.json",
+    "eval:tagging": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-transform-types ../evals/tagging/cli.ts"
   },
   "private": true,
   "jest": {
