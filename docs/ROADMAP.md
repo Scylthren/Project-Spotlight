@@ -47,12 +47,12 @@ Done when:
 - The app uses the real `ClosetTagger`. The mock still works.
 - Tagging eval: 30 of your own clothing photos with hand-labeled answers in `evals/tagging/`. Proposed targets: category correct in at least 90 percent, primary color correct in at least 85 percent.
 - The user can correct tags quickly, and multi-select import from the photo library works.
-- Background removal: each item stores its original photo plus an optional cutout (garment only, transparent background). Migrate the existing local items so they keep working with no cutout. Background removal runs behind a `GarmentIsolator` interface during add-item and multi-select import. If it fails, the item is still saved with no cutout. The grid shows the cutout when one exists.
-- Decide at the start of this gate: the agent proposes two background-removal options (for example a hosted API called from an edge function, or on-device segmentation, which needs a development build), with cost per image, effort, and quality. You choose one. The tagging function receives the original photo unless the eval shows that cutouts tag better.
-- Cutout check: on 10 of the eval photos, at least 8 cutouts are clean enough to use on a mannequin, judged by you.
+- *Shelved 2026-10-23 (see Decisions, "Cutouts shelved"):* Background removal: each item stores its original photo plus an optional cutout (garment only, transparent background). Migrate the existing local items so they keep working with no cutout. Background removal runs behind a `GarmentIsolator` interface during add-item and multi-select import. If it fails, the item is still saved with no cutout. The grid shows the cutout when one exists.
+- *Done, then closed as "none" 2026-10-23 (see Decisions, "Cutouts shelved"):* Decide at the start of this gate: the agent proposes two background-removal options (for example a hosted API called from an edge function, or on-device segmentation, which needs a development build), with cost per image, effort, and quality. You choose one. The tagging function receives the original photo unless the eval shows that cutouts tag better.
+- *Shelved 2026-10-23 (see Decisions, "Cutouts shelved"):* Cutout check: on 10 of the eval photos, at least 8 cutouts are clean enough to use on a mannequin, judged by you.
 
 Human check: scan 10 items on your phone. Review the eval report and the tag-correction flow.
-Design: `SaveItem.dc.html` adds the tag fields (pattern, material, fit, formality) and the cutout display with the "Background removed" label to the save screen. Built with the theme and shared components from Gate 1.5.
+Design: `SaveItem.dc.html` adds the tag fields (pattern, material, fit, formality) and the cutout display with the "Background removed" label to the save screen (the cutout display is shelved with cutouts). Built with the theme and shared components from Gate 1.5.
 
 ## Gate 3: Outfit engine
 Done when:

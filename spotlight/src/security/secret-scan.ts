@@ -4,7 +4,7 @@
  * token (the shape of the dev token, `openssl rand -hex 32`).
  *
  * Plain TypeScript; `secret-scan.test.ts` runs it over every file git would
- * commit under `spotlight/` and `supabase/`. The patterns are assembled from
+ * commit in the repo. The patterns are assembled from
  * fragments so this file does not match itself.
  */
 
