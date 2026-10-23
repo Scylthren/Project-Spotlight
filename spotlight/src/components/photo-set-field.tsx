@@ -8,7 +8,7 @@ import { ChipGroup } from '@/components/chip-group';
 import { FormButton } from '@/components/form-button';
 import { angleTileWidth, itemFormLook, photoSetLook } from '@/components/item-form-style';
 import { SectionLabel } from '@/components/ui';
-import { PHOTO_ROLE_LABELS, primaryPhoto, type PhotoDraft, type PhotoRole, type PhotoTarget } from '@/core';
+import { PHOTO_ROLE_LABELS, PHOTO_UPLOAD_NOTICE, primaryPhoto, type PhotoDraft, type PhotoRole, type PhotoTarget } from '@/core';
 import type { PhotoSource } from '@/data/photo-picker';
 import type { ItemFormFields as Fields } from '@/hooks/use-item-form-fields';
 import { useTheme } from '@/hooks/use-theme';
@@ -153,10 +153,11 @@ export function PhotoSetField({ fields, emptyHint, busy }: PhotoSetFieldProps) {
   );
 }
 
-function SourceButtons({ onPick, disabled }: { onPick: (source: PhotoSource) => void; disabled: boolean }) {
+export function SourceButtons({ onPick, disabled }: { onPick: (source: PhotoSource) => void; disabled: boolean }) {
   const theme = useTheme();
+  const look = itemFormLook(theme);
   return (
-    <View style={itemFormLook(theme).buttons}>
+    <View style={look.buttons}>
       <FormButton label="Take photo" variant="secondary" onPress={() => onPick('camera')} disabled={disabled} />
       <FormButton
         label="Choose from library"
@@ -164,6 +165,7 @@ function SourceButtons({ onPick, disabled }: { onPick: (source: PhotoSource) => 
         onPress={() => onPick('library')}
         disabled={disabled}
       />
+      <Text style={look.caption}>{PHOTO_UPLOAD_NOTICE}</Text>
     </View>
   );
 }

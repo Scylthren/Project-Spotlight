@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 
 import type { TagOutcome } from '@/ai/closet-tagger';
 import { FakeClosetTagger } from '@/ai/closet-tagger';
+import { PHOTO_UPLOAD_NOTICE } from '@/core';
 import { NoGarmentIsolator } from '@/data/garment-isolator';
 import { FakeImageProcessor } from '@/data/image-processor';
 import { ImportSession, type ImportDraft } from '@/data/import-session';
@@ -179,6 +180,7 @@ describe('ImportEntry (rendered)', () => {
     const onImport = jest.fn();
     const view = await render(<ImportEntry onImport={onImport} disabled={false} problem={null} />);
     expect(screen.getByText(/Choose up to 20 photos/)).toBeTruthy();
+    expect(screen.getByText(PHOTO_UPLOAD_NOTICE)).toBeTruthy();
     await fireEvent.press(screen.getByRole('button', { name: 'Import from library' }));
     expect(onImport).toHaveBeenCalledTimes(1);
     await view.rerender(

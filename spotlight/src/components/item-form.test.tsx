@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { createRef } from 'react';
 import { StyleSheet, type TextInputInstance } from 'react-native';
 
-import { CAMERA_ACCESS_TEXT, INITIAL_CAMERA_ACCESS, type CameraAccessState } from '@/core';
+import { CAMERA_ACCESS_TEXT, INITIAL_CAMERA_ACCESS, PHOTO_UPLOAD_NOTICE, type CameraAccessState } from '@/core';
 import type { CameraAccess } from '@/hooks/use-camera-access';
 import { contrastRatio, themes } from '@/theme';
 
@@ -11,6 +11,7 @@ import { CameraIntroModal } from './camera-intro-modal';
 import { ChipGroup } from './chip-group';
 import { colorMatrixLook, COLOR_MATRIX_COLUMNS } from './color-matrix-style';
 import { FormButton, formButtonLook } from './form-button';
+import { SourceButtons } from './photo-set-field';
 import { angleTileWidth } from './item-form-style';
 import { Chip, TextField } from './ui';
 import { touchHeight } from './ui/testing/rendered-touch';
@@ -163,5 +164,15 @@ describe('camera intro and denied panel', () => {
 
     await view.rerender(<CameraDeniedPanel camera={camera({ surface: 'none' })} disabled={false} />);
     expect(screen.queryByText(CAMERA_ACCESS_TEXT.deniedTitle)).toBeNull();
+  });
+});
+
+describe('SourceButtons (rendered)', () => {
+  it('says next to the pick buttons that a smaller copy is sent for suggestions', async () => {
+    const onPick = jest.fn();
+    await render(<SourceButtons onPick={onPick} disabled={false} />);
+    expect(screen.getByText(PHOTO_UPLOAD_NOTICE)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Choose from library' }));
+    expect(onPick).toHaveBeenCalledWith('library');
   });
 });

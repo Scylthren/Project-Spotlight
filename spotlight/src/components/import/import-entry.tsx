@@ -3,7 +3,7 @@ import { Linking, Text, View } from 'react-native';
 import { FormButton } from '@/components/form-button';
 import { itemFormLook } from '@/components/item-form-style';
 import { SectionLabel } from '@/components/ui';
-import { IMPORT_PHOTO_LIMIT } from '@/core';
+import { IMPORT_PHOTO_LIMIT, PHOTO_UPLOAD_NOTICE } from '@/core';
 import type { PickProblem } from '@/data/photo-picker';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -24,6 +24,7 @@ export function ImportEntry({ onImport, disabled, problem }: ImportEntryProps) {
         {`Choose up to ${IMPORT_PHOTO_LIMIT} photos from your library. Each photo becomes one piece, and you check them all before anything is saved.`}
       </Text>
       <FormButton label="Import from library" variant="secondary" onPress={onImport} disabled={disabled} />
+      <Text style={form.caption}>{PHOTO_UPLOAD_NOTICE}</Text>
       {problem ? (
         <View accessibilityLiveRegion="polite" style={form.section}>
           <Text style={form.error}>{problem.message}</Text>

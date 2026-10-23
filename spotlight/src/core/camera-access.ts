@@ -163,6 +163,14 @@ export function deniedPanelAction(permission: CameraPermission | null): 'ask-aga
   return permission?.canAskAgain ? 'ask-again' : 'open-settings';
 }
 
+/**
+ * Shown next to every library pick (Add/Edit photo buttons and the import
+ * panel): the iOS system picker asks no permission and Android shows no
+ * permission text, so this is where library users learn photos leave the device.
+ */
+export const PHOTO_UPLOAD_NOTICE =
+  'A smaller copy of each photo, without location data, is sent to our server and to Claude (Anthropic) to suggest details.';
+
 /** Copy for the intro modal and the denied panel. */
 export const CAMERA_ACCESS_TEXT = Object.freeze({
   introTitle: 'Photograph your clothes',
