@@ -10,7 +10,7 @@ Rules for updating:
 - Durable decisions also go in the "Decisions so far" section of `docs/ROADMAP.md`. The timeline points there; it doesn't replace it.
 
 ## Current state
-_Last updated: 2026-10-22 by orchestrator (slice 3 implemented, reviewed, committed; device checks and copy approval pending)_
+_Last updated: 2026-10-22 by orchestrator (deterministic tagging considered, Claude kept; slice 3 device checks and copy approval pending)_
 
 - **Gate:** 2 in progress (plan `docs/plans/gate-2.md`; D1, D4, D5 answered, see ROADMAP). Gate 1.5 approved and tagged `gate-1.5`; Gates 0 and 1 approved.
 - **Slice 1 (backend skeleton with stub), reviewed (PASS WITH NOTES) and committed:** `supabase/` at the repo root (`supabase init`, linked to `lithblsvhrxfdkjhnhdy`, no database password used). Function `tag-item` (`verify_jwt = false`): checks `Authorization: Bearer` against the `DEV_TOKEN` secret (constant-time compare, fails closed with 500 if the secret is missing or short), 405 non-POST, 401 bad token, 400 bad or oversized body, 200 with a fixed schema-valid stub. Logic in plain TS (`supabase/functions/_shared/`, `tag-item/handler.ts`); `index.ts` is a thin Deno adapter. Deployed with `--use-api`. API doc `docs/api/tag-item.md`.
@@ -39,6 +39,9 @@ _Last updated: 2026-10-22 by orchestrator (slice 3 implemented, reviewed, commit
 
 ## Log
 Newest first.
+
+### 2026-10-22 — Deterministic tagging considered, Claude kept
+- Human asked whether a deterministic (non-LLM) tagger would be better on cost and use. Estimate: Haiku about $0.0003 per photo (about $0.30 per 1,000; unverified until the token log lines or the slice 4 eval). Options weighed: hand-written rules (only colors/pattern, 1-2 weeks), on-device trained model (4-8 weeks, development build, non-commercial dataset licences, weaker on material/fit), hosted label API (about 5x the cost). Human accepted keeping Claude; details in ROADMAP. No code changed.
 
 ### 2026-10-22 — Gate 2 slice 3 implemented, reviewed, committed (real tagging)
 - `tag-item` now calls Claude Haiku 5.5 (enum JSON schema, one retry on a bad reply, upstream error codes, token log line); the app uploads a 1024 px metadata-checked copy through `RemoteClosetTagger`, suggests category and seasons too, and shows "No suggestions" on failure. Deployed with `--use-api`.
