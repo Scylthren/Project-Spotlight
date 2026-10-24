@@ -8,3 +8,7 @@ export * from './remote-closet-tagger';
 export * from './backend-config';
 export * from './connection-check';
 export * from './tag-item-contract';
+export * from './generate-outfits-contract';
+export * from './closet-summary';
+export * from './outfit-generator';
+export * from './remote-outfit-generator';

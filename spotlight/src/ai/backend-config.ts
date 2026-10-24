@@ -20,3 +20,8 @@ export function functionUrl(supabaseUrl: string | undefined, name: string): stri
 export function configuredTagItemUrl(): string | null {
   return functionUrl(process.env.EXPO_PUBLIC_SUPABASE_URL, 'tag-item');
 }
+
+/** The generate-outfits URL for this build (same inlining rule as `configuredTagItemUrl`). */
+export function configuredGenerateOutfitsUrl(): string | null {
+  return functionUrl(process.env.EXPO_PUBLIC_SUPABASE_URL, 'generate-outfits');
+}

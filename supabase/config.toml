@@ -424,3 +424,9 @@ entrypoint = "./functions/tag-item/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/tag-item/*.html" ]
+
+[functions.generate-outfits]
+enabled = true
+verify_jwt = false
+import_map = "./functions/generate-outfits/deno.json"
+entrypoint = "./functions/generate-outfits/index.ts"
