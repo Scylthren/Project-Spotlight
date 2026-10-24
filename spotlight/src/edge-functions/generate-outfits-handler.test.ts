@@ -1,7 +1,9 @@
 /**
- * The generate-outfits function's request handling (slice 1: the stub),
- * which lives in plain TypeScript under `supabase/functions/` (the Deno
- * entry point is a thin adapter).
+ * The generate-outfits function's request handling: method, token, key,
+ * body and closet checks, and the answer shape with a fake model (the model
+ * call itself is covered in `generate-outfits-model.test.ts`). The logic
+ * lives in plain TypeScript under `supabase/functions/` (the Deno entry
+ * point is a thin adapter). `fetch` is always a fake.
  */
 import {
   GENERATE_OUTFITS_MAX_BODY_BYTES,
@@ -17,6 +19,8 @@ import { readCapped as tagItemReadCapped } from '../../../supabase/functions/tag
 import type { CappedBody } from '../../../supabase/functions/_shared/http-body.ts';
 import { sampleSummaries, summary } from '@/ai/testing/outfit-fixtures';
 
+import { modelReply } from './testing/model-fakes';
+
 /** Built at run time so no token-like literal sits in the repo. */
 const TOKEN = 'cd'.repeat(32);
 const VALID_BODY = JSON.stringify({ request: 'for summer', items: sampleSummaries() });
@@ -30,45 +34,82 @@ function request(overrides: Partial<GenerateOutfitsHttpRequest> & { body?: strin
   return { req, readBody };
 }
 
-const log = jest.fn();
-const env = { devToken: TOKEN, log };
+/** Built at run time so no key-like literal sits in the repo. */
+const API_KEY = ['test', 'key', 'z'.repeat(24)].join('-');
 
-beforeEach(() => log.mockClear());
+/** The model's looks for sampleSummaries, by ref (i1 top-1, i2 top-2, i3 bottom-1, i4 bottom-2, i5 dress-1, i6 shoes-1, i7 shoes-2, i8 coat-1, i9 bag-1). */
+const SAMPLE_LOOKS = {
+  looks: [
+    { items: ['i1', 'i3', 'i6'], rationale: 'Easy and light.' },
+    { items: ['i5', 'i7', 'i9'], rationale: 'A dress with a bag.' },
+    { items: ['i2', 'i4', 'i8', 'i6'], rationale: 'Layered.' },
+  ],
+};
+
+const log = jest.fn();
+const fetchMock = jest.fn(async (..._args: unknown[]): Promise<Response> => modelReply(SAMPLE_LOOKS));
+const env = { devToken: TOKEN, anthropicApiKey: API_KEY, log, fetch: fetchMock as unknown as typeof fetch };
+
+beforeEach(() => {
+  log.mockClear();
+  fetchMock.mockClear();
+  fetchMock.mockImplementation(async () => modelReply(SAMPLE_LOOKS));
+});
+
+/** The log lines, parsed. */
+const logLines = () => log.mock.calls.map((call) => JSON.parse(call[0] as string) as Record<string, unknown>);
 
 function errorOf(body: unknown) {
   return (body as { error?: { code?: string; message?: string; missing?: string[] } }).error;
 }
 
 describe('handleGenerateOutfits', () => {
-  it('answers a valid request with the stub\'s looks, which the app\'s validator accepts', async () => {
+  it('answers a valid request with the model\'s valid looks (real ids, category order), stub false, usage and omittedItems', async () => {
     const result = await handleGenerateOutfits(request().req, env);
     expect(result.status).toBe(200);
     expect(result.body).toEqual({
       apiVersion: 1,
-      stub: true,
+      stub: false,
       outfits: [
-        { itemIds: ['top-1', 'bottom-1', 'shoes-1'], rationale: 'Stub look 1: top + bottom + shoes.' },
-        { itemIds: ['top-1', 'bottom-2', 'shoes-2'], rationale: 'Stub look 2: top + bottom + shoes.' },
-        { itemIds: ['top-2', 'bottom-1', 'shoes-1'], rationale: 'Stub look 3: top + bottom + shoes.' },
+        { itemIds: ['top-1', 'bottom-1', 'shoes-1'], rationale: 'Easy and light.' },
+        { itemIds: ['dress-1', 'shoes-2', 'bag-1'], rationale: 'A dress with a bag.' },
+        { itemIds: ['top-2', 'bottom-2', 'coat-1', 'shoes-1'], rationale: 'Layered.' },
       ],
+      usage: { model: 'claude-haiku-5-5', attempts: 1, inputTokens: 1234, outputTokens: 56 },
+      omittedItems: 0,
     });
     expect(validateGenerateOutfitsResponse(JSON.parse(JSON.stringify(result.body))).ok).toBe(true);
     expect(result.headers['Content-Type']).toMatch(/^application\/json/);
     expect(result.headers['Cache-Control']).toBe('no-store');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('logs one line with counts only (no request text, ids or token)', async () => {
+  it('logs one line per model call and one per answer, counts only (no request text, ids, names, reply or token)', async () => {
     const items = [summary('secret-id', 'dress', { name: 'Secret name' })];
+    fetchMock.mockImplementation(async () => modelReply({ looks: [{ items: ['i1'], rationale: 'Private reason' }] }));
     await handleGenerateOutfits(request({ body: JSON.stringify({ request: 'private words', items }) }).req, env);
-    expect(log).toHaveBeenCalledTimes(1);
-    const line = log.mock.calls[0][0] as string;
-    expect(JSON.parse(line)).toEqual({ fn: 'generate-outfits', event: 'stub', items: 1, outfits: 1, rejected: 0, avoid: 0, avoided: 0 });
-    expect(line).not.toMatch(/secret|Secret|private/);
-    expect(line).not.toContain(TOKEN);
+    expect(log).toHaveBeenCalledTimes(2);
+    const [call, answer] = logLines();
+    expect(call).toMatchObject({ fn: 'generate-outfits', event: 'provider_call', attempt: 1, prompt_items: 1, outcome: 'ok', looks: 1, valid: 1 });
+    expect(answer).toEqual({
+      fn: 'generate-outfits',
+      event: 'answer',
+      mode: 'request',
+      items: 1,
+      prompt_items: 1,
+      omitted: 0,
+      avoid: 0,
+      attempts: 1,
+      outfits: 1,
+    });
+    const all = log.mock.calls.map((c) => c[0] as string).join('\n');
+    expect(all).not.toMatch(/secret|Secret|private|Private/);
+    expect(all).not.toContain(TOKEN);
+    expect(all).not.toContain(API_KEY);
   });
 
-  it('skips the looks in avoid and answers the next distinct ones (Restyle)', async () => {
-    const avoid = [['top-1', 'bottom-1', 'shoes-1'], ['shoes-2', 'bottom-2', 'top-1']];
+  it('drops a look that repeats one in avoid (Restyle), and tells the model about the avoided looks', async () => {
+    const avoid = [['top-1', 'bottom-1', 'shoes-1']];
     const result = await handleGenerateOutfits(
       request({ body: JSON.stringify({ request: 'for summer', items: sampleSummaries(), avoid }) }).req,
       env,
@@ -76,19 +117,22 @@ describe('handleGenerateOutfits', () => {
     expect(result.status).toBe(200);
     const outfits = (result.body as { outfits: { itemIds: string[] }[] }).outfits.map((o) => o.itemIds);
     expect(outfits).toEqual([
-      ['top-2', 'bottom-1', 'shoes-1'],
-      ['top-2', 'bottom-2', 'shoes-2'],
-      ['dress-1', 'shoes-1'],
+      ['dress-1', 'shoes-2', 'bag-1'],
+      ['top-2', 'bottom-2', 'coat-1', 'shoes-1'],
     ]);
-    expect(JSON.parse(log.mock.calls[0][0] as string)).toMatchObject({ avoid: 2, avoided: 0, outfits: 3 });
+    const prompt = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body)).messages[0].content[0].text as string;
+    expect(prompt).toContain('<avoid>\n["i1","i3","i6"]\n</avoid>');
+    expect(logLines()[0]).toMatchObject({ avoided: 1, valid: 2 });
   });
 
-  it('answers 200 with no looks when every possible look is avoided', async () => {
+  it('answers 200 with no looks when the model, after one retry, only repeats avoided looks', async () => {
     const items = [summary('t', 'top'), summary('b', 'bottom'), summary('s', 'shoes')];
+    fetchMock.mockImplementation(async () => modelReply({ looks: [{ items: ['i1', 'i2', 'i3'], rationale: 'Again.' }] }));
     const body = JSON.stringify({ request: 'for summer', items, avoid: [['t', 'b', 's']] });
     const result = await handleGenerateOutfits(request({ body }).req, env);
     expect(result.status).toBe(200);
-    expect(result.body).toEqual({ apiVersion: 1, stub: true, outfits: [] });
+    expect(result.body).toMatchObject({ apiVersion: 1, stub: false, outfits: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('rejects a malformed avoid with 400 bad_request', async () => {
@@ -99,9 +143,10 @@ describe('handleGenerateOutfits', () => {
       expect(errorOf(result.body)?.code).toBe('bad_request');
       expect(errorOf(result.body)?.message).toMatch(/^avoid/);
     }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('accepts weather and random modes (the stub ignores them)', async () => {
+  it('accepts weather and random modes', async () => {
     const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'Sunny' };
     for (const body of [
       { request: '', items: sampleSummaries(), mode: 'random' },
@@ -188,6 +233,7 @@ describe('handleGenerateOutfits', () => {
     expect(result.status).toBe(400);
     expect(errorOf(result.body)?.code).toBe('bad_request');
     expect(log).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it.each<[string, string[], string[], string]>([
@@ -200,6 +246,7 @@ describe('handleGenerateOutfits', () => {
     expect(result.status).toBe(422);
     expect(errorOf(result.body)).toEqual({ code: 'not_enough_items', message: expect.stringContaining(words), missing });
     expect(log).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('words the message for each case', () => {

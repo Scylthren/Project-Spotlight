@@ -1,6 +1,7 @@
 import { InMemoryDevTokenStore, type DevTokenStore } from '@/data/dev-token-store';
 
-import { handleGenerateOutfits } from '../../../supabase/functions/generate-outfits/handler.ts';
+import { handleGenerateOutfits, type GenerateOutfitsEnv } from '../../../supabase/functions/generate-outfits/handler.ts';
+import { modelReply } from '../edge-functions/testing/model-fakes';
 
 import { validateGenerateOutfitsRequest } from './generate-outfits-contract';
 import { DEFAULT_OUTFIT_TIMEOUT_MS, RemoteOutfitGenerator } from './remote-outfit-generator';
@@ -42,6 +43,16 @@ function hangingFetch(): FetchMock {
   );
 }
 
+/** The function's env with a fake model that always answers `looks` (refs i1, i2, ... in the order the closet is sent). */
+function functionEnv(looks: { items: string[]; rationale: string }[]): GenerateOutfitsEnv {
+  return {
+    devToken: TOKEN,
+    anthropicApiKey: ['test', 'key', 'q'.repeat(24)].join('-'),
+    fetch: (async () => modelReply({ looks })) as unknown as typeof fetch,
+    log: () => undefined,
+  };
+}
+
 const ok = (outfits: unknown[], extra: object = {}) => ({ ok: true, stub: true, droppedOutfits: 0, omittedItems: 0, outfits, ...extra });
 
 describe('RemoteOutfitGenerator', () => {
@@ -66,13 +77,13 @@ describe('RemoteOutfitGenerator', () => {
           contentLength: null,
           readBody: async () => ({ ok: true, text: String(init?.body) }),
         },
-        { devToken: TOKEN, log: () => undefined },
+        functionEnv([{ items: ['i1', 'i2', 'i3'], rationale: 'The same look again.' }]),
       );
       return jsonResponse(result.status, result.body);
     });
     const { generator } = setup({ respond });
     const outcome = await generator.generate({ request: 'again', items: closet, avoid: [['s', 'b', 't']] });
-    expect(outcome).toEqual(ok([]));
+    expect(outcome).toEqual(ok([], { stub: false }));
   });
 
   it('POSTs the contract request (text summaries only) with the bearer token and returns the looks', async () => {
@@ -105,22 +116,28 @@ describe('RemoteOutfitGenerator', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ request: '', mode: 'weather', weather });
   });
 
-  it('round-trips through the real function handler (the stub)', async () => {
+  it('round-trips through the real function handler (with a fake model)', async () => {
     const respond = mockFetch(async (_url, init) => {
       const text = String(init?.body);
       const headers = init?.headers as Record<string, string>;
       const result = await handleGenerateOutfits(
         { method: init?.method ?? 'GET', authorization: headers.Authorization, contentLength: null, readBody: async () => ({ ok: true, text }) },
-        { devToken: TOKEN, log: () => undefined },
+        functionEnv([
+          { items: ['i3', 'i1', 'i2'], rationale: 'Look one.' },
+          { items: ['i4', 'i3'], rationale: 'Look two.' },
+        ]),
       );
       return jsonResponse(result.status, result.body);
     });
     const { generator } = setup({ respond });
     expect(await generator.generate({ request: 'emo vibes', items: [...closet, closetItem('d', 'dress')] })).toEqual(
-      ok([
-        { itemIds: ['t', 'b', 's'], rationale: 'Stub look 1: top + bottom + shoes.' },
-        { itemIds: ['d', 's'], rationale: 'Stub look 2: dress + shoes.' },
-      ]),
+      ok(
+        [
+          { itemIds: ['t', 'b', 's'], rationale: 'Look one.' },
+          { itemIds: ['d', 's'], rationale: 'Look two.' },
+        ],
+        { stub: false },
+      ),
     );
     expect(await generator.generate({ request: 'emo vibes', items: [closetItem('t', 'top'), closetItem('s', 'shoes')] })).toEqual({
       ok: false,
@@ -142,6 +159,13 @@ describe('RemoteOutfitGenerator', () => {
     expect(await generator.generate({ request: 'x', items: closet })).toEqual(
       ok([{ itemIds: ['t', 'b', 's'], rationale: 'Fine.' }], { stub: false, droppedOutfits: 1 }),
     );
+  });
+
+  it('adds the items the function left out of its prompt to the ones it could not send', async () => {
+    const reply = { apiVersion: 1, stub: false, outfits: [{ itemIds: ['t', 'b', 's'], rationale: 'Fine.' }], omittedItems: 7 };
+    const { generator } = setup({ respond: mockFetch(async () => jsonResponse(200, reply)) });
+    const outcome = await generator.generate({ request: 'x', items: [...closet, closetItem('bad id', 'top')] });
+    expect(outcome).toMatchObject({ ok: true, omittedItems: 8 });
   });
 
   it('reports items it could not send', async () => {

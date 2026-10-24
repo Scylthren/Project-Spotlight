@@ -156,10 +156,16 @@ export interface GenerateOutfitsResponse {
   apiVersion: number;
   /** 0 to 3 valid, distinct outfits. */
   outfits: GeneratedOutfit[];
-  /** True for the stub's canned picks (slice 1, the app's mock); false for real model answers. */
+  /** True for the stub's canned picks (slice 1, the app's mock); false for real model answers (slice 3). */
   stub: boolean;
   /** Optional: what the model calls cost (same shape as tag-item's); absent from the stub. */
   usage?: GenerateOutfitsUsage;
+  /**
+   * Optional: how many of the items sent the function left out of the
+   * prompt (its prefilter keeps at most about 120); absent from the stub.
+   * Integer, 0 to OUTFIT_MAX_ITEMS.
+   */
+  omittedItems?: number;
 }
 
 export type GenerateOutfitsUsage = TagItemUsage;
@@ -456,8 +462,10 @@ function readOutfit(value: unknown): GeneratedOutfit | null {
 
 /**
  * Checks a parsed 200 body (shape only; the app then drops any outfit with
- * an id it did not send). Any malformed outfit, or more than 3, rejects the
- * whole response. Unknown fields are ignored and `usage` is dropped.
+ * an id it did not send). Any malformed outfit, or more than 3, or a
+ * malformed `omittedItems`, rejects the whole response. `omittedItems` is
+ * kept when present (null counts as absent); unknown fields are ignored and
+ * `usage` is dropped.
  */
 export function validateGenerateOutfitsResponse(body: unknown): Validation<GenerateOutfitsResponse> {
   if (!isRecord(body)) return { ok: false, reason: 'Response must be a JSON object.' };
@@ -470,6 +478,13 @@ export function validateGenerateOutfitsResponse(body: unknown): Validation<Gener
     const valid = readOutfit(outfit);
     if (!valid) return { ok: false, reason: 'Malformed outfit.' };
     read.push(valid);
+  }
+  const { omittedItems } = body;
+  if (omittedItems !== undefined && omittedItems !== null) {
+    if (typeof omittedItems !== 'number' || !Number.isInteger(omittedItems) || omittedItems < 0 || omittedItems > OUTFIT_MAX_ITEMS) {
+      return { ok: false, reason: 'omittedItems must be an integer from 0 to 300.' };
+    }
+    return { ok: true, value: { apiVersion, outfits: read, stub, omittedItems } };
   }
   return { ok: true, value: { apiVersion, outfits: read, stub } };
 }

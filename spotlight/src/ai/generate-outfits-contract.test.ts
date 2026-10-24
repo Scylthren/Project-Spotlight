@@ -68,7 +68,7 @@ describe('generate-outfits contract drift', () => {
       expect(doc).toContain(`\`items[].${field}\``);
     }
     for (const field of ['highC', 'lowC', 'rainChance', 'windKph', 'conditions']) expect(doc).toContain(`\`weather.${field}\``);
-    for (const field of ['outfits[].itemIds', 'outfits[].rationale', 'stub', 'usage', 'error.missing']) expect(doc).toContain(`\`${field}\``);
+    for (const field of ['outfits[].itemIds', 'outfits[].rationale', 'stub', 'usage', 'omittedItems', 'error.missing']) expect(doc).toContain(`\`${field}\``);
   });
 
   it('documents the limits in the API doc', () => {
@@ -421,6 +421,12 @@ describe('validateGenerateOutfitsResponse', () => {
     expect(validateGenerateOutfitsResponse(body)).toEqual({ ok: true, value: valid() });
   });
 
+  it('keeps a valid omittedItems and treats null as absent', () => {
+    expect(validateGenerateOutfitsResponse({ ...valid(), omittedItems: 0 })).toEqual({ ok: true, value: { ...valid(), omittedItems: 0 } });
+    expect(validateGenerateOutfitsResponse({ ...valid(), omittedItems: 300 })).toEqual({ ok: true, value: { ...valid(), omittedItems: 300 } });
+    expect(validateGenerateOutfitsResponse({ ...valid(), omittedItems: null })).toEqual({ ok: true, value: valid() });
+  });
+
   it('accepts no outfits', () => {
     expect(validateGenerateOutfitsResponse({ apiVersion: 1, stub: false, outfits: [] }).ok).toBe(true);
   });
@@ -438,6 +444,10 @@ describe('validateGenerateOutfitsResponse', () => {
     ['an empty rationale', (b) => ({ ...b, outfits: [{ itemIds: ['a'], rationale: ' ' }] })],
     ['a 301-character rationale', (b) => ({ ...b, outfits: [{ itemIds: ['a'], rationale: 'x'.repeat(301) }] })],
     ['a missing rationale', (b) => ({ ...b, outfits: [{ itemIds: ['a'] }] })],
+    ['a negative omittedItems', (b) => ({ ...b, omittedItems: -1 })],
+    ['a fractional omittedItems', (b) => ({ ...b, omittedItems: 1.5 })],
+    ['omittedItems over 300', (b) => ({ ...b, omittedItems: 301 })],
+    ['omittedItems as text', (b) => ({ ...b, omittedItems: '3' })],
   ])('rejects %s', (_name, mutate) => {
     expect(validateGenerateOutfitsResponse(mutate(valid())).ok).toBe(false);
   });

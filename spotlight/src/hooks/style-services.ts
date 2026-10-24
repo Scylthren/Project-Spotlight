@@ -16,7 +16,7 @@ let services: StyleServices | null = null;
 /**
  * One set per app session (module lifetime), created on first use, so the
  * Results screen finds the request Style started even if a provider
- * remounts. The generator is the slice 2 demo mock (`styleOutfitGenerator`).
+ * remounts. The generator is the real one (`styleOutfitGenerator`, slice 3).
  */
 export function styleServices(): StyleServices {
   services ??= {

@@ -1,11 +1,13 @@
 /**
  * generate-outfits edge function (Deno). Thin adapter: everything testable
- * lives in `handler.ts`, `outfit-rules.ts` and `../_shared/`. API:
+ * lives in `handler.ts` (with `prefilter.ts`, `prompt.ts`, `claude.ts`,
+ * `model-reply.ts`, `outfit-rules.ts`) and `../_shared/`. API:
  * `docs/api/generate-outfits.md`.
  *
  * `verify_jwt = false` in `supabase/config.toml`: the function checks the
- * development token itself (`DEV_TOKEN` secret). Never log the request's
- * headers or body; the handler logs one line per answer (counts only).
+ * development token itself (`DEV_TOKEN` secret). The model key is the
+ * `ANTHROPIC_API_KEY` secret. Never log the request's headers or body; the
+ * handler logs one line per model call and one per answer (counts only).
  */
 import { finishBody, readCapped, type ByteReader } from '../_shared/http-body.ts';
 
@@ -25,7 +27,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         contentLength,
         readBody: (maxBytes) => readCapped(bodyReader(), maxBytes),
       },
-      { devToken: Deno.env.get('DEV_TOKEN') },
+      { devToken: Deno.env.get('DEV_TOKEN'), anthropicApiKey: Deno.env.get('ANTHROPIC_API_KEY') },
     );
     await finishBody(bodyReader(), contentLength);
     return new Response(JSON.stringify(result.body), { status: result.status, headers: result.headers });
