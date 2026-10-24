@@ -119,8 +119,9 @@ export class RemoteOutfitGenerator implements OutfitGenerator {
         outfits,
         stub: valid.value.stub,
         droppedOutfits: valid.value.outfits.length - outfits.length,
-        // Left out here (invalid or over the cap) plus left out of the prompt by the function's prefilter.
-        omittedItems: omittedItems + (valid.value.omittedItems ?? 0),
+        // Only the items left out here (invalid or over the cap). The function's prefilter count
+        // (`valid.value.omittedItems`) is not shown: choosing among the closet is normal (human, 2026-10-24).
+        omittedItems,
       };
     } finally {
       clearTimeout(timer);

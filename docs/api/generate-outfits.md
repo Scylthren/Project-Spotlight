@@ -99,7 +99,7 @@ The app takes the first returned look that is not already shown (defence in dept
 | `outfits[].rationale` | string | Why the look works, 1 to 300 characters after trimming and collapsing whitespace. |
 | `stub` | boolean | `false` for the function's answers (the model's looks, since slice 3); `true` for the stub's canned picks (slices 1 and 2, and the app's `MockOutfitGenerator`). |
 | `usage` | object, optional | Same shape as tag-item's `usage` (`model`, `attempts`, `inputTokens`, `outputTokens`): the summed tokens of every model call for this answer and the number of calls (failed ones included). For the outfit eval (slice 6). The app ignores it (`validateGenerateOutfitsResponse` drops it); evals read it with `readGenerateOutfitsUsage`. |
-| `omittedItems` | number, optional | How many of the request's `items` the prefilter left out of the prompt (integer, 0 to 300; 0 for closets of 120 items or fewer). Absent from the stub; `null` counts as absent; any other value rejects the answer in the app. The app adds it to the items it left out itself and shows the total on Results. |
+| `omittedItems` | number, optional | How many of the request's `items` the prefilter left out of the prompt (integer, 0 to 300; 0 for closets of 120 items or fewer). Absent from the stub; `null` counts as absent; any other value rejects the answer in the app. The app does not show it (human decision 2026-10-24: trimming is normal); Results shows only the items the app itself left out. |
 
 ### Composition rules (Gate 3 decision D3)
 Checked by the function (`outfit-rules.ts`) on every outfit before it is answered; an outfit breaking any rule is dropped, never repaired:

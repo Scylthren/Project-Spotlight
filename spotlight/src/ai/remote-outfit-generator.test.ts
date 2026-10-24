@@ -161,11 +161,11 @@ describe('RemoteOutfitGenerator', () => {
     );
   });
 
-  it('adds the items the function left out of its prompt to the ones it could not send', async () => {
+  it('counts only the items it could not send, not the ones the function left out of its prompt', async () => {
     const reply = { apiVersion: 1, stub: false, outfits: [{ itemIds: ['t', 'b', 's'], rationale: 'Fine.' }], omittedItems: 7 };
     const { generator } = setup({ respond: mockFetch(async () => jsonResponse(200, reply)) });
     const outcome = await generator.generate({ request: 'x', items: [...closet, closetItem('bad id', 'top')] });
-    expect(outcome).toMatchObject({ ok: true, omittedItems: 8 });
+    expect(outcome).toMatchObject({ ok: true, omittedItems: 1 });
   });
 
   it('reports items it could not send', async () => {
