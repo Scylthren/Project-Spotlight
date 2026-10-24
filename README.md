@@ -108,7 +108,7 @@ Avoid platform-specific APIs without a fallback. List any platform-specific code
 
 ## Running locally
 
-**You need:** access to this repo (it's private, so ask me to add you as a collaborator), git, [Node.js](https://nodejs.org) 22.13 or newer, and [Expo Go](https://expo.dev/go) on your phone. The app uses Expo SDK 58; the store version of Expo Go only runs the latest SDK, so if Expo Go says the project is incompatible, let me know.
+**You need:** access to this repo, git, [Node.js](https://nodejs.org) 22.13 or newer, and [Expo Go](https://expo.dev/go) on your phone. The app uses Expo SDK 58; the store version of Expo Go only runs the latest SDK, so if Expo Go says the project is incompatible, let me know.
 
 ```bash
 git clone https://github.com/Scylthren/Project-Spotlight.git
