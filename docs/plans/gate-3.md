@@ -38,7 +38,10 @@ The function drops invalid outfits (after one retry for the whole reply) and ret
 ### Slice 2: Style and Results screens (mock generator)
 **Goal:** the whole request-to-results flow on the phone, built and tested with the mock, so slice 3 only swaps the source.
 - Style screen from `StylePrompt.dc.html`: "What's the occasion?" text field, the example chips (For summer, Emo vibes, First date, Job interview, Rainy day), recent requests (local, last 5), "Get looks" button, the data notice. "Match today's weather" and "Look of the day" are left out (not approved).
-- Results screen from `Results.dc.html`: the request as the title, "N looks from your closet", one card per look: numbered, item photos (primary photo, falling back as today), item names or category/type line, "Why it works" rationale, Save. "Swap piece" and "Restyle" are left out (not approved).
+- Results screen from `Results.dc.html`: the request as the title, "N looks from your closet", one card per look: numbered, item photos as a grid (main pieces large, shoes and accessories in a smaller row; no flat-lay, cutouts are shelved), item names or category/type line, "Why it works" rationale, Restyle. Save comes in slice 4 (left out until then). "Swap piece" is left out (not approved).
+- Restyle (approved 2026-10-24): replaces one look with a new look for the same request. The contract gains an optional `avoid` list (item ID sets of the looks already shown, max 9); the function and stub skip looks matching one of them, and the slice 3 prompt asks for something different. One call per tap; the button shows its own loading state and failures leave the look as it was.
+- Tabs in this slice: Closet, Style, Add, Me; Looks is added with the Lookbook in slice 4.
+- Style screen notice (approved): "Your request and your pieces' names and tags (not photos) are sent to our server and to Claude (Anthropic) to suggest looks."
 - Loading state (the call may take 5-15 s) with a cancel; failure states per error ("No looks this time", "Not enough pieces: add a top and a bottom, or a dress", offline, no token). Single request in flight.
 - Navigation per D1.
 - **Done when:** with the mock, a request shows 3 looks with photos and rationale; every failure state is reachable in tests; double taps send one request.
