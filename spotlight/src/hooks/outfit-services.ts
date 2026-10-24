@@ -1,5 +1,5 @@
 import { configuredGenerateOutfitsUrl } from '@/ai/backend-config';
-import type { OutfitGenerator } from '@/ai/outfit-generator';
+import { MockOutfitGenerator, type OutfitGenerator } from '@/ai/outfit-generator';
 import { RemoteOutfitGenerator } from '@/ai/remote-outfit-generator';
 import type { DevTokenStore } from '@/data/dev-token-store';
 
@@ -17,4 +17,16 @@ export function createOutfitGenerator(
   url: string | null = configuredGenerateOutfitsUrl(),
 ): OutfitGenerator {
   return new RemoteOutfitGenerator({ url, tokenStore });
+}
+
+/** How long the slice 2 demo mock waits before answering, so the loading state can be seen on the phone. */
+export const STYLE_DEMO_DELAY_MS = 1200;
+
+/**
+ * The generator the Style and Results screens use. Gate 3 slice 2: the mock
+ * in demo mode (no network, no token; layout check only). Slice 3 swaps this
+ * to `createOutfitGenerator()`.
+ */
+export function styleOutfitGenerator(): OutfitGenerator {
+  return new MockOutfitGenerator({ demo: true, delayMs: STYLE_DEMO_DELAY_MS });
 }

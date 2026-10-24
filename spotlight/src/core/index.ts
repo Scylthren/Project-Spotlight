@@ -23,3 +23,5 @@ export * from './labels';
 export * from './closet-filter';
 export * from './item-detail';
 export * from './import-batch';
+export * from './look-display';
+export * from './recent-requests';

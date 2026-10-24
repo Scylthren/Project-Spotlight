@@ -86,6 +86,18 @@ const serifLine = (fontSize: number) => Math.ceil(fontSize * SERIF_MIN_LINE_HEIG
 export const typography = {
   /** Screen titles in the masthead ("Closet", "Me"): 48px, -1px. */
   display: variant(fonts.serif.bold, 48, serifLine(48), { pt: -1 }),
+  /** The italic first line of the Style title (StylePrompt.dc.html "What's the"): 46px italic, -1px. */
+  displayItalic: variant(fonts.serif.italic, 46, serifLine(46), { pt: -1 }),
+  /** The bold second line of the Style title ("occasion?"): 46px bold, -1px. */
+  displayBold: variant(fonts.serif.bold, 46, serifLine(46), { pt: -1 }),
+  /** The big look number on Results (Results.dc.html "01"): 64px bold. */
+  lookNumber: variant(fonts.serif.bold, 64, serifLine(64)),
+  /** The request as the Results title (Results.dc.html): 24px italic. */
+  requestTitle: variant(fonts.serif.italic, 24, serifLine(24)),
+  /** The line naming a look's pieces (Results.dc.html): 18px serif. */
+  lookPieces: variant(fonts.serif.regular, 18, serifLine(18)),
+  /** A recent request on the Style screen (StylePrompt.dc.html): 16px serif. */
+  recentRequest: variant(fonts.serif.regular, 16, serifLine(16)),
   /** Smaller screen titles (Today.dc.html "Look of the day"): 40px, -1px. */
   title: variant(fonts.serif.bold, 40, serifLine(40), { pt: -1 }),
   /** Step headers and the item name on the detail screen: 32px, -0.5px. */

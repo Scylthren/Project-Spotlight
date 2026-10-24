@@ -3,8 +3,10 @@ import type { ClothingItem } from '@/core/types';
 import { toClosetSummaries } from './closet-summary';
 import {
   missingForOutfit,
+  OUTFIT_MAX_AVOID,
   stubOutfits,
   validateGenerateOutfitsRequest,
+  type ClosetItemSummary,
   type GeneratedOutfit,
   type GenerateOutfitsRequest,
   type OutfitBasePiece,
@@ -20,6 +22,15 @@ export interface OutfitRequestInput {
   items: readonly ClothingItem[];
   mode?: OutfitMode;
   weather?: WeatherSummary;
+  /**
+   * Restyle: looks not to answer again (item id sets). The Results session
+   * passes the looks on screen first, then earlier ones newest first, at
+   * most OUTFIT_MAX_AVOID. Sets naming an item that is not sent are left
+   * out (they cannot come back anyway); if more than OUTFIT_MAX_AVOID
+   * remain, the first OUTFIT_MAX_AVOID are sent (callers list the most
+   * important first).
+   */
+  avoid?: readonly (readonly string[])[];
 }
 
 export interface OutfitGenerateOptions {
@@ -88,29 +99,101 @@ export function prepareOutfitRequest(
   const { items, omitted } = toClosetSummaries(input.items);
   const missing = missingForOutfit(items);
   if (missing.length > 0) return { ok: false, failure: 'not-enough-items', missing };
+  const avoid = avoidToSend(input.avoid ?? [], items);
   const request: GenerateOutfitsRequest = {
     request: input.request,
     items,
     ...(input.mode ? { mode: input.mode } : {}),
     ...(input.weather ? { weather: input.weather } : {}),
+    ...(avoid.length > 0 ? { avoid } : {}),
   };
   if (!validateGenerateOutfitsRequest(request).ok) return { ok: false, failure: 'rejected' };
   return { ok: true, request, omittedItems: omitted };
 }
 
+/** The avoid sets worth sending: only sets whose every id is sent, the first OUTFIT_MAX_AVOID of them. */
+function avoidToSend(avoid: readonly (readonly string[])[], items: readonly ClosetItemSummary[]): string[][] {
+  const sent = new Set(items.map((item) => item.id));
+  const usable = avoid.filter((set) => set.length > 0 && set.every((id) => sent.has(id))).map((set) => [...new Set(set)]);
+  return usable.slice(0, OUTFIT_MAX_AVOID);
+}
+
+export interface MockOutfitGeneratorOptions {
+  /**
+   * Demo mode for the phone (slice 2, before real looks): each stub look
+   * also gets the closet's next accessory and outerwear in turn, and a
+   * longer placeholder rationale, so the Results layout can be checked.
+   * Off by default: then the answer is exactly the deployed stub's.
+   */
+  demo?: boolean;
+  /** Wait this long before answering (demo: to see the loading state). Aborting ends the wait. */
+  delayMs?: number;
+}
+
+/** The demo rationale: fixed text and categories only (no user text), well under 300 characters. */
+export function mockDemoRationale(categories: readonly string[]): string {
+  return (
+    `A placeholder look (${categories.join(' + ')}) picked from your closet in order, so the layout can be checked. ` +
+    'Real looks, chosen for your request with a reason for each, arrive in the next update.'
+  );
+}
+
 /**
  * Mock `OutfitGenerator`: answers what the deployed stub would for the same
- * closet (`stubOutfits`), marked `stub`, with the same `not-enough-items`
- * and `rejected` checks as `RemoteOutfitGenerator`.
+ * closet (`stubOutfits`, including `avoid`), marked `stub`, with the same
+ * `not-enough-items` and `rejected` checks as `RemoteOutfitGenerator`.
+ * See `MockOutfitGeneratorOptions` for the demo mode the app uses.
  */
 export class MockOutfitGenerator implements OutfitGenerator {
+  constructor(private readonly options: MockOutfitGeneratorOptions = {}) {}
+
   async generate(input: OutfitRequestInput, options: OutfitGenerateOptions = {}): Promise<OutfitOutcome> {
-    if (options.signal?.aborted) return { ok: false, failure: 'cancelled' };
+    const { signal } = options;
+    if (signal?.aborted) return { ok: false, failure: 'cancelled' };
     const prepared = prepareOutfitRequest(input);
     if (!prepared.ok) return prepared;
+    if (this.options.delayMs && !(await wait(this.options.delayMs, signal))) return { ok: false, failure: 'cancelled' };
     const { request, omittedItems } = prepared;
-    return { ok: true, outfits: stubOutfits(request.items), stub: true, droppedOutfits: 0, omittedItems };
+    const outfits = this.options.demo ? demoOutfits(request.items, request.avoid ?? []) : stubOutfits(request.items, request.avoid);
+    return { ok: true, outfits, stub: true, droppedOutfits: 0, omittedItems };
   }
+}
+
+/** Resolves true after `ms`, or false as soon as `signal` aborts. */
+function wait(ms: number, signal: AbortSignal | undefined): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve(false);
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve(false);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve(true);
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/** The stub's looks, each with the next accessory and outerwear in turn (still valid under D3). */
+function demoOutfits(items: readonly ClosetItemSummary[], avoid: readonly (readonly string[])[]): GeneratedOutfit[] {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const extras = (category: string) => items.filter((item) => item.category === category);
+  const accessories = extras('accessory');
+  const outerwear = extras('outerwear');
+  const isExtra = (id: string) => ['accessory', 'outerwear'].includes(byId.get(id)?.category ?? '');
+  // The stub never picks extras, so it is compared with the avoided looks' other pieces.
+  const baseAvoid = avoid.map((set) => set.filter((id) => !isExtra(id))).filter((set) => set.length > 0);
+  return stubOutfits(items, baseAvoid).map((outfit, index) => {
+    const ids = [...outfit.itemIds];
+    if (outerwear.length > 0) {
+      // Category order: outerwear goes before the shoes, or last when there are none.
+      const shoes = ids.findIndex((id) => byId.get(id)?.category === 'shoes');
+      ids.splice(shoes === -1 ? ids.length : shoes, 0, outerwear[index % outerwear.length].id);
+    }
+    if (accessories.length > 0) ids.push(accessories[index % accessories.length].id);
+    return { itemIds: ids, rationale: mockDemoRationale(ids.map((id) => byId.get(id)?.category ?? 'piece')) };
+  });
 }
 
 /**

@@ -57,6 +57,14 @@ export const sizes = {
   matrixSwatchSize: 46,
   /** Color circles in the matrix's list of chosen colors. */
   chosenSwatchSize: 28,
+  /** The Style screen's request box: room for three lines of serif text (StylePrompt.dc.html rows="3"). */
+  styleRequestMinHeight: 104,
+  /** A look's main photos on Results (no mockup; Results.dc.html's photo area is 310): one, two or three across. */
+  lookPhotoHeightOne: 300,
+  lookPhotoHeightTwo: 230,
+  lookPhotoHeightThree: 170,
+  /** Shoes and accessories in the smaller row under them. */
+  lookSmallPhotoSize: 76,
   /** Space the native tab bar covers at the bottom of a scrolling screen. */
   bottomTabInset: Platform.select({ ios: 50, android: 80 }) ?? 0,
 } as const;

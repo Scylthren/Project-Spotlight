@@ -64,6 +64,16 @@ describe.each(THEMES)('%s theme', (_name, theme) => {
       }
     });
 
+    it('accent (Get looks only) is a 52 pt accent fill that turns ink when pressed', () => {
+      expect(BUTTON_VARIANTS).toContain('accent');
+      const idle = buttonLook(theme, 'accent', { pressed: false, disabled: false });
+      expect(idle.fill).toBe(colors.accent);
+      expect(idle.container.minHeight).toBe(52);
+      expect(idle.label.color).toBe(colors.background);
+      expect(buttonLook(theme, 'accent', { pressed: true, disabled: false }).fill).toBe(colors.text);
+      expect(buttonLook(theme, 'accent', { pressed: true, disabled: true }).fill).toBe(colors.accent);
+    });
+
     it('primary and outline are 52 pt; pressed changes the fill, disabled does not', () => {
       expect(buttonLook(theme, 'primary', { pressed: false, disabled: false }).container.minHeight).toBe(52);
       expect(buttonLook(theme, 'outline', { pressed: false, disabled: false }).boundary).toBe(colors.text);

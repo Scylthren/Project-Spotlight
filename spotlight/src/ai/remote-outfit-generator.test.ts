@@ -49,6 +49,32 @@ describe('RemoteOutfitGenerator', () => {
     jest.useRealTimers();
   });
 
+  it('sends avoid (Restyle) as the contract request, leaving out sets with an id it does not send', async () => {
+    const { generator, fetchMock } = setup();
+    await generator.generate({ request: 'for summer', items: closet, avoid: [['t', 'b', 's'], ['gone', 'b']] });
+    const body = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
+    expect(body.avoid).toEqual([['t', 'b', 's']]);
+    expect(validateGenerateOutfitsRequest(body).ok).toBe(true);
+  });
+
+  it('round-trips avoid through the real handler: an avoided look is not answered again', async () => {
+    const respond = mockFetch(async (_input, init) => {
+      const result = await handleGenerateOutfits(
+        {
+          method: 'POST',
+          authorization: `Bearer ${TOKEN}`,
+          contentLength: null,
+          readBody: async () => ({ ok: true, text: String(init?.body) }),
+        },
+        { devToken: TOKEN, log: () => undefined },
+      );
+      return jsonResponse(result.status, result.body);
+    });
+    const { generator } = setup({ respond });
+    const outcome = await generator.generate({ request: 'again', items: closet, avoid: [['s', 'b', 't']] });
+    expect(outcome).toEqual(ok([]));
+  });
+
   it('POSTs the contract request (text summaries only) with the bearer token and returns the looks', async () => {
     const { generator, fetchMock } = setup();
     expect(await generator.generate({ request: '  for summer ', items: closet })).toEqual(ok(STUB_REPLY.outfits));

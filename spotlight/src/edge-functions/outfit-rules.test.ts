@@ -127,7 +127,55 @@ describe('validateOutfits', () => {
   });
 
   it('handles an empty list', () => {
-    expect(validateOutfits([], closet)).toEqual({ outfits: [], rejected: [], duplicates: 0, surplus: 0 });
+    expect(validateOutfits([], closet)).toEqual({ outfits: [], rejected: [], duplicates: 0, avoided: 0, surplus: 0 });
+  });
+});
+
+describe('validateOutfits with avoid (Restyle)', () => {
+  it('drops a valid outfit whose id set is avoided, in any order, and counts it', () => {
+    const result = validateOutfits(
+      [look(['top-1', 'bottom-1', 'shoes-1']), look(['dress-1', 'shoes-1'])],
+      closet,
+      [['shoes-1', 'bottom-1', 'top-1']],
+    );
+    expect(result.outfits.map((o) => o.itemIds)).toEqual([['dress-1', 'shoes-1']]);
+    expect(result.avoided).toBe(1);
+    expect(result.duplicates).toBe(0);
+  });
+
+  it('only matches the whole set: a subset or superset is not avoided', () => {
+    const result = validateOutfits(
+      [look(['top-1', 'bottom-1', 'shoes-1']), look(['top-1', 'bottom-1', 'shoes-1', 'coat-1'])],
+      closet,
+      [['top-1', 'bottom-1', 'shoes-1', 'bag-1'], ['top-1', 'bottom-1']],
+    );
+    expect(result.outfits).toHaveLength(2);
+    expect(result.avoided).toBe(0);
+  });
+
+  it('ignores avoided sets with ids the closet does not have', () => {
+    const result = validateOutfits([look(['dress-1', 'shoes-1'])], closet, [['ghost', 'dress-1']]);
+    expect(result.outfits).toHaveLength(1);
+    expect(result.avoided).toBe(0);
+  });
+
+  it('an invalid candidate is rejected, not counted as avoided', () => {
+    const result = validateOutfits([look(['top-1'])], closet, [['top-1']]);
+    expect(result.rejected).toHaveLength(1);
+    expect(result.avoided).toBe(0);
+  });
+});
+
+describe('the stub with avoid obeys the rules', () => {
+  it('never answers an avoided look and stays valid', () => {
+    const items = sampleSummaries();
+    const avoid = stubOutfits(items).map((o) => o.itemIds);
+    const picks = stubOutfits(items, avoid);
+    const result = validateOutfits(picks, indexCloset(items), avoid);
+    expect(picks.length).toBeGreaterThan(0);
+    expect(result.rejected).toEqual([]);
+    expect(result.avoided).toBe(0);
+    expect(result.outfits).toHaveLength(picks.length);
   });
 });
 

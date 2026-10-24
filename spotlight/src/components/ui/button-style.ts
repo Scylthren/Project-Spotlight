@@ -7,10 +7,11 @@ import { hitSlopFor, type HitSlop } from './touch-target';
 
 /**
  * Buttons (README "Buttons"): primary is an ink fill, outline a 1 pt ink
- * outline, text a bare uppercase label. All 52 pt tall except the text
- * button, which is 44 pt (the minimum touch target).
+ * outline, text a bare uppercase label, accent the red fill used only for
+ * the Style screen's main action ("Get looks"). All 52 pt tall except the
+ * text button, which is 44 pt (the minimum touch target).
  */
-export const BUTTON_VARIANTS = ['primary', 'outline', 'text'] as const;
+export const BUTTON_VARIANTS = ['primary', 'outline', 'text', 'accent'] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
 export interface ButtonLook {
@@ -38,6 +39,17 @@ export function buttonLook(theme: Theme, variant: ButtonVariant, { pressed, disa
 
   if (variant === 'primary') {
     const fill = active ? colors.textBodySecondary : colors.text;
+    return {
+      container: { ...base, backgroundColor: fill, borderWidth: borders.hairline, borderColor: fill },
+      label: { ...typography.button, color: colors.background },
+      fill,
+      boundary: null,
+      hitSlop: hitSlopFor({ height }),
+    };
+  }
+  if (variant === 'accent') {
+    // Pressed turns ink, like a pressed primary turns grey: a clear change on the red.
+    const fill = active ? colors.text : colors.accent;
     return {
       container: { ...base, backgroundColor: fill, borderWidth: borders.hairline, borderColor: fill },
       label: { ...typography.button, color: colors.background },

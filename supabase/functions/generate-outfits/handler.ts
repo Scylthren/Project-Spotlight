@@ -102,13 +102,14 @@ export async function handleGenerateOutfits(
   }
   const valid = validateGenerateOutfitsRequest(parsed);
   if (!valid.ok) return failure(400, 'bad_request', valid.reason);
-  const { items } = valid.value;
+  const { items, avoid = [] } = valid.value;
 
   const missing = missingForOutfit(items);
   if (missing.length > 0) return failure(422, 'not_enough_items', notEnoughItemsMessage(missing), {}, missing);
 
-  // Slice 1: the stub. Its picks go through the same checks as a model's will.
-  const checked = validateOutfits(stubOutfits(items), indexCloset(items));
+  // Slice 1: the stub. Its picks go through the same checks as a model's will,
+  // including skipping the looks in `avoid` (Restyle).
+  const checked = validateOutfits(stubOutfits(items, avoid), indexCloset(items), avoid);
   const log = env.log ?? ((line) => console.log(line));
   log(
     JSON.stringify({
@@ -117,6 +118,8 @@ export async function handleGenerateOutfits(
       items: items.length,
       outfits: checked.outfits.length,
       rejected: checked.rejected.length,
+      avoid: avoid.length,
+      avoided: checked.avoided,
     }),
   );
   const response: GenerateOutfitsResponse = { apiVersion: GENERATE_OUTFITS_API_VERSION, outfits: checked.outfits, stub: true };

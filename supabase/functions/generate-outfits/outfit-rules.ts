@@ -10,12 +10,14 @@
  * - its rationale is 1 to OUTFIT_RATIONALE_MAX_LENGTH characters after trimming.
  *
  * `validateOutfits` keeps the valid outfits (item ids sorted into category
- * order, rationale normalized), drops repeats of the same id set, and stops
- * at MAX_OUTFITS. Problems are names only, safe to log (never ids or text).
+ * order, rationale normalized), drops repeats of the same id set and any
+ * outfit whose id set is in the request's `avoid` (Restyle), and stops at
+ * MAX_OUTFITS. Problems are names only, safe to log (never ids or text).
  */
 import {
   MAX_OUTFITS,
   normalizeOutfitText,
+  outfitKey,
   OUTFIT_MAX_ACCESSORIES,
   OUTFIT_RATIONALE_MAX_LENGTH,
   type ClosetItemSummary,
@@ -128,11 +130,6 @@ function normalizeOutfit(candidate: { itemIds: string[]; rationale: string }, cl
   return { itemIds: itemIds.map((entry) => entry.id), rationale: normalizeOutfitText(candidate.rationale) };
 }
 
-/** The same outfit whatever the order of its ids. */
-function outfitKey(itemIds: readonly string[]): string {
-  return JSON.stringify([...itemIds].sort());
-}
-
 export interface OutfitValidation {
   /** At most MAX_OUTFITS valid, distinct outfits, in the order given. */
   outfits: GeneratedOutfit[];
@@ -140,14 +137,25 @@ export interface OutfitValidation {
   rejected: { index: number; problems: OutfitProblem[] }[];
   /** Valid candidates dropped as repeats of an earlier one. */
   duplicates: number;
+  /** Valid candidates dropped because their id set is in `avoid`. */
+  avoided: number;
   /** Valid, distinct candidates dropped past MAX_OUTFITS. */
   surplus: number;
 }
 
-/** Checks a list of candidate outfits against the closet sent with the request. */
-export function validateOutfits(candidates: readonly unknown[], closet: ClosetIndex): OutfitValidation {
-  const result: OutfitValidation = { outfits: [], rejected: [], duplicates: 0, surplus: 0 };
+/**
+ * Checks a list of candidate outfits against the closet sent with the
+ * request. A valid candidate whose id set (in any order) is one of `avoid`
+ * is dropped and counted in `avoided`.
+ */
+export function validateOutfits(
+  candidates: readonly unknown[],
+  closet: ClosetIndex,
+  avoid: readonly (readonly string[])[] = [],
+): OutfitValidation {
+  const result: OutfitValidation = { outfits: [], rejected: [], duplicates: 0, avoided: 0, surplus: 0 };
   const seen = new Set<string>();
+  const avoided = new Set(avoid.map(outfitKey));
   candidates.forEach((candidate, index) => {
     const problems = outfitProblems(candidate, closet);
     if (problems.length > 0) {
@@ -156,6 +164,10 @@ export function validateOutfits(candidates: readonly unknown[], closet: ClosetIn
     }
     const outfit = normalizeOutfit(candidate as { itemIds: string[]; rationale: string }, closet);
     const key = outfitKey(outfit.itemIds);
+    if (avoided.has(key)) {
+      result.avoided++;
+      return;
+    }
     if (seen.has(key)) {
       result.duplicates++;
       return;

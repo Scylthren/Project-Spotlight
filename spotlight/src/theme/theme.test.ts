@@ -163,3 +163,28 @@ describe('resolveColorScheme', () => {
     expect(resolveColorScheme(undefined)).toBe('light');
   });
 });
+
+describe('Gate 3 slice 2 sizes and type', () => {
+  const { sizes } = themes.light;
+
+  it('Results photo heights shrink as more main pieces share the row; the small row stays smaller', () => {
+    expect(sizes.lookPhotoHeightOne).toBeGreaterThan(sizes.lookPhotoHeightTwo);
+    expect(sizes.lookPhotoHeightTwo).toBeGreaterThan(sizes.lookPhotoHeightThree);
+    expect(sizes.lookPhotoHeightThree).toBeGreaterThan(sizes.lookSmallPhotoSize);
+    expect(sizes.lookSmallPhotoSize).toBeGreaterThanOrEqual(sizes.minTouchTarget);
+  });
+
+  it('the request box fits three lines of its serif text plus padding', () => {
+    const { inputSerif } = typography;
+    expect(sizes.styleRequestMinHeight).toBeGreaterThanOrEqual(inputSerif.lineHeight * 3);
+  });
+
+  it('the new Style and Results type uses the serif faces at the mockup sizes', () => {
+    expect(typography.displayItalic).toMatchObject({ fontFamily: fonts.serif.italic, fontSize: 46, letterSpacing: -1 });
+    expect(typography.displayBold).toMatchObject({ fontFamily: fonts.serif.bold, fontSize: 46, letterSpacing: -1 });
+    expect(typography.lookNumber).toMatchObject({ fontFamily: fonts.serif.bold, fontSize: 64 });
+    expect(typography.requestTitle).toMatchObject({ fontFamily: fonts.serif.italic, fontSize: 24 });
+    expect(typography.lookPieces).toMatchObject({ fontFamily: fonts.serif.regular, fontSize: 18 });
+    expect(typography.recentRequest).toMatchObject({ fontFamily: fonts.serif.regular, fontSize: 16 });
+  });
+});

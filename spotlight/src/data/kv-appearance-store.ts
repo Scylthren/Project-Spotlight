@@ -27,7 +27,20 @@ export class KvAppearanceStore implements AppearanceStore {
   }
 }
 
-/** The app's store. Opening the database waits for the first `load` or `save`. */
+let sharedSettingsStorage: SQLiteStorage | null = null;
+
+/**
+ * The one connection to the settings database for the whole app session,
+ * created on first use (the database itself opens on the first read or
+ * write). Every settings store (Appearance, the Style screen's recent
+ * requests) shares it, so two connections never write the same file.
+ */
+export function settingsStorage(): SQLiteStorage {
+  sharedSettingsStorage ??= new SQLiteStorage(SETTINGS_DATABASE_NAME);
+  return sharedSettingsStorage;
+}
+
+/** The app's store, on the shared settings connection. Opening the database waits for the first `load` or `save`. */
 export function createKvAppearanceStore(): KvAppearanceStore {
-  return new KvAppearanceStore(new SQLiteStorage(SETTINGS_DATABASE_NAME));
+  return new KvAppearanceStore(settingsStorage());
 }

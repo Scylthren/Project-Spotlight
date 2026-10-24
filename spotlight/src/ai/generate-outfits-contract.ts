@@ -82,6 +82,11 @@ export const OUTFIT_RATIONALE_MAX_LENGTH = 300;
 export const OUTFIT_MAX_ACCESSORIES = 5;
 /** Most items in one outfit: top, bottom, shoes, outerwear and 5 accessories. */
 export const OUTFIT_MAX_PIECES = 4 + OUTFIT_MAX_ACCESSORIES;
+/**
+ * Most looks in `avoid` (Restyle, Gate 3 slice 2): the looks already shown
+ * for this request, at most three screens' worth.
+ */
+export const OUTFIT_MAX_AVOID = 9;
 
 /**
  * Largest accepted request body in bytes. A summary at every cap, written by
@@ -126,6 +131,13 @@ export interface GenerateOutfitsRequest {
   items: ClosetItemSummary[];
   mode?: OutfitMode;
   weather?: WeatherSummary;
+  /**
+   * Looks not to answer again (Restyle): up to 9 sets of item ids, each 1 to
+   * 9 well-formed ids with no repeats. A candidate whose id set equals one of
+   * them (in any order) is skipped. Ids need not be in `items` (a set with
+   * an id the closet no longer has simply never matches).
+   */
+  avoid?: string[][];
 }
 
 /** A request after validation: text normalized, mode filled in. */
@@ -340,7 +352,38 @@ export function validateGenerateOutfitsRequest(body: unknown): Validation<ValidG
     ids.add(valid.value.id);
     summaries.push(valid.value);
   }
-  return { ok: true, value: { request, items: summaries, mode, ...(weather ? { weather } : {}) } };
+  let avoid: string[][] | undefined;
+  if (body.avoid !== undefined && body.avoid !== null) {
+    const read = readAvoid(body.avoid);
+    if (!read) {
+      return {
+        ok: false,
+        reason: `avoid must be a list of at most ${OUTFIT_MAX_AVOID} looks, each 1 to ${OUTFIT_MAX_PIECES} distinct item ids.`,
+      };
+    }
+    avoid = read;
+  }
+  return {
+    ok: true,
+    value: { request, items: summaries, mode, ...(weather ? { weather } : {}), ...(avoid && avoid.length > 0 ? { avoid } : {}) },
+  };
+}
+
+/** Reads `avoid`: at most OUTFIT_MAX_AVOID sets of 1 to OUTFIT_MAX_PIECES distinct well-formed ids, or null. */
+function readAvoid(value: unknown): string[][] | null {
+  if (!Array.isArray(value) || value.length > OUTFIT_MAX_AVOID) return null;
+  const sets: string[][] = [];
+  for (const set of value) {
+    if (!Array.isArray(set) || set.length < 1 || set.length > OUTFIT_MAX_PIECES) return null;
+    if (!set.every(isSummaryId) || new Set(set).size !== set.length) return null;
+    sets.push([...(set as string[])]);
+  }
+  return sets;
+}
+
+/** The same look whatever the order of its ids. */
+export function outfitKey(itemIds: readonly string[]): string {
+  return JSON.stringify([...itemIds].sort());
 }
 
 /**
@@ -362,29 +405,40 @@ export function canFormOutfit(items: readonly { category: string }[]): boolean {
  * The stub's answer: up to 3 distinct looks picked in closet order, first
  * every top and bottom pair (top by top), then every dress, each with the
  * next pair of shoes in turn when the closet has shoes, and nothing else.
- * Deterministic; no outerwear or accessories; the rationale names only
- * categories (no user text).
+ * Any look whose id set is in `avoid` is skipped and the next one taken;
+ * once every base (pair or dress) has been tried with its first pair of
+ * shoes, the bases are tried again with the following pairs, until 3 looks
+ * or none are left. Deterministic; no outerwear or accessories; the
+ * rationale names only categories (no user text).
  */
-export function stubOutfits(items: readonly ClosetItemSummary[]): GeneratedOutfit[] {
+export function stubOutfits(items: readonly ClosetItemSummary[], avoid: readonly (readonly string[])[] = []): GeneratedOutfit[] {
   const of = (category: TagCategory) => items.filter((item) => item.category === category);
   const shoes = of('shoes');
+  const tops = of('top');
+  const bottoms = of('bottom');
+  const dresses = of('dress');
+  const skip = new Set(avoid.map(outfitKey));
   const outfits: GeneratedOutfit[] = [];
-  const add = (base: ClosetItemSummary[]): boolean => {
-    const pair = shoes.length > 0 ? [shoes[outfits.length % shoes.length]] : [];
-    const pieces = [...base, ...pair];
-    outfits.push({
-      itemIds: pieces.map((piece) => piece.id),
-      rationale: `Stub look ${outfits.length + 1}: ${pieces.map((piece) => piece.category).join(' + ')}.`,
-    });
-    return outfits.length >= MAX_OUTFITS;
+  const baseCount = tops.length * bottoms.length + dresses.length;
+  const base = (index: number): ClosetItemSummary[] => {
+    const pairs = tops.length * bottoms.length;
+    if (index < pairs) return [tops[Math.floor(index / bottoms.length)], bottoms[index % bottoms.length]];
+    return [dresses[index - pairs]];
   };
-  for (const top of of('top')) {
-    for (const bottom of of('bottom')) {
-      if (add([top, bottom])) return outfits;
+  const rounds = Math.max(1, shoes.length);
+  for (let round = 0; round < rounds; round++) {
+    for (let index = 0; index < baseCount; index++) {
+      const pair = shoes.length > 0 ? [shoes[(index + round) % shoes.length]] : [];
+      const pieces = [...base(index), ...pair];
+      const key = outfitKey(pieces.map((piece) => piece.id));
+      if (skip.has(key)) continue;
+      skip.add(key);
+      outfits.push({
+        itemIds: pieces.map((piece) => piece.id),
+        rationale: `Stub look ${outfits.length + 1}: ${pieces.map((piece) => piece.category).join(' + ')}.`,
+      });
+      if (outfits.length >= MAX_OUTFITS) return outfits;
     }
-  }
-  for (const dress of of('dress')) {
-    if (add([dress])) return outfits;
   }
   return outfits;
 }

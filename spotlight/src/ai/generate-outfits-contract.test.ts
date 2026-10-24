@@ -6,7 +6,9 @@ import {
   GENERATE_OUTFITS_MAX_BODY_BYTES,
   MAX_OUTFITS,
   missingForOutfit,
+  outfitKey,
   OUTFIT_MAX_ACCESSORIES,
+  OUTFIT_MAX_AVOID,
   OUTFIT_MAX_ITEMS,
   OUTFIT_MAX_PIECES,
   OUTFIT_MODES,
@@ -84,6 +86,8 @@ describe('generate-outfits contract drift', () => {
     expect(words).toContain(`0 to ${MAX_OUTFITS} outfits`);
     expect(words).toContain(`0 to ${OUTFIT_MAX_ACCESSORIES} accessories`);
     expect(words).toContain(`at most ${OUTFIT_MAX_PIECES} ids`);
+    expect(words).toContain(`at most ${OUTFIT_MAX_AVOID} looks`);
+    expect(words).toContain('`avoid`');
   });
 });
 
@@ -108,6 +112,9 @@ function worstCaseRequest() {
     items,
     mode: 'weather',
     weather: { ...WEATHER, highC: -12.345678, lowC: -45.678912, conditions: wide(WEATHER_CONDITIONS_MAX_LENGTH) },
+    avoid: Array.from({ length: OUTFIT_MAX_AVOID }, (_, a) =>
+      Array.from({ length: OUTFIT_MAX_PIECES }, (_, p) => items[(a * OUTFIT_MAX_PIECES + p) % items.length].id),
+    ),
   };
 }
 
@@ -282,6 +289,88 @@ describe('missingForOutfit / canFormOutfit', () => {
     const items = categories.map((category) => ({ category }));
     expect(missingForOutfit(items)).toEqual(missing);
     expect(canFormOutfit(items)).toBe(missing.length === 0);
+  });
+});
+
+describe('avoid (Restyle)', () => {
+  const items = sampleSummaries();
+  const ok = (avoid: unknown) => validateGenerateOutfitsRequest({ request: 'x', items, avoid });
+
+  it('accepts up to 9 sets of 1 to 9 distinct ids and keeps them', () => {
+    const avoid = [['top-1', 'bottom-1', 'shoes-1'], ['dress-1']];
+    expect(ok(avoid)).toEqual({ ok: true, value: { request: 'x', items, mode: 'request', avoid } });
+    expect(ok(Array.from({ length: OUTFIT_MAX_AVOID }, () => ['a'])).ok).toBe(true);
+    expect(ok([Array.from({ length: OUTFIT_MAX_PIECES }, (_, i) => `id-${i}`)]).ok).toBe(true);
+  });
+
+  it('treats missing, null and an empty list as no avoid', () => {
+    for (const avoid of [undefined, null, []]) {
+      expect(ok(avoid)).toEqual({ ok: true, value: { request: 'x', items, mode: 'request' } });
+    }
+  });
+
+  it('accepts ids that are not in items (a deleted piece)', () => {
+    expect(ok([['gone-1', 'top-1']]).ok).toBe(true);
+  });
+
+  it.each([
+    ['not a list', 'top-1'],
+    ['too many sets', Array.from({ length: OUTFIT_MAX_AVOID + 1 }, () => ['a'])],
+    ['an empty set', [[]]],
+    ['a set over 9 ids', [Array.from({ length: OUTFIT_MAX_PIECES + 1 }, (_, i) => `id-${i}`)]],
+    ['a repeated id in a set', [['a', 'a']]],
+    ['a malformed id', [['has space']]],
+    ['an id over 64 characters', [['x'.repeat(65)]]],
+    ['a non-string id', [[7]]],
+    ['a set that is not a list', ['top-1']],
+  ])('rejects %s', (_name, avoid) => {
+    const result = ok(avoid);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/^avoid must be/);
+  });
+
+  it('outfitKey ignores order', () => {
+    expect(outfitKey(['b', 'a'])).toBe(outfitKey(['a', 'b']));
+    expect(outfitKey(['a'])).not.toBe(outfitKey(['a', 'b']));
+  });
+});
+
+describe('stubOutfits with avoid', () => {
+  const items = sampleSummaries();
+
+  it('skips avoided looks (in any order) and takes the next distinct ones', () => {
+    const first = stubOutfits(items);
+    const next = stubOutfits(items, [[...first[0].itemIds].reverse()]);
+    expect(next.map((o) => o.itemIds)).toEqual([first[1].itemIds, first[2].itemIds, ['top-2', 'bottom-2', 'shoes-2']]);
+  });
+
+  it('never repeats an avoided or already picked look, and numbers its looks from 1', () => {
+    const shown = stubOutfits(items).map((o) => o.itemIds);
+    const next = stubOutfits(items, shown);
+    expect(next).toHaveLength(3);
+    expect(next[0].rationale).toMatch(/^Stub look 1:/);
+    const keys = new Set(shown.map(outfitKey));
+    for (const look of next) expect(keys.has(outfitKey(look.itemIds))).toBe(false);
+    expect(new Set(next.map((o) => outfitKey(o.itemIds))).size).toBe(next.length);
+  });
+
+  it('tries other pairs of shoes once every base was used with its first pair', () => {
+    const small = [summary('t', 'top'), summary('b', 'bottom'), summary('s1', 'shoes'), summary('s2', 'shoes')];
+    expect(stubOutfits(small).map((o) => o.itemIds)).toEqual([['t', 'b', 's1'], ['t', 'b', 's2']]);
+    expect(stubOutfits(small, [['t', 'b', 's1']]).map((o) => o.itemIds)).toEqual([['t', 'b', 's2']]);
+  });
+
+  it('returns no looks when every possible look is avoided', () => {
+    const small = [summary('t', 'top'), summary('b', 'bottom'), summary('s', 'shoes')];
+    expect(stubOutfits(small, [['s', 'b', 't']])).toEqual([]);
+    const noShoes = [summary('d', 'dress')];
+    expect(stubOutfits(noShoes, [['d']])).toEqual([]);
+  });
+
+  it('is fast on a 300-item closet with 9 avoided looks', () => {
+    const many = Array.from({ length: 300 }, (_, i) => summary(`i${i}`, i < 100 ? 'top' : i < 200 ? 'bottom' : 'shoes'));
+    const avoid = Array.from({ length: OUTFIT_MAX_AVOID }, (_, i) => [`i${i}`, `i${100 + i}`, `i${200 + i}`]);
+    expect(stubOutfits(many, avoid)).toHaveLength(3);
   });
 });
 

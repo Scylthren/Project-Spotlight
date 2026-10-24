@@ -62,9 +62,43 @@ describe('handleGenerateOutfits', () => {
     await handleGenerateOutfits(request({ body: JSON.stringify({ request: 'private words', items }) }).req, env);
     expect(log).toHaveBeenCalledTimes(1);
     const line = log.mock.calls[0][0] as string;
-    expect(JSON.parse(line)).toEqual({ fn: 'generate-outfits', event: 'stub', items: 1, outfits: 1, rejected: 0 });
+    expect(JSON.parse(line)).toEqual({ fn: 'generate-outfits', event: 'stub', items: 1, outfits: 1, rejected: 0, avoid: 0, avoided: 0 });
     expect(line).not.toMatch(/secret|Secret|private/);
     expect(line).not.toContain(TOKEN);
+  });
+
+  it('skips the looks in avoid and answers the next distinct ones (Restyle)', async () => {
+    const avoid = [['top-1', 'bottom-1', 'shoes-1'], ['shoes-2', 'bottom-2', 'top-1']];
+    const result = await handleGenerateOutfits(
+      request({ body: JSON.stringify({ request: 'for summer', items: sampleSummaries(), avoid }) }).req,
+      env,
+    );
+    expect(result.status).toBe(200);
+    const outfits = (result.body as { outfits: { itemIds: string[] }[] }).outfits.map((o) => o.itemIds);
+    expect(outfits).toEqual([
+      ['top-2', 'bottom-1', 'shoes-1'],
+      ['top-2', 'bottom-2', 'shoes-2'],
+      ['dress-1', 'shoes-1'],
+    ]);
+    expect(JSON.parse(log.mock.calls[0][0] as string)).toMatchObject({ avoid: 2, avoided: 0, outfits: 3 });
+  });
+
+  it('answers 200 with no looks when every possible look is avoided', async () => {
+    const items = [summary('t', 'top'), summary('b', 'bottom'), summary('s', 'shoes')];
+    const body = JSON.stringify({ request: 'for summer', items, avoid: [['t', 'b', 's']] });
+    const result = await handleGenerateOutfits(request({ body }).req, env);
+    expect(result.status).toBe(200);
+    expect(result.body).toEqual({ apiVersion: 1, stub: true, outfits: [] });
+  });
+
+  it('rejects a malformed avoid with 400 bad_request', async () => {
+    for (const avoid of [[[]], [['a', 'a']], [['bad id']], 'x', Array.from({ length: 10 }, () => ['a'])]) {
+      const body = JSON.stringify({ request: 'for summer', items: sampleSummaries(), avoid });
+      const result = await handleGenerateOutfits(request({ body }).req, env);
+      expect(result.status).toBe(400);
+      expect(errorOf(result.body)?.code).toBe('bad_request');
+      expect(errorOf(result.body)?.message).toMatch(/^avoid/);
+    }
   });
 
   it('accepts weather and random modes (the stub ignores them)', async () => {

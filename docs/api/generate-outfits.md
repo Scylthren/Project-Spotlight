@@ -2,13 +2,13 @@
 
 Suggests up to 3 outfits from the user's closet for a text request ("for summer", "emo vibes"). The app sends the request and a text summary of the closet (ids and tags, **never photos**); the function is stateless and stores nothing.
 
-**Status (Gate 3 slice 1): stub.** The function checks the token, the body and the closet, then answers a deterministic stub (`stub: true`) picked by `stubOutfits` and checked by the same composition rules a model's answer will be. No model is called and no model key is read. Slice 3 adds the Claude call (prompt, prefilter, one retry) behind the same contract; slice 5 uses `mode` and `weather`.
+**Status (Gate 3 slice 2): stub, with `avoid` for Restyle.** The function checks the token, the body and the closet, then answers a deterministic stub (`stub: true`) picked by `stubOutfits` and checked by the same composition rules a model's answer will be. Slice 2 added the optional `avoid` list (the looks already shown, for Restyle). No model is called and no model key is read. Slice 3 adds the Claude call (prompt, prefilter, one retry) behind the same contract; slice 5 uses `mode` and `weather`.
 
 - **URL:** `POST https://<project-ref>.supabase.co/functions/v1/generate-outfits` (the app builds it from `EXPO_PUBLIC_SUPABASE_URL`, `configuredGenerateOutfitsUrl()`).
 - **Source:** `supabase/functions/generate-outfits/` (thin Deno entry `index.ts`, logic in `handler.ts`, composition rules in `outfit-rules.ts`), shared code in `supabase/functions/_shared/` (`dev-token.ts`, `http-body.ts`, the contracts).
 - **Secrets:** `DEV_TOKEN` (auth, same as tag-item). Slice 3 adds `ANTHROPIC_API_KEY`. Both exist only as Supabase function secrets.
 - **Types:** `supabase/functions/_shared/generate-outfits-contract.ts` is the single source of the request and response types, limits, validators and the stub's picks. It imports the shared vocabulary from the sibling `tag-item-contract.ts`. The app keeps a byte-identical copy at `spotlight/src/ai/generate-outfits-contract.ts`; `spotlight/src/ai/generate-outfits-contract.test.ts` fails when they drift, and checks this doc for every error code, mode, field and limit. Edit the supabase file, then copy it.
-- **App client:** `RemoteOutfitGenerator` (`spotlight/src/ai/remote-outfit-generator.ts`) behind the `OutfitGenerator` interface (`outfit-generator.ts`, with `MockOutfitGenerator` and `FakeOutfitGenerator`); the closet is mapped by `toClosetSummaries` (`closet-summary.ts`); `createOutfitGenerator` (`spotlight/src/hooks/outfit-services.ts`) builds the real one. Not wired into any screen yet (slice 2).
+- **App client:** `RemoteOutfitGenerator` (`spotlight/src/ai/remote-outfit-generator.ts`) behind the `OutfitGenerator` interface (`outfit-generator.ts`, with `MockOutfitGenerator` and `FakeOutfitGenerator`); the closet is mapped by `toClosetSummaries` (`closet-summary.ts`); `createOutfitGenerator` (`spotlight/src/hooks/outfit-services.ts`) builds the real one. The Style and Results screens (slice 2) use `MockOutfitGenerator` in demo mode until slice 3 swaps in the real one (`styleOutfitGenerator` in the same file).
 
 ## Auth
 Same as tag-item (see `docs/api/tag-item.md`, "Auth"): `Authorization: Bearer <token>` compared in constant time with the `DEV_TOKEN` secret; `verify_jwt = false` in `supabase/config.toml`; no `apikey` header needed. A missing or malformed header gets 401; a well-formed bearer token with an unset or too-short secret gets 500 `server_misconfigured` (fails closed).
@@ -49,6 +49,7 @@ Same as tag-item (see `docs/api/tag-item.md`, "Auth"): `Authorization: Bearer <t
 | `weather.windKph` | number | Wind in km/h, 0 to 400. |
 | `weather.conditions` | string | Short text ("Light rain"), 1 to 40 characters after trimming. |
 | `items` | object[] | The closet: 1 to 300 summaries, ids unique. |
+| `avoid` | string[][], optional | Restyle: looks not to answer again, usually every look already shown for this request. At most 9 looks, each a list of 1 to 9 item ids with no repeats, every id well-formed (the `items[].id` rule). Ids need not be in `items`: a look with a piece the closet no longer has simply never matches. Missing, `null` or `[]` mean none. Any other shape is 400 `bad_request` (message starts `avoid must be`). |
 | `items[].id` | string | The item's id, 1 to 64 characters from `A-Z a-z 0-9 . _ : -` (the app's ids are `<time base36>-<12 random base36>`). Outfits reference items by it. |
 | `items[].category` | string | `top`, `bottom`, `dress`, `outerwear`, `shoes`, `accessory`. |
 | `items[].colors` | string[] | Palette color ids (as in tag-item), primary first, no duplicates, at most 3 (may be empty). |
@@ -61,9 +62,21 @@ Same as tag-item (see `docs/api/tag-item.md`, "Auth"): `Authorization: Bearer <t
 | `items[].formality` | string, optional | One of tag-item's formalities. |
 | `items[].tags` | string[], optional | The user's own tags: at most 10 tags of 1 to 30 characters each, same text rules; the function lowercases them and drops repeats. |
 
-Optional fields that are missing or `null` mean "unknown"; the app leaves out what an item does not have. Unknown extra fields (top level or per item) are ignored. Any other rule broken is 400 `bad_request` with a message naming the first bad field (for example `items[3]: unknown category.`).
+Optional summary fields that are missing or `null` mean "unknown"; the app leaves out what an item does not have. Unknown extra fields (top level or per item) are ignored. Any other rule broken is 400 `bad_request` with a message naming the first bad field (for example `items[3]: unknown category.`).
 
 How the app builds the summaries (`toClosetSummaries`): every item's id, category, palette color ids and seasons, plus its name, attribute values (type, pattern, material, fit, formality) and tags when present. Photos, photo paths, hex values, color and attribute sources, and timestamps are never sent. Control characters become spaces, whitespace collapses, and text is cut to the caps above (an item's own limits are the same, so this only matters for odd data). Each summary is then checked with the contract's `validateClosetItemSummary`; an item that fails (an id outside the id rule, a bad category or season) is left out, so one bad item never blocks the request. A closet still over 300 items sends its 300 most recently updated items (closet order kept). The mapper counts both kinds separately (`omittedInvalid`, `omittedOverCap`); the caller gets the total (`omittedItems`). Choosing among what is sent (prefiltering) is the function's job (slice 3).
+
+Restyle (`OutfitRequestInput.avoid`, slice 2): the Results screen passes every look shown for the request, the looks on screen first, then earlier ones newest first, at most 9. `prepareOutfitRequest` sends (the first 9 of) the sets whose every id is in the summaries it sends (a set with a deleted or omitted piece cannot come back anyway) and drops repeated ids within a set. Example body:
+
+```json
+{
+  "request": "emo vibes",
+  "items": [ ... ],
+  "avoid": [["mf3k2-abc123xyz789", "mf3k9-0q8w7e6r5t4y", "mf3kd-a1s2d3f4g5h6"]]
+}
+```
+
+The app takes the first returned look that is not already shown (defence in depth) and puts it in place of the restyled one; an answer with no new look shows "No other looks for this request" and keeps the look.
 
 ## Response (200)
 ```json
@@ -93,7 +106,7 @@ Checked by the function (`outfit-rules.ts`) on every outfit before it is answere
 - outerwear optional, at most one; 0 to 5 accessories;
 - a rationale of 1 to 300 characters.
 
-Repeats (the same set of ids, in any order) are dropped, keeping the first; at most 3 are kept. The stub (`stubOutfits`) picks, in closet order, every top and bottom pair (top by top), then every dress, each with the next pair of shoes in turn when there are shoes, until it has 3; it adds no outerwear or accessories and its rationale names only categories (no user text).
+Repeats (the same set of ids, in any order) are dropped, keeping the first; an outfit whose set of ids equals one of the request's `avoid` looks (in any order; a subset or superset does not match) is dropped too; at most 3 are kept. The stub (`stubOutfits`) picks, in closet order, every top and bottom pair (top by top), then every dress, each with the next pair of shoes in turn when there are shoes, until it has 3; it adds no outerwear or accessories and its rationale names only categories (no user text). With `avoid`, the stub skips each avoided look and takes the next one; once every pair and dress was tried with its first pair of shoes it tries them again with the following pairs, so it answers the next distinct valid looks, and 0 looks (a 200 with `outfits: []`) when none are left. Slice 3's prompt will also ask the model for looks unlike the avoided ones; the same check drops any that repeat one.
 
 ### What the app checks
 `validateGenerateOutfitsResponse` checks the shape (version, `stub`, at most 3 outfits, each with 1 to 9 distinct string ids and a 1 to 300 character rationale); anything malformed rejects the whole answer (`invalid-response`). Then `RemoteOutfitGenerator` drops any outfit naming an id it did not send (CLAUDE.md: reject ids not in the closet) and reports how many it dropped (`droppedOutfits`). The app does not re-run the composition rules; those live in the function.
@@ -120,9 +133,10 @@ The `upstream_*` codes are in the contract now so the app handles them before sl
 `error.missing` (only with `not_enough_items`): which of `top`, `bottom` and `dress` the closet has none of, in that order. `dress` is always there; `top`, `bottom` or both say what would complete a pair. Examples: only tops gives `["bottom", "dress"]` ("add a bottom, or a dress"); only shoes and accessories gives `["top", "bottom", "dress"]` ("add a top and a bottom, or a dress"). Shoes, outerwear and accessories never cause this error.
 
 ## Limits and budgets
-- Body: at most 650,000 bytes. The largest request the app can send (300 summaries with every field at its cap and 4-byte characters in every text field, a 200-character request and weather) is 563,895 bytes (`generate-outfits-contract.test.ts` builds it); a typical summary is 100 to 300 bytes, so a 300-item closet is usually under 100 KB.
+- Body: at most 650,000 bytes. The largest request the app can send (300 summaries with every field at its cap and 4-byte characters in every text field, a 200-character request, weather, and 9 `avoid` looks of 9 64-character ids) is 569,350 bytes (`generate-outfits-contract.test.ts` builds it); a typical summary is 100 to 300 bytes, so a 300-item closet is usually under 100 KB.
 - Items per request: 1 to 300 summaries.
 - Request text: 1 to 200 characters (0 to 200 in modes `weather` and `random`).
+- `avoid`: at most 9 looks, each 1 to 9 ids (about 6 KB at most).
 - Answer: 0 to 3 outfits, each at most 9 ids (top, bottom, shoes, outerwear and 0 to 5 accessories), rationale 1 to 300 characters.
 - Unread bodies are drained before replying exactly as in tag-item (`_shared/http-body.ts`): at most 8,000,000 bytes or 5 seconds, then the stream is cancelled; a declared `Content-Length` over 8,000,000 bytes is cancelled at once. This applies to any caller, authorized or not.
 - Client timeout (app, D4): 30 seconds (`DEFAULT_OUTFIT_TIMEOUT_MS`), then `timeout`. The caller can also abort (`cancelled`).
@@ -147,4 +161,4 @@ The `upstream_*` codes are in the contract now so the app handles them before sl
 | `invalid-response` | 200 with a body that is not JSON or fails `validateGenerateOutfitsResponse`. |
 
 ## Logging
-One JSON line per answered request: `{"fn":"generate-outfits","event":"stub","items","outfits","rejected"}` (counts only). Errors before the stub (400, 401, 405, 422) log nothing. The function never logs headers, the token, the request text, the closet or the outfits. An unexpected error logs only `generate-outfits: unexpected error`. Slice 3 adds one line per model call, like tag-item.
+One JSON line per answered request: `{"fn":"generate-outfits","event":"stub","items","outfits","rejected","avoid","avoided"}` (counts only: `avoid` is how many looks the request asked to avoid, `avoided` how many candidates were dropped for matching one). Errors before the stub (400, 401, 405, 422) log nothing. The function never logs headers, the token, the request text, the closet or the outfits. An unexpected error logs only `generate-outfits: unexpected error`. Slice 3 adds one line per model call, like tag-item.
