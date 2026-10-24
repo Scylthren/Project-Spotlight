@@ -3,12 +3,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ResultsView } from '@/components/style/results-view';
 import { useClosetServices } from '@/hooks/closet-services';
+import { useBottomTabInset } from '@/hooks/use-bottom-tab-inset';
 import { useStyleResults } from '@/hooks/use-style-results';
 import { useTheme } from '@/hooks/use-theme';
 
 /** Results (Results.dc.html), pushed from Style. Leaving it aborts the request (`useStyleResults`). */
 export default function ResultsScreen() {
   const theme = useTheme();
+  const bottomInset = useBottomTabInset();
   const { imageStore } = useClosetServices();
   const { session, snapshot } = useStyleResults();
 
@@ -22,7 +24,7 @@ export default function ResultsScreen() {
       <ResultsView
         snapshot={snapshot}
         resolveImageUri={(ref) => imageStore.resolveUri(ref)}
-        bottomInset={theme.sizes.bottomTabInset + theme.spacing.xxl}
+        bottomInset={bottomInset + theme.spacing.xxl}
         onBack={back}
         onCancel={() => {
           session?.cancel();

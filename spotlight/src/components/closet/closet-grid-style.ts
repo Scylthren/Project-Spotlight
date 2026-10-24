@@ -38,7 +38,7 @@ export function closetGridLook(theme: Theme, { pressed }: { pressed: boolean } =
     content: {
       paddingHorizontal: sizes.screenPadding,
       paddingTop: spacing.lg,
-      paddingBottom: sizes.bottomTabInset + spacing.xl,
+      paddingBottom: spacing.xl,
       rowGap: spacing.lg + spacing.xxs,
     },
     row: { gap: spacing.md },

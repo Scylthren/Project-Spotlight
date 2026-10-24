@@ -12,10 +12,12 @@ import { ScreenHeader } from '@/components/ui';
 import { useAddItemForm } from '@/hooks/use-add-item-form';
 import { useImportEntry } from '@/hooks/use-import-entry';
 import { useIsMounted } from '@/hooks/use-is-mounted';
+import { useBottomTabInset } from '@/hooks/use-bottom-tab-inset';
 import { useTheme } from '@/hooks/use-theme';
 
 export default function AddItemScreen() {
   const theme = useTheme();
+  const bottomInset = useBottomTabInset();
   const form = useAddItemForm();
   const isMounted = useIsMounted();
   const look = itemFormLook(theme);
@@ -35,7 +37,7 @@ export default function AddItemScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.colors.background }} edges={['top']}>
       {/* Under the tabs the screen starts at the top of the window: no offset. */}
       <KeyboardAwareScrollView
-        contentContainerStyle={{ paddingBottom: theme.sizes.bottomTabInset + theme.spacing.xxl }}
+        contentContainerStyle={{ paddingBottom: bottomInset + theme.spacing.xxl }}
         keyboardVerticalOffset={0}>
         <ScreenHeader variant="step" title="New piece" />
         <View style={look.body}>

@@ -11,10 +11,12 @@ interface ClosetGridProps {
   onPressItem: (item: ClothingItem) => void;
   /** Shown instead of the grid when `items` is empty (e.g. no search results). */
   emptyMessage?: string;
+  /** Extra space under the last row for whatever covers the bottom (the tab bar: `useBottomTabInset`). */
+  bottomInset?: number;
 }
 
 /** Two columns of photo tiles with the category in serif and the colors underneath. */
-export function ClosetGrid({ items, resolveImageUri, onPressItem, emptyMessage }: ClosetGridProps) {
+export function ClosetGrid({ items, resolveImageUri, onPressItem, emptyMessage, bottomInset = 0 }: ClosetGridProps) {
   const theme = useTheme();
   const { width } = useWindowDimensions();
   const look = closetGridLook(theme);
@@ -25,7 +27,7 @@ export function ClosetGrid({ items, resolveImageUri, onPressItem, emptyMessage }
       data={items}
       keyExtractor={(item) => item.id}
       numColumns={CLOSET_COLUMNS}
-      contentContainerStyle={look.content}
+      contentContainerStyle={[look.content, { paddingBottom: bottomInset + theme.spacing.xl }]}
       columnWrapperStyle={look.row}
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { ClosetGrid } from '@/components/closet-grid';
 import { touchHeight } from '@/components/ui/testing/rendered-touch';
@@ -51,6 +52,19 @@ describe('ClosetGrid (rendered)', () => {
     expect(screen.getByText('Navy')).toBeTruthy();
     await fireEvent.press(tile);
     expect(onPressItem).toHaveBeenCalledWith(BOOTS);
+  });
+
+  it('keeps the last row clear of the tab bar: bottom inset plus the grid spacing', async () => {
+    const theme = themes.light;
+    await render(
+      <ClosetGrid items={[TOP]} resolveImageUri={(ref) => `file:///${ref}`} onPressItem={() => {}} bottomInset={83} />,
+    );
+    // The list (an ancestor of the tile's text) carries the content padding.
+    const paddings: unknown[] = [];
+    for (let node = screen.getByText('Top').parent; node; node = node.parent) {
+      paddings.push(StyleSheet.flatten(node.props.contentContainerStyle)?.paddingBottom);
+    }
+    expect(paddings).toContain(83 + theme.spacing.xl);
   });
 });
 

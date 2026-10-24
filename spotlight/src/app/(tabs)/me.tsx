@@ -7,6 +7,7 @@ import { BackendSection } from '@/components/backend-section';
 import { Button, ScreenHeader, SectionLabel } from '@/components/ui';
 import { useAppearance } from '@/hooks/appearance';
 import { devBackendServices } from '@/hooks/dev-backend-services';
+import { useBottomTabInset } from '@/hooks/use-bottom-tab-inset';
 import { useTheme } from '@/hooks/use-theme';
 
 /**
@@ -19,6 +20,7 @@ export default function MeScreen() {
   const { colors, spacing, sizes } = useTheme();
   const { preference, setPreference } = useAppearance();
   const router = useRouter();
+  const bottomInset = useBottomTabInset();
 
   return (
     <SafeAreaView style={[styles.fill, { backgroundColor: colors.background }]} edges={['top']}>
@@ -26,7 +28,7 @@ export default function MeScreen() {
         contentContainerStyle={{
           paddingHorizontal: sizes.screenPadding,
           paddingTop: spacing.xxl,
-          paddingBottom: sizes.bottomTabInset + spacing.xxl,
+          paddingBottom: bottomInset + spacing.xxl,
           gap: spacing.xl,
         }}>
         <ScreenHeader title="Me" />

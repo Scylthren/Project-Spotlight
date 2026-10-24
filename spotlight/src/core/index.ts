@@ -18,6 +18,7 @@ export * from './garment-segmentation';
 export * from './garment-colors';
 export * from './camera-access';
 export * from './keyboard';
+export * from './tab-bar-insets';
 export * from './appearance';
 export * from './labels';
 export * from './closet-filter';

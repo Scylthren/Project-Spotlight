@@ -1,5 +1,7 @@
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
+import { Platform } from 'react-native';
 
+import { automaticTabContentInsets } from '@/core';
 import { useTheme } from '@/hooks/use-theme';
 import { tabBarAppearance } from '@/theme/navigation';
 
@@ -11,7 +13,12 @@ import { tabBarAppearance } from '@/theme/navigation';
  * with sparkles (the mockup's icon). Add uses a filled
  * circle with a plus, the nearest native match to the mockup's round ink
  * Scan button.
+ *
+ * Content insets: automatic on Android, manual on iOS (`useBottomTabInset`);
+ * see `core/tab-bar-insets.ts`. Set on every trigger.
  */
+const DISABLE_AUTOMATIC_INSETS = !automaticTabContentInsets(Platform.OS);
+
 export default function AppTabs() {
   const theme = useTheme();
   const bar = tabBarAppearance(theme);
@@ -25,22 +32,26 @@ export default function AppTabs() {
       rippleColor={bar.rippleColor}
       disableIndicator
       disableTransparentOnScrollEdge>
-      <NativeTabs.Trigger name="index" accessibilityLabel="Closet">
+      <NativeTabs.Trigger name="index" accessibilityLabel="Closet"
+        disableAutomaticContentInsets={DISABLE_AUTOMATIC_INSETS}>
         <NativeTabs.Trigger.Label>CLOSET</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="hanger" md="checkroom" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="style" accessibilityLabel="Style">
+      <NativeTabs.Trigger name="style" accessibilityLabel="Style"
+        disableAutomaticContentInsets={DISABLE_AUTOMATIC_INSETS}>
         <NativeTabs.Trigger.Label>STYLE</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="wand.and.stars" md="auto_fix_high" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="add" accessibilityLabel="Add item">
+      <NativeTabs.Trigger name="add" accessibilityLabel="Add item"
+        disableAutomaticContentInsets={DISABLE_AUTOMATIC_INSETS}>
         <NativeTabs.Trigger.Label>ADD</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="plus.circle.fill" md="add_circle" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="me" accessibilityLabel="Me">
+      <NativeTabs.Trigger name="me" accessibilityLabel="Me"
+        disableAutomaticContentInsets={DISABLE_AUTOMATIC_INSETS}>
         <NativeTabs.Trigger.Label>ME</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="person" md="person" />
       </NativeTabs.Trigger>

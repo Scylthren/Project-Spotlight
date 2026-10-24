@@ -9,6 +9,7 @@ import { ClosetGrid } from '@/components/closet-grid';
 import { Button, ScreenHeader } from '@/components/ui';
 import { filterCloset, NO_CLOSET_FILTER, noMatchesMessage, pieceCount, type ClosetFilter } from '@/core';
 import { useClosetServices } from '@/hooks/closet-services';
+import { useBottomTabInset } from '@/hooks/use-bottom-tab-inset';
 import { useClosetItems } from '@/hooks/use-closet-items';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -16,6 +17,7 @@ export default function ClosetScreen() {
   const theme = useTheme();
   const { imageStore } = useClosetServices();
   const { items, loading, error } = useClosetItems();
+  const bottomInset = useBottomTabInset();
   const [filter, setFilter] = useState<ClosetFilter>(NO_CLOSET_FILTER);
   const shown = useMemo(() => filterCloset(items, filter), [items, filter]);
   const message = closetGridLook(theme).message;
@@ -42,6 +44,7 @@ export default function ClosetScreen() {
           resolveImageUri={(ref) => imageStore.resolveUri(ref)}
           onPressItem={(item) => router.push({ pathname: '/item/[id]', params: { id: item.id } })}
           emptyMessage={noMatchesMessage(filter)}
+          bottomInset={bottomInset}
         />
       )}
     </SafeAreaView>

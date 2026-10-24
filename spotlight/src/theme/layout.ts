@@ -1,5 +1,3 @@
-import { Platform } from 'react-native';
-
 /** Spacing scale in points. */
 export const spacing = {
   none: 0,
@@ -65,8 +63,6 @@ export const sizes = {
   lookPhotoHeightThree: 170,
   /** Shoes and accessories in the smaller row under them. */
   lookSmallPhotoSize: 76,
-  /** Space the native tab bar covers at the bottom of a scrolling screen. */
-  bottomTabInset: Platform.select({ ios: 50, android: 80 }) ?? 0,
 } as const;
 
 /** Opacity of disabled controls (exempt from contrast minimums, WCAG 1.4.3). */
