@@ -63,6 +63,11 @@ export const sizes = {
   lookPhotoHeightThree: 170,
   /** Shoes and accessories in the smaller row under them. */
   lookSmallPhotoSize: 76,
+  /** A piece's photo in a Lookbook row (Lookbook.dc.html draws a 220 pt flat-lay; rows show photos side by side, 4:5). */
+  lookbookPhotoWidth: 72,
+  lookbookPhotoHeight: 90,
+  /** The thumbs up/down glyph. */
+  ratingIconSize: 20,
 } as const;
 
 /** Opacity of disabled controls (exempt from contrast minimums, WCAG 1.4.3). */

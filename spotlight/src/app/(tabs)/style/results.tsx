@@ -3,7 +3,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ResultsView } from '@/components/style/results-view';
 import { useClosetServices } from '@/hooks/closet-services';
+import { styleLookToSave } from '@/data/lookbook-store';
 import { useBottomTabInset } from '@/hooks/use-bottom-tab-inset';
+import { useLookbookSnapshot } from '@/hooks/use-lookbook';
 import { useStyleResults } from '@/hooks/use-style-results';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -13,6 +15,8 @@ export default function ResultsScreen() {
   const bottomInset = useBottomTabInset();
   const { imageStore } = useClosetServices();
   const { session, snapshot } = useStyleResults();
+  const { lookbook, snapshot: saved } = useLookbookSnapshot();
+  const request = snapshot?.request ?? '';
 
   function back() {
     if (router.canGoBack()) router.back();
@@ -33,6 +37,10 @@ export default function ResultsScreen() {
         onRetry={() => void session?.start()}
         onAddPiece={() => router.navigate('/add')}
         onRestyle={(key) => void session?.restyle(key)}
+        lookbook={saved}
+        onSave={(look) => void lookbook.save(styleLookToSave(request, look))}
+        onRate={(look, rating) => void lookbook.rateUnsavedOrSaved(styleLookToSave(request, look), rating)}
+        onPickOccasion={(look, occasion) => void lookbook.toggleOccasion(look.id, occasion)}
       />
     </SafeAreaView>
   );

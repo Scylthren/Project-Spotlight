@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 
 import { Button } from '@/components/ui';
 import { backChevronLook, screenHeaderAccessibility, screenHeaderLook } from '@/components/ui/screen-header-style';
-import { looksCountText, omittedItemsText } from '@/core';
+import { looksCountText, omittedItemsText, savedLookKey, type LookRating, type Occasion, type SavedLook } from '@/core';
 import {
   describeStyleFailure,
   LOOKS_REMOVED_VIEW,
@@ -11,7 +11,8 @@ import {
   type StyleFailureAction,
   type StyleFailureView,
 } from '@/data/style-messages';
-import type { StyleSnapshot } from '@/data/style-session';
+import type { LookbookSnapshot } from '@/data/lookbook-store';
+import type { StyleLook, StyleSnapshot } from '@/data/style-session';
 import { useTheme } from '@/hooks/use-theme';
 
 import { LookCard } from './look-card';
@@ -24,18 +25,26 @@ export interface ResultsHandlers {
   /** Opens the Add tab (not enough pieces). */
   onAddPiece: () => void;
   onRestyle: (key: string) => void;
+  /** Save (slice 4); a look already saved stays one entry. */
+  onSave: (look: StyleLook) => void;
+  /** A thumb; on an unsaved look it saves it with that rating. */
+  onRate: (look: StyleLook, rating: LookRating) => void;
+  /** An occasion chip on a saved look. */
+  onPickOccasion: (saved: SavedLook, occasion: Occasion) => void;
 }
 
 interface ResultsViewProps extends ResultsHandlers {
   /** Null when there is no request to show (e.g. the app restarted on this screen). */
   snapshot: StyleSnapshot | null;
   resolveImageUri: (ref: string) => string;
+  /** Saved looks, to show which looks are saved and their rating and occasion. */
+  lookbook: Pick<LookbookSnapshot, 'looks' | 'error'>;
   /** Space under the content (the tab bar). */
   bottomInset: number;
 }
 
 /** The Results screen's content for each state: loading (with Cancel), looks, no looks, and every failure. */
-export function ResultsView({ snapshot, resolveImageUri, bottomInset, ...handlers }: ResultsViewProps) {
+export function ResultsView({ snapshot, resolveImageUri, lookbook, bottomInset, ...handlers }: ResultsViewProps) {
   const theme = useTheme();
   const look = resultsLook(theme);
   const status = snapshot?.status;
@@ -50,7 +59,7 @@ export function ResultsView({ snapshot, resolveImageUri, bottomInset, ...handler
     <View style={{ flex: 1 }}>
       <ResultsHeader title={snapshot ? quotedRequest(snapshot.request) : 'Looks'} subtitle={subtitle} onBack={handlers.onBack} />
       <ScrollView contentContainerStyle={[look.body, { paddingBottom: bottomInset }]}>
-        <ResultsBody snapshot={snapshot} resolveImageUri={resolveImageUri} handlers={handlers} />
+        <ResultsBody snapshot={snapshot} resolveImageUri={resolveImageUri} lookbook={lookbook} handlers={handlers} />
       </ScrollView>
     </View>
   );
@@ -59,10 +68,12 @@ export function ResultsView({ snapshot, resolveImageUri, bottomInset, ...handler
 function ResultsBody({
   snapshot,
   resolveImageUri,
+  lookbook,
   handlers,
 }: {
   snapshot: StyleSnapshot | null;
   resolveImageUri: (ref: string) => string;
+  lookbook: Pick<LookbookSnapshot, 'looks' | 'error'>;
   handlers: ResultsHandlers;
 }) {
   const theme = useTheme();
@@ -90,19 +101,29 @@ function ResultsBody({
     case 'ready': {
       if (status.looks.length === 0) return <StateMessage view={LOOKS_REMOVED_VIEW} handlers={handlers} />;
       const omitted = omittedItemsText(status.omittedItems);
+      const savedByKey = new Map(lookbook.looks.map((l) => [savedLookKey(l.pieces.map((p) => p.itemId)), l]));
       return (
         <>
           {omitted ? <Text style={look.omitted}>{omitted}</Text> : null}
-          {status.looks.map((item, index) => (
-            <LookCard
-              key={item.key}
-              look={item}
-              position={index + 1}
-              total={status.looks.length}
-              resolveImageUri={resolveImageUri}
-              onRestyle={() => handlers.onRestyle(item.key)}
-            />
-          ))}
+          {status.looks.map((item, index) => {
+            const key = savedLookKey(item.itemIds);
+            const saved = savedByKey.get(key) ?? null;
+            return (
+              <LookCard
+                key={item.key}
+                look={item}
+                position={index + 1}
+                total={status.looks.length}
+                resolveImageUri={resolveImageUri}
+                onRestyle={() => handlers.onRestyle(item.key)}
+                saved={saved}
+                onSave={() => handlers.onSave(item)}
+                onRate={(rating) => handlers.onRate(item, rating)}
+                onPickOccasion={(occasion) => saved && handlers.onPickOccasion(saved, occasion)}
+                saveError={lookbook.error?.key === key ? lookbook.error.text : null}
+              />
+            );
+          })}
         </>
       );
     }
@@ -139,14 +160,25 @@ function StateMessage({ view, handlers }: { view: StyleFailureView; handlers: Re
   );
 }
 
-function ResultsHeader({ title, subtitle, onBack }: { title: string; subtitle: string | null; onBack: () => void }) {
+/** Back, the request in italic serif, a line under it, an ink rule (Results, and a saved look's screen). */
+export function ResultsHeader({
+  title,
+  subtitle,
+  onBack,
+  backLabel = 'Back to Style',
+}: {
+  title: string;
+  subtitle: string | null;
+  onBack: () => void;
+  backLabel?: string;
+}) {
   const theme = useTheme();
   const look = resultsLook(theme);
   const step = screenHeaderLook(theme, 'step');
   const a11y = screenHeaderAccessibility();
   return (
     <View style={look.header}>
-      <Pressable {...a11y.back} accessibilityLabel="Back to Style" onPress={onBack} hitSlop={step.backHitSlop} style={step.backButton}>
+      <Pressable {...a11y.back} accessibilityLabel={backLabel} onPress={onBack} hitSlop={step.backHitSlop} style={step.backButton}>
         <View style={backChevronLook(theme)} />
       </Pressable>
       <View style={look.titleBlock}>

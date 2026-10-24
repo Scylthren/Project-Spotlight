@@ -98,6 +98,23 @@ describe('StyleSession: the request', () => {
     expect(seen.map((x) => x.status.kind)).toEqual(['loading', 'ready']);
   });
 
+  it('keeps the model behind each look ("stub" for canned picks, null when unknown) for saving', async () => {
+    const real = setup();
+    real.generator.queue.push({ ok: true, outfits: [LOOK_A], stub: false, droppedOutfits: 0, omittedItems: 0, model: 'claude-haiku-5-5' });
+    await real.session.start();
+    expect(ready(real.session).looks[0].model).toBe('claude-haiku-5-5');
+
+    const stub = setup();
+    stub.generator.queue.push({ ok: true, outfits: [LOOK_A], stub: true, droppedOutfits: 0, omittedItems: 0 });
+    await stub.session.start();
+    expect(ready(stub.session).looks[0].model).toBe('stub');
+
+    const unknown = setup();
+    unknown.generator.queue.push(looks(LOOK_A));
+    await unknown.session.start();
+    expect(ready(unknown.session).looks[0].model).toBeNull();
+  });
+
   it('sends the request text and the closet, with no avoid', async () => {
     const { session, generator } = setup();
     generator.queue.push(looks(LOOK_A));

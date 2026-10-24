@@ -6,10 +6,11 @@ import { touchHeight } from '@/components/ui/testing/rendered-touch';
 import type { LookPiece } from '@/core';
 import { OUTFIT_FAILURES } from '@/ai/outfit-generator';
 import { describeStyleFailure, STYLE_DATA_NOTICE, type StyleFailure } from '@/data/style-messages';
+import type { LookbookSnapshot } from '@/data/lookbook-store';
 import type { StyleLook, StyleSnapshot, StyleStatus } from '@/data/style-session';
 import { contrastRatio, themes } from '@/theme';
 
-import { LookCard } from './look-card';
+import { LookCard, type LookSaveProps } from './look-card';
 import { ResultsView } from './results-view';
 import { StylePromptForm } from './style-prompt-form';
 
@@ -111,24 +112,31 @@ function look(overrides: Partial<StyleLook> = {}): StyleLook {
     pieces,
     restyling: false,
     restyleNotice: null,
+    model: 'claude-haiku-5-5',
     ...overrides,
   };
 }
 
+/** Save props for a look that is not saved, with fresh mocks. */
+function unsaved(): LookSaveProps {
+  return { saved: null, onSave: jest.fn(), onRate: jest.fn(), onPickOccasion: jest.fn(), saveError: null };
+}
+
 describe('LookCard (rendered)', () => {
   it('shows the number, "Look one of three", the pieces line and why it works', async () => {
-    await render(<LookCard look={look()} position={1} total={3} resolveImageUri={resolve} onRestyle={jest.fn()} />);
+    await render(<LookCard {...unsaved()} look={look()} position={1} total={3} resolveImageUri={resolve} onRestyle={jest.fn()} />);
     expect(screen.getByText('01')).toBeTruthy();
     expect(screen.getByText('Look one of three')).toBeTruthy();
     expect(screen.getByText('Band hoodie, Bottom, Outerwear, Shoes, Accessory.')).toBeTruthy();
     expect(screen.getByText(/Why it works/)).toBeTruthy();
     expect(screen.getByText(/An all-dark palette keeps the graphic as the focus\./)).toBeTruthy();
-    expect(screen.queryByText(/save/i)).toBeNull();
+    // Slice 4 adds Save next to Restyle (slice 2 had none).
+    expect(screen.getByRole('button', { name: 'Save look 1' })).toBeTruthy();
   });
 
   it('draws main pieces large and shoes and accessories small, each named for screen readers', async () => {
     const { theme } = { theme: themes.light };
-    await render(<LookCard look={look()} position={1} total={1} resolveImageUri={resolve} onRestyle={jest.fn()} />);
+    await render(<LookCard {...unsaved()} look={look()} position={1} total={1} resolveImageUri={resolve} onRestyle={jest.fn()} />);
     const tiles = screen.getAllByRole('image');
     expect(tiles.map((t) => t.props.accessibilityLabel)).toEqual(['Band hoodie', 'Bottom', 'Outerwear', 'Shoes', 'Accessory']);
     const heights = tiles.map((t) => [t.props.style].flat(3).reduce((h: number, s) => (s && 'height' in s ? s.height : h), 0));
@@ -139,7 +147,7 @@ describe('LookCard (rendered)', () => {
   it('shows a deleted piece as "Removed from closet"', async () => {
     const base = look();
     const pieces = base.pieces.map((p) => (p.id === 'b' ? { ...p, item: null } : p));
-    await render(<LookCard look={{ ...base, pieces }} position={2} total={3} resolveImageUri={resolve} onRestyle={jest.fn()} />);
+    await render(<LookCard {...unsaved()} look={{ ...base, pieces }} position={2} total={3} resolveImageUri={resolve} onRestyle={jest.fn()} />);
     expect(screen.getByText('Removed from closet')).toBeTruthy();
     expect(screen.getByText('Band hoodie, Removed from closet, Outerwear, Shoes, Accessory.')).toBeTruthy();
     expect(screen.getByText('Look two of three')).toBeTruthy();
@@ -147,11 +155,11 @@ describe('LookCard (rendered)', () => {
 
   it('Restyle calls back; while restyling it is disabled and says so; a notice shows under it', async () => {
     const onRestyle = jest.fn();
-    const { rerender } = await render(<LookCard look={look()} position={1} total={3} resolveImageUri={resolve} onRestyle={onRestyle} />);
+    const { rerender } = await render(<LookCard {...unsaved()} look={look()} position={1} total={3} resolveImageUri={resolve} onRestyle={onRestyle} />);
     await fireEvent.press(screen.getByRole('button', { name: 'Restyle look 1' }));
     expect(onRestyle).toHaveBeenCalledTimes(1);
 
-    await rerender(<LookCard look={look({ restyling: true })} position={1} total={3} resolveImageUri={resolve} onRestyle={onRestyle} />);
+    await rerender(<LookCard {...unsaved()} look={look({ restyling: true })} position={1} total={3} resolveImageUri={resolve} onRestyle={onRestyle} />);
     const busy = screen.getByRole('button', { name: 'Restyling look 1' });
     expect(screen.getByText('Restyling...')).toBeTruthy();
     expect(busy.props.accessibilityState).toMatchObject({ disabled: true });
@@ -159,7 +167,7 @@ describe('LookCard (rendered)', () => {
     expect(onRestyle).toHaveBeenCalledTimes(1);
 
     await rerender(
-      <LookCard look={look({ restyleNotice: 'No other looks for this request' })} position={1} total={3} resolveImageUri={resolve} onRestyle={onRestyle} />,
+      <LookCard {...unsaved()} look={look({ restyleNotice: 'No other looks for this request' })} position={1} total={3} resolveImageUri={resolve} onRestyle={onRestyle} />,
     );
     expect(screen.getByText('No other looks for this request')).toBeTruthy();
   });
@@ -169,9 +177,18 @@ function snapshot(status: StyleStatus, request = 'Emo vibes'): StyleSnapshot {
   return { request, status, closed: false };
 }
 
-async function renderResults(snap: StyleSnapshot | null) {
-  const handlers = { onBack: jest.fn(), onCancel: jest.fn(), onRetry: jest.fn(), onAddPiece: jest.fn(), onRestyle: jest.fn() };
-  await render(<ResultsView snapshot={snap} resolveImageUri={resolve} bottomInset={0} {...handlers} />);
+async function renderResults(snap: StyleSnapshot | null, lookbook: Pick<LookbookSnapshot, 'looks' | 'error'> = { looks: [], error: null }) {
+  const handlers = {
+    onBack: jest.fn(),
+    onCancel: jest.fn(),
+    onRetry: jest.fn(),
+    onAddPiece: jest.fn(),
+    onRestyle: jest.fn(),
+    onSave: jest.fn(),
+    onRate: jest.fn(),
+    onPickOccasion: jest.fn(),
+  };
+  await render(<ResultsView snapshot={snap} resolveImageUri={resolve} lookbook={lookbook} bottomInset={0} {...handlers} />);
   return handlers;
 }
 

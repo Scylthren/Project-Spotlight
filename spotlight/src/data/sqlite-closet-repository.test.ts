@@ -625,7 +625,7 @@ describe('migration 3: photos', () => {
   it('a fresh install reaches the latest version with the photo table and no image_uri', async () => {
     const db = await openMigrated();
     expect(await db.getFirstAsync('PRAGMA user_version', [])).toEqual({ user_version: CLOSET_SCHEMA_VERSION });
-    expect(await tableNames(db)).toEqual(['clothing_items', 'item_attributes', 'item_colors', 'item_photos', 'item_tags', 'maintenance', 'tags']);
+    expect(await tableNames(db)).toEqual(['clothing_items', 'item_attributes', 'item_colors', 'item_photos', 'item_tags', 'maintenance', 'outfit_items', 'outfits', 'tags']);
     expect(await columns(db, 'clothing_items')).not.toContain('image_uri');
     expect(await columns(db, 'item_photos')).toEqual(['id', 'item_id', 'role', 'storage_path', 'sort_order', 'is_primary']);
     const indexes = await db.getAllAsync<{ name: string }>(

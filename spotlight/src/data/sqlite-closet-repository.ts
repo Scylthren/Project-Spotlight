@@ -8,6 +8,7 @@ import {
 
 import { ClosetRepositoryError, type ClosetRepository } from './closet-repository';
 import type { SqlDatabase } from './sql-database';
+import { SqlSerialQueue } from './sql-serial-queue';
 
 interface ClothingItemRow {
   id: string;
@@ -134,18 +135,19 @@ export function rowToItem(
  * On-device `ClosetRepository` backed by SQLite. Run `migrateClosetDatabase`
  * on the database before constructing this.
  *
- * Every call runs one at a time through an internal queue, and multi-statement
+ * Every call runs one at a time through a `SqlSerialQueue`, and multi-statement
  * writes run in a transaction. The app shares one connection, so without the
  * queue a second write could try to BEGIN inside the first one's transaction,
- * or a read could see a half-written item. Use one instance per connection.
+ * or a read could see a half-written item. Use one instance per connection,
+ * and pass the same queue to the other repositories on it (`SqliteOutfitRepository`).
  */
 export class SqliteClosetRepository implements ClosetRepository {
-  private queue: Promise<unknown> = Promise.resolve();
-
   constructor(
     private readonly db: SqlDatabase,
     private readonly onCorruptRow: (id: string) => void = (id) =>
       console.warn(`Skipping unreadable closet item ${id}`),
+    /** Share one queue with every other repository on the same connection (`SqlSerialQueue`). */
+    private readonly queue: SqlSerialQueue = new SqlSerialQueue(),
   ) {}
 
   /**
@@ -156,9 +158,7 @@ export class SqliteClosetRepository implements ClosetRepository {
    * `this.db` and the private helpers only.
    */
   private serialize<T>(task: () => Promise<T>): Promise<T> {
-    const result = this.queue.then(task, task);
-    this.queue = result.catch(() => undefined);
-    return result;
+    return this.queue.run(task);
   }
 
   /**
@@ -166,17 +166,7 @@ export class SqliteClosetRepository implements ClosetRepository {
    * Same rule as `serialize`: `work` must not call public methods (deadlock).
    */
   private transaction<T>(work: () => Promise<T>): Promise<T> {
-    return this.serialize(async () => {
-      await this.db.execAsync('BEGIN;');
-      try {
-        const value = await work();
-        await this.db.execAsync('COMMIT;');
-        return value;
-      } catch (error) {
-        await this.db.execAsync('ROLLBACK;').catch(() => undefined);
-        throw error;
-      }
-    });
+    return this.queue.transaction(this.db, work);
   }
 
   private async tagsByItem(itemId?: string): Promise<Map<string, string[]>> {

@@ -17,17 +17,25 @@ import type { ImageStore } from '@/data/image-store';
 import { ImportSessions } from '@/data/import-session';
 import type { TagImageSource } from '@/data/item-suggestions';
 import { LocalGarmentIsolator } from '@/data/local-garment-isolator';
+import { LookbookStore } from '@/data/lookbook-store';
 import { SqliteMaintenanceLog } from '@/data/maintenance-log';
 import { startPhotoMetadataBackfill } from '@/data/photo-metadata-backfill';
 import type { MultiPhotoPicker, PhotoPicker } from '@/data/photo-picker';
 import { SqlitePhotoReferences } from '@/data/photo-references';
+import type { OutfitRepository } from '@/data/outfit-repository';
+import { SqlSerialQueue } from '@/data/sql-serial-queue';
 import { SqliteClosetRepository } from '@/data/sqlite-closet-repository';
+import { SqliteOutfitRepository } from '@/data/sqlite-outfit-repository';
 import type { TemporaryFiles } from '@/data/temporary-files';
 
 import { createTaggingServices } from './tagging-services';
 
 export interface ClosetServices {
   repository: ClosetRepository;
+  /** Saved looks (Gate 3 slice 4), in the same database, sharing the closet repository's queue. */
+  outfits: OutfitRepository;
+  /** Saved looks as Results and the Looks tab show them (one per provider). */
+  lookbook: LookbookStore;
   imageStore: ImageStore;
   imageProcessor: ImageProcessor;
   photoPicker: PhotoPicker;
@@ -65,8 +73,13 @@ export function ClosetServicesProvider({ children }: { children: ReactNode }) {
   const services = useMemo<ClosetServices>(() => {
     const imageProcessor = new ExpoImageProcessor();
     const photoPicker = new ExpoPhotoPicker();
+    // One queue for every repository on this connection, so their transactions never overlap.
+    const queue = new SqlSerialQueue();
+    const outfits = new SqliteOutfitRepository(asSqlDatabase(db), queue);
     return {
-      repository: new SqliteClosetRepository(asSqlDatabase(db)),
+      repository: new SqliteClosetRepository(asSqlDatabase(db), undefined, queue),
+      outfits,
+      lookbook: new LookbookStore({ repository: outfits }),
       imageStore: new ExpoImageStore(),
       imageProcessor,
       photoPicker,

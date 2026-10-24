@@ -137,6 +137,40 @@ const ITEM_ATTRIBUTES_SQL = `CREATE TABLE item_attributes (
    );`;
 
 /**
+ * Migration 8: saved looks (the Lookbook, Gate 3 slice 4). One `outfits` row
+ * per look and one `outfit_items` row per piece, in look order.
+ *
+ * - `item_key` is the sorted set of item ids (`savedLookKey`); UNIQUE, so the
+ *   same set of pieces is saved once.
+ * - `rating` is 'up', 'down' or NULL (D6: stored only). `occasion` (D11) is
+ *   NULL or one of core's OCCASIONS; no CHECK, so the list can change without
+ *   a table rebuild (the repository validates). `model` is NULL when unknown.
+ * - `outfit_items.item_id` has NO foreign key to clothing_items: deleting a
+ *   closet item keeps the look and shows the piece as removed (D5).
+ *   `category` is the piece's category when saved, for laying out a removed
+ *   piece. Deleting a look cascades to its pieces.
+ */
+const OUTFITS_SQL = `CREATE TABLE outfits (
+     id TEXT PRIMARY KEY NOT NULL,
+     item_key TEXT NOT NULL UNIQUE,
+     request TEXT NOT NULL,
+     rationale TEXT NOT NULL,
+     rating TEXT CHECK (rating IN ('up', 'down')),
+     occasion TEXT,
+     created_at TEXT NOT NULL,
+     model TEXT
+   );
+   CREATE TABLE outfit_items (
+     outfit_id TEXT NOT NULL REFERENCES outfits(id) ON DELETE CASCADE,
+     item_id TEXT NOT NULL,
+     category TEXT NOT NULL,
+     position INTEGER NOT NULL,
+     PRIMARY KEY (outfit_id, position),
+     UNIQUE (outfit_id, item_id)
+   );
+   CREATE INDEX outfit_items_by_item ON outfit_items (item_id);`;
+
+/**
  * Ordered migrations. Index i upgrades user_version i to i + 1. Never edit a
  * shipped migration; append a new one.
  */
@@ -184,6 +218,8 @@ export const CLOSET_MIGRATIONS: readonly ClosetMigration[] = [
   `ALTER TABLE clothing_items ADD COLUMN name TEXT;`,
   // 7: item attributes (Gate 2). See ITEM_ATTRIBUTES_SQL.
   ITEM_ATTRIBUTES_SQL,
+  // 8: saved looks (Gate 3). See OUTFITS_SQL.
+  OUTFITS_SQL,
 ];
 
 export const CLOSET_SCHEMA_VERSION = CLOSET_MIGRATIONS.length;

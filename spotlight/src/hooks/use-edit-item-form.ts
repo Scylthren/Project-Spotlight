@@ -19,7 +19,7 @@ import { useSingleFlight } from './use-single-flight';
  * back) runs to completion; the picked photos are deleted only after it settles.
  */
 export function useEditItemForm(item: ClothingItem) {
-  const { repository, imageStore, imageProcessor, temporaryFiles } = useClosetServices();
+  const { repository, imageStore, imageProcessor, temporaryFiles, outfits } = useClosetServices();
   const fields = useItemFormFields(itemToFormValues(item), draftsFromPhotos(item.photos));
   const savedTags = useSavedTags();
   const submit = useSingleFlight();
@@ -47,7 +47,7 @@ export function useEditItemForm(item: ClothingItem) {
   async function remove(confirm: () => Promise<boolean>): Promise<boolean> {
     const deleted = await submit.run(() => fields.whileSaving(async () => {
       if (!(await confirm())) return false;
-      const result = await deleteClosetItem(item.id, { repository, imageStore });
+      const result = await deleteClosetItem(item.id, { repository, imageStore, outfits });
       if (!result.ok) fields.setErrors(result.errors);
       return result.ok;
     }));

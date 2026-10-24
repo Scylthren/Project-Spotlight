@@ -1,6 +1,6 @@
 import type { DevTokenStore } from '@/data/dev-token-store';
 
-import { readGenerateOutfitsError, validateGenerateOutfitsResponse } from './generate-outfits-contract';
+import { readGenerateOutfitsError, readGenerateOutfitsUsage, validateGenerateOutfitsResponse } from './generate-outfits-contract';
 import {
   prepareOutfitRequest,
   type OutfitFailure,
@@ -122,12 +122,20 @@ export class RemoteOutfitGenerator implements OutfitGenerator {
         // Only the items left out here (invalid or over the cap). The function's prefilter count
         // (`valid.value.omittedItems`) is not shown: choosing among the closet is normal (human, 2026-10-24).
         omittedItems,
+        // The model behind the answer, kept with saved looks (absent from the stub).
+        ...modelOf(body),
       };
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
     }
   }
+}
+
+/** `{ model }` from the reply's usage, or nothing when it has none (the stub) or it is malformed. */
+function modelOf(body: unknown): { model?: string } {
+  const usage = readGenerateOutfitsUsage(body);
+  return usage ? { model: usage.model } : {};
 }
 
 function fail(failure: Exclude<OutfitFailure, 'not-enough-items'>): OutfitOutcome {

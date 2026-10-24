@@ -70,6 +70,8 @@ export type OutfitOutcome =
       droppedOutfits: number;
       /** Closet items not sent (see `toClosetSummaries`). */
       omittedItems: number;
+      /** The model that answered (from the response's `usage`), when known; kept with saved looks. */
+      model?: string;
     }
   | { ok: false; failure: 'not-enough-items'; missing: OutfitBasePiece[] }
   | { ok: false; failure: Exclude<OutfitFailure, 'not-enough-items'> };

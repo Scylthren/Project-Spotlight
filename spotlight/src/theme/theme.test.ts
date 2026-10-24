@@ -188,3 +188,17 @@ describe('Gate 3 slice 2 sizes and type', () => {
     expect(typography.recentRequest).toMatchObject({ fontFamily: fonts.serif.regular, fontSize: 16 });
   });
 });
+
+describe('Gate 3 slice 4 sizes and type (Lookbook)', () => {
+  const { sizes } = themes.light;
+
+  it('the request uses the italic serif at the mockup size', () => {
+    expect(typography.lookbookRequest).toMatchObject({ fontFamily: fonts.serif.italic, fontSize: 17 });
+  });
+
+  it('row photos are 4:5 like closet tiles and big enough to tap', () => {
+    expect(sizes.lookbookPhotoHeight / sizes.lookbookPhotoWidth).toBeCloseTo(5 / 4);
+    expect(sizes.lookbookPhotoWidth).toBeGreaterThanOrEqual(sizes.minTouchTarget);
+    expect(sizes.ratingIconSize).toBeLessThan(sizes.minTouchTarget);
+  });
+});

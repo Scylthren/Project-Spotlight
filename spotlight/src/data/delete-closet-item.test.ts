@@ -1,7 +1,10 @@
+import { makeSavedLook, piece } from '@/core/testing/saved-look-fixtures';
+
 import { CLOSET_ITEM_MESSAGES } from './add-closet-item';
 import { makeItem, makePhoto } from './closet-repository.contract';
 import { ClosetRepositoryError, type ClosetRepository } from './closet-repository';
-import { deleteClosetItem } from './delete-closet-item';
+import { deleteClosetItem, removeEmptyLooks } from './delete-closet-item';
+import { InMemoryOutfitRepository } from './in-memory-outfit-repository';
 import { InMemoryClosetRepository } from './in-memory-closet-repository';
 import { MemoryImageStore } from './memory-image-store';
 
@@ -152,5 +155,37 @@ describe('deleteClosetItem', () => {
       ok: false,
       errors: [CLOSET_ITEM_MESSAGES.notFound],
     });
+  });
+});
+
+describe('deleteClosetItem and saved looks (D5)', () => {
+  it('keeps a look that still has a piece, and deletes a look with none left', async () => {
+    const { deps } = setup();
+    const withOther = makeSavedLook({ id: 'with-other', pieces: [piece('item-1', 'top'), piece('other', 'top')] });
+    const onlyThis = makeSavedLook({ id: 'only-this', pieces: [piece('item-1', 'top')] });
+    const outfits = new InMemoryOutfitRepository([withOther, onlyThis]);
+
+    expect(await deleteClosetItem('item-1', { ...deps, outfits })).toEqual({ ok: true });
+    expect(await outfits.list()).toEqual([withOther]);
+  });
+
+  it('a failing look cleanup never fails the item delete', async () => {
+    const { deps, repository } = setup();
+    const outfits = new InMemoryOutfitRepository();
+    outfits.removeLooksWithNoPiecesIn = () => Promise.reject(new Error('disk full'));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      expect(await deleteClosetItem('item-1', { ...deps, outfits })).toEqual({ ok: true });
+      expect(await repository.get('item-1')).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('removeEmptyLooks returns the deleted ids', async () => {
+    const { repository } = setup();
+    const outfits = new InMemoryOutfitRepository([makeSavedLook({ pieces: [piece('gone', 'dress')] })]);
+    expect(await removeEmptyLooks(repository, outfits)).toEqual(['look-1']);
   });
 });

@@ -37,6 +37,8 @@ export interface StyleLook {
   readonly restyling: boolean;
   /** The line after a restyle that changed nothing (no other looks, or a failure), else null. */
   readonly restyleNotice: string | null;
+  /** The model that suggested it ("stub" for canned picks), null when unknown; kept when the look is saved. */
+  readonly model: string | null;
 }
 
 export type StyleStatus =
@@ -76,6 +78,7 @@ interface LookRecord {
   categories: Category[];
   restyling: boolean;
   restyleNotice: string | null;
+  model: string | null;
 }
 
 export class StyleSession {
@@ -179,7 +182,7 @@ export class StyleSession {
       this.patchLook(key, { restyling: false, restyleNotice: NO_OTHER_LOOKS_TEXT });
       return;
     }
-    const replacement = this.record(fresh);
+    const replacement = this.record(fresh, modelOf(outcome));
     this.shown.push([...fresh.itemIds]);
     this.looks = this.looks.map((l) => (l.key === key ? replacement : l));
     this.publishLooks();
@@ -223,7 +226,7 @@ export class StyleSession {
     }
     const outfits = outcome.outfits.filter((outfit) => this.lookFits(outfit));
     if (outfits.length === 0) return { kind: 'empty' };
-    this.looks = outfits.map((outfit) => this.record(outfit));
+    this.looks = outfits.map((outfit) => this.record(outfit, modelOf(outcome)));
     for (const outfit of outfits) this.shown.push([...outfit.itemIds]);
     this.omittedItems = outcome.omittedItems;
     return { kind: 'ready', looks: [], omittedItems: outcome.omittedItems };
@@ -234,7 +237,7 @@ export class StyleSession {
     return outfit.itemIds.length > 0 && outfit.itemIds.every((id) => this.closet.has(id));
   }
 
-  private record(outfit: GeneratedOutfit): LookRecord {
+  private record(outfit: GeneratedOutfit, model: string | null): LookRecord {
     return {
       key: `look-${++this.nextKey}`,
       itemIds: [...outfit.itemIds],
@@ -242,6 +245,7 @@ export class StyleSession {
       categories: outfit.itemIds.map((id) => this.closet.get(id)!.category),
       restyling: false,
       restyleNotice: null,
+      model,
     };
   }
 
@@ -287,6 +291,7 @@ export class StyleSession {
         pieces,
         restyling: record.restyling,
         restyleNotice: record.restyleNotice,
+        model: record.model,
       });
     }
     this.looks = kept;
@@ -301,6 +306,11 @@ export class StyleSession {
   private emit(): void {
     for (const listener of [...this.listeners]) listener();
   }
+}
+
+/** Which model a successful outcome came from: its `model`, "stub" for canned picks, else null. */
+function modelOf(outcome: Extract<OutfitOutcome, { ok: true }>): string | null {
+  return outcome.model ?? (outcome.stub ? 'stub' : null);
 }
 
 /**

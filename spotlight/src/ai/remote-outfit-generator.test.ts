@@ -83,7 +83,7 @@ describe('RemoteOutfitGenerator', () => {
     });
     const { generator } = setup({ respond });
     const outcome = await generator.generate({ request: 'again', items: closet, avoid: [['s', 'b', 't']] });
-    expect(outcome).toEqual(ok([], { stub: false }));
+    expect(outcome).toEqual(ok([], { stub: false, model: 'claude-haiku-5-5' }));
   });
 
   it('POSTs the contract request (text summaries only) with the bearer token and returns the looks', async () => {
@@ -136,7 +136,7 @@ describe('RemoteOutfitGenerator', () => {
           { itemIds: ['t', 'b', 's'], rationale: 'Look one.' },
           { itemIds: ['d', 's'], rationale: 'Look two.' },
         ],
-        { stub: false },
+        { stub: false, model: 'claude-haiku-5-5' },
       ),
     );
     expect(await generator.generate({ request: 'emo vibes', items: [closetItem('t', 'top'), closetItem('s', 'shoes')] })).toEqual({
@@ -166,6 +166,15 @@ describe('RemoteOutfitGenerator', () => {
     const { generator } = setup({ respond: mockFetch(async () => jsonResponse(200, reply)) });
     const outcome = await generator.generate({ request: 'x', items: [...closet, closetItem('bad id', 'top')] });
     expect(outcome).toMatchObject({ ok: true, omittedItems: 1 });
+  });
+
+  it('passes on the model named in the reply usage (kept with saved looks), and none for the stub', async () => {
+    const usage = { model: 'claude-haiku-5-5', attempts: 1, inputTokens: 3000, outputTokens: 200 };
+    const reply = { apiVersion: 1, stub: false, outfits: [{ itemIds: ['t', 'b', 's'], rationale: 'Fine.' }], usage };
+    const { generator } = setup({ respond: mockFetch(async () => jsonResponse(200, reply)) });
+    expect(await generator.generate({ request: 'x', items: closet })).toMatchObject({ ok: true, model: 'claude-haiku-5-5' });
+    const stub = await setup().generator.generate({ request: 'x', items: closet });
+    expect(stub.ok && 'model' in stub).toBe(false);
   });
 
   it('reports items it could not send', async () => {

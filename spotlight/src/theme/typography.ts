@@ -96,6 +96,8 @@ export const typography = {
   requestTitle: variant(fonts.serif.italic, 24, serifLine(24)),
   /** The line naming a look's pieces (Results.dc.html): 18px serif. */
   lookPieces: variant(fonts.serif.regular, 18, serifLine(18)),
+  /** A saved look's request in the Lookbook (Lookbook.dc.html): 17px italic. */
+  lookbookRequest: variant(fonts.serif.italic, 17, serifLine(17)),
   /** A recent request on the Style screen (StylePrompt.dc.html): 16px serif. */
   recentRequest: variant(fonts.serif.regular, 16, serifLine(16)),
   /** Smaller screen titles (Today.dc.html "Look of the day"): 40px, -1px. */

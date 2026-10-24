@@ -12,7 +12,8 @@ import { tabBarAppearance } from '@/theme/navigation';
  * Icons: SF Symbols on iOS, Material Symbols on Android. Style uses a wand
  * with sparkles (the mockup's icon). Add uses a filled
  * circle with a plus, the nearest native match to the mockup's round ink
- * Scan button.
+ * Scan button. Looks (the Lookbook, Gate 3 D1) uses a bookmark, the
+ * mockup's icon. Five tabs is the iOS maximum before "More".
  *
  * Content insets: automatic on Android, manual on iOS (`useBottomTabInset`);
  * see `core/tab-bar-insets.ts`. Set on every trigger.
@@ -48,6 +49,12 @@ export default function AppTabs() {
         disableAutomaticContentInsets={DISABLE_AUTOMATIC_INSETS}>
         <NativeTabs.Trigger.Label>ADD</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="plus.circle.fill" md="add_circle" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="looks" accessibilityLabel="Looks"
+        disableAutomaticContentInsets={DISABLE_AUTOMATIC_INSETS}>
+        <NativeTabs.Trigger.Label>LOOKS</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="bookmark" md="bookmark" />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="me" accessibilityLabel="Me"
