@@ -24,7 +24,7 @@ function look(key: string, ids: [string, string]): StyleLook {
 
 const LOOK_1 = look('k1', ['top-1', 'bottom-1']);
 const LOOK_2 = look('k2', ['top-2', 'bottom-2']);
-const SNAPSHOT: StyleSnapshot = { request: 'Emo vibes', closed: false, status: { kind: 'ready', looks: [LOOK_1, LOOK_2], omittedItems: 0 } };
+const SNAPSHOT: StyleSnapshot = { request: 'Emo vibes', matchWeather: false, weather: null, closed: false, status: { kind: 'ready', looks: [LOOK_1, LOOK_2], omittedItems: 0 } };
 
 /** Results wired to a real LookbookStore over the in-memory repository, as the screen does it. */
 function Harness({ store }: { store: LookbookStore }) {
@@ -39,6 +39,7 @@ function Harness({ store }: { store: LookbookStore }) {
       onCancel={jest.fn()}
       onRetry={jest.fn()}
       onAddPiece={jest.fn()}
+      onOpenMe={jest.fn()}
       onRestyle={jest.fn()}
       onSave={(l) => void store.save(styleLookToSave(SNAPSHOT.request, l))}
       onRate={(l, rating) => void store.rateUnsavedOrSaved(styleLookToSave(SNAPSHOT.request, l), rating)}

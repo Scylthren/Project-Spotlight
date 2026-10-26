@@ -4,6 +4,7 @@ import type { ClothingItem } from '@/core';
 
 import { NO_OTHER_LOOKS_TEXT, restyleFailureText } from './style-messages';
 import { StyleSession, StyleSessions, type StyleSnapshot, type StyleStatus } from './style-session';
+import type { WeatherResolution } from './today-weather';
 
 const CLOSET = [
   closetItem('top-1', 'top', { name: 'Band hoodie' }),
@@ -79,7 +80,7 @@ function ready(session: StyleSession) {
 describe('StyleSession: the request', () => {
   it('starts idle with the request text', () => {
     const { session } = setup();
-    expect(session.getSnapshot()).toEqual({ request: 'emo vibes', status: { kind: 'idle' }, closed: false });
+    expect(session.getSnapshot()).toEqual({ request: 'emo vibes', matchWeather: false, weather: null, status: { kind: 'idle' }, closed: false });
   });
 
   it('goes loading at once, then ready with the looks and their pieces from the closet', async () => {
@@ -517,5 +518,101 @@ describe('StyleSessions', () => {
     second.close();
     const third = sessions.begin('c', d);
     expect(third).not.toBeNull();
+  });
+});
+
+describe('StyleSession: match today\'s weather (slice 5a)', () => {
+  const RAIN = { highC: 12, lowC: 5, rainChance: 80, windKph: 25, conditions: 'rain', intensity: 'heavy' } as const;
+
+  function weatherSetup(resolution: WeatherResolution | (() => Promise<WeatherResolution>), request = '') {
+    const generator = new FakeOutfitGenerator();
+    generator.fallback = looks(LOOK_A, LOOK_B);
+    const resolveWeather = jest.fn(async (_signal: AbortSignal) => (typeof resolution === 'function' ? resolution() : resolution));
+    const session = new StyleSession(request, { generator, loadCloset: async () => [...CLOSET], resolveWeather }, { matchWeather: true });
+    return { generator, resolveWeather, session };
+  }
+
+  it('finds the weather first, then asks in mode weather with it (text optional), and keeps it for restyles', async () => {
+    let answer!: (r: WeatherResolution) => void;
+    const s = weatherSetup(() => new Promise((resolve) => (answer = resolve)));
+    void s.session.start();
+    expect(status(s.session)).toEqual({ kind: 'loading', phase: 'weather' });
+    await flush();
+    answer({ kind: 'ready', weather: RAIN, placeName: 'Leeds, United Kingdom', source: 'city' });
+    await flush();
+    expect(s.session.getSnapshot().weather).toEqual({ kind: 'used', weather: RAIN, placeName: 'Leeds, United Kingdom' });
+    expect(s.generator.inputs[0].input).toEqual({ request: '', items: CLOSET, mode: 'weather', weather: RAIN });
+    expect(ready(s.session).looks).toHaveLength(2);
+
+    s.generator.queue.push(looks(LOOK_C));
+    await s.session.restyle(ready(s.session).looks[0].key);
+    expect(s.generator.inputs[1].input).toMatchObject({ request: '', mode: 'weather', weather: RAIN });
+    expect(s.resolveWeather).toHaveBeenCalledTimes(1);
+  });
+
+  it('goes on without weather after a fetch failure, saying it was skipped (request, or random with no text)', async () => {
+    const empty = weatherSetup({ kind: 'failed', failure: 'offline' });
+    await empty.session.start();
+    expect(empty.session.getSnapshot().weather).toEqual({ kind: 'skipped', failure: 'offline' });
+    expect(empty.generator.inputs[0].input).toEqual({ request: '', items: CLOSET, mode: 'random' });
+    expect(status(empty.session).kind).toBe('ready');
+
+    const worded = weatherSetup({ kind: 'failed', failure: 'rate-limited' }, 'office');
+    await worded.session.start();
+    expect(worded.generator.inputs[0].input).toEqual({ request: 'office', items: CLOSET, mode: 'request' });
+  });
+
+  it.each<[WeatherResolution, object]>([
+    [{ kind: 'off' }, { kind: 'failed', failure: 'weather-off', missing: [] }],
+    [{ kind: 'no-location', problem: 'not-allowed' }, { kind: 'failed', failure: 'no-location', missing: [], location: 'not-allowed' }],
+    [{ kind: 'place-not-found', city: 'Qwx' }, { kind: 'failed', failure: 'place-not-found', missing: [], city: 'Qwx' }],
+  ])('stops before asking for looks when %j', async (resolution, expected) => {
+    const s = weatherSetup(resolution);
+    await s.session.start();
+    expect(status(s.session)).toEqual(expected);
+    expect(s.generator.inputs).toHaveLength(0);
+  });
+
+  it('Try again resolves the weather again (settings may have changed)', async () => {
+    const s = weatherSetup({ kind: 'off' });
+    await s.session.start();
+    s.resolveWeather.mockResolvedValueOnce({ kind: 'ready', weather: RAIN, placeName: null, source: 'location' });
+    await s.session.start();
+    expect(s.resolveWeather).toHaveBeenCalledTimes(2);
+    expect(status(s.session).kind).toBe('ready');
+  });
+
+  it('Cancel while checking the weather aborts it and asks for no looks', async () => {
+    const s = weatherSetup(() => new Promise(() => undefined));
+    void s.session.start();
+    await flush();
+    const signal = s.resolveWeather.mock.calls[0][0];
+    s.session.cancel();
+    expect(signal.aborted).toBe(true);
+    expect(status(s.session)).toEqual({ kind: 'cancelled' });
+    await flush();
+    expect(s.generator.inputs).toHaveLength(0);
+  });
+
+  it('without a weather resolver it goes on without weather; a plain request never resolves weather', async () => {
+    const generator = new FakeOutfitGenerator();
+    generator.fallback = looks(LOOK_A);
+    const session = new StyleSession('x', { generator, loadCloset: async () => [...CLOSET] }, { matchWeather: true });
+    await session.start();
+    expect(session.getSnapshot().weather).toEqual({ kind: 'skipped', failure: 'not-configured' });
+
+    const plainResolve = jest.fn();
+    const plain = new StyleSession('x', { generator, loadCloset: async () => [...CLOSET], resolveWeather: plainResolve });
+    await plain.start();
+    expect(plainResolve).not.toHaveBeenCalled();
+    expect(plain.getSnapshot().weather).toBeNull();
+  });
+
+  it('StyleSessions.begin passes matchWeather on', () => {
+    const sessions = new StyleSessions();
+    const generator = new FakeOutfitGenerator();
+    const session = sessions.begin('', { generator, loadCloset: async () => [], resolveWeather: async () => ({ kind: 'off' }) }, { matchWeather: true });
+    expect(session?.getSnapshot().matchWeather).toBe(true);
+    session?.close();
   });
 });

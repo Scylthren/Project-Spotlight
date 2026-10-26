@@ -36,6 +36,7 @@ export default function ResultsScreen() {
         }}
         onRetry={() => void session?.start()}
         onAddPiece={() => router.navigate('/add')}
+        onOpenMe={() => router.navigate('/me')}
         onRestyle={(key) => void session?.restyle(key)}
         lookbook={saved}
         onSave={(look) => void lookbook.save(styleLookToSave(request, look))}

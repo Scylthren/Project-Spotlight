@@ -68,6 +68,8 @@ export const sizes = {
   lookbookPhotoHeight: 90,
   /** The thumbs up/down glyph. */
   ratingIconSize: 20,
+  /** A settings row with a switch (Profile.dc.html: min-height 50px; StylePrompt.dc.html's weather row). */
+  switchRowMinHeight: 50,
 } as const;
 
 /** Opacity of disabled controls (exempt from contrast minimums, WCAG 1.4.3). */

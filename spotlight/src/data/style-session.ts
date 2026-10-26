@@ -19,12 +19,32 @@
  * it, so an edited piece shows its new name and a deleted one reads
  * "Removed from closet"; a look whose top, bottom and dress are all gone
  * drops out (D5).
+ *
+ * "Match today's weather" (Gate 3 slice 5a, `matchWeather`): each start
+ * first resolves today's weather (`resolveWeather`, status `loading` with
+ * phase `weather`). With weather, looks are asked for in mode `weather`
+ * (the text optional) and every restyle reuses the same weather. Weather
+ * off, no location and an unknown home city stop there (`failed` with a
+ * weather failure; the screen points to the Me tab). Any other weather
+ * failure (offline, rate limited, ...) goes on without weather (mode
+ * `request`, or `random` when the text is empty) and `weather` says it was
+ * skipped.
  */
-import { outfitKey, OUTFIT_MAX_AVOID, type GeneratedOutfit, type OutfitBasePiece } from '@/ai/generate-outfits-contract';
-import type { OutfitGenerator, OutfitOutcome } from '@/ai/outfit-generator';
+import {
+  outfitKey,
+  OUTFIT_MAX_AVOID,
+  type GeneratedOutfit,
+  type OutfitBasePiece,
+  type OutfitMode,
+  type WeatherSummary,
+} from '@/ai/generate-outfits-contract';
+import type { OutfitGenerator, OutfitOutcome, OutfitRequestInput } from '@/ai/outfit-generator';
+import type { WeatherFailure } from '@/ai/weather-client';
 import { lookStillStands, type Category, type ClothingItem, type LookPiece } from '@/core';
 
+import type { LocationProblem } from './location-provider';
 import { NO_OTHER_LOOKS_TEXT, restyleFailureText, type StyleFailure } from './style-messages';
+import type { WeatherResolution } from './today-weather';
 
 export interface StyleLook {
   /** Stable while the look is shown; a restyled look gets a new key. */
@@ -43,7 +63,8 @@ export interface StyleLook {
 
 export type StyleStatus =
   | { readonly kind: 'idle' }
-  | { readonly kind: 'loading' }
+  /** `phase: 'weather'` while today's weather is being found (match-weather requests); absent while looks are asked for. */
+  | { readonly kind: 'loading'; readonly phase?: 'weather' }
   | {
       readonly kind: 'ready';
       /** Never empty when the answer arrives; may become empty when deleted pieces drop every look. */
@@ -53,12 +74,28 @@ export type StyleStatus =
     }
   /** The answer had no looks. */
   | { readonly kind: 'empty' }
-  | { readonly kind: 'failed'; readonly failure: StyleFailure; readonly missing: readonly OutfitBasePiece[] }
+  | {
+      readonly kind: 'failed';
+      readonly failure: StyleFailure;
+      readonly missing: readonly OutfitBasePiece[];
+      /** With `no-location`: why there is no position. With `place-not-found`: the home city. */
+      readonly location?: LocationProblem;
+      readonly city?: string;
+    }
   | { readonly kind: 'cancelled' };
 
+/** What happened to the weather of a match-weather request. */
+export type SessionWeather =
+  | { readonly kind: 'used'; readonly weather: WeatherSummary; readonly placeName: string | null }
+  | { readonly kind: 'skipped'; readonly failure: WeatherFailure };
+
 export interface StyleSnapshot {
-  /** The request text as sent. */
+  /** The request text as sent (may be empty for a match-weather request). */
   readonly request: string;
+  /** "Match today's weather" was on. */
+  readonly matchWeather: boolean;
+  /** Null until resolved, and always for a plain request. */
+  readonly weather: SessionWeather | null;
   readonly status: StyleStatus;
   /** True after `close`. */
   readonly closed: boolean;
@@ -68,6 +105,13 @@ export interface StyleSessionDeps {
   generator: OutfitGenerator;
   /** The closet as it is now (the repository's `list`). */
   loadCloset: () => Promise<ClothingItem[]>;
+  /** Today's weather (`TodayWeather.resolve`); needed for match-weather requests (missing counts as offline). */
+  resolveWeather?: (signal: AbortSignal) => Promise<WeatherResolution>;
+}
+
+export interface StyleRequestOptions {
+  /** "Match today's weather". */
+  matchWeather?: boolean;
 }
 
 /** What each look was built from: ids, rationale and the category of each piece when it arrived. */
@@ -96,8 +140,9 @@ export class StyleSession {
   constructor(
     request: string,
     private readonly deps: StyleSessionDeps,
+    options: StyleRequestOptions = {},
   ) {
-    this.snapshot = { request, status: { kind: 'idle' }, closed: false };
+    this.snapshot = { request, matchWeather: options.matchWeather === true, weather: null, status: { kind: 'idle' }, closed: false };
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -121,6 +166,16 @@ export class StyleSession {
     if (closed || status.kind === 'loading' || status.kind === 'ready') return;
     const controller = new AbortController();
     this.mainRequest = controller;
+    if (this.snapshot.matchWeather) {
+      this.snapshot = { ...this.snapshot, weather: null };
+      this.setStatus({ kind: 'loading', phase: 'weather' });
+      const blocked = await this.findWeather(controller);
+      if (controller.signal.aborted) return;
+      if (blocked) {
+        this.finishMain(controller, blocked);
+        return;
+      }
+    }
     this.setStatus({ kind: 'loading' });
 
     const items = await this.readCloset();
@@ -129,7 +184,7 @@ export class StyleSession {
       this.finishMain(controller, { kind: 'failed', failure: 'closet-unavailable', missing: [] });
       return;
     }
-    const outcome = await this.deps.generator.generate({ request: this.snapshot.request, items }, { signal: controller.signal });
+    const outcome = await this.deps.generator.generate(this.requestFor(items), { signal: controller.signal });
     if (controller.signal.aborted) return;
     this.finishMain(controller, this.statusFor(outcome));
   }
@@ -165,7 +220,7 @@ export class StyleSession {
     const items = (await this.readCloset()) ?? [...this.closet.values()];
     if (controller.signal.aborted) return;
     const outcome = await this.deps.generator.generate(
-      { request: this.snapshot.request, items, avoid: this.avoidList() },
+      { ...this.requestFor(items), avoid: this.avoidList() },
       { signal: controller.signal },
     );
     if (controller.signal.aborted || this.restyles.get(key) !== controller) return;
@@ -197,6 +252,50 @@ export class StyleSession {
   }
 
   // --- Internals ---
+
+  /**
+   * Resolves today's weather into `snapshot.weather`. Returns the failed
+   * status that stops the request (weather off, no location, unknown city),
+   * or null to go on (with the weather, or without it after a failure).
+   */
+  private async findWeather(controller: AbortController): Promise<StyleStatus | null> {
+    let resolution: WeatherResolution;
+    try {
+      resolution = this.deps.resolveWeather ? await this.deps.resolveWeather(controller.signal) : { kind: 'failed', failure: 'not-configured' };
+    } catch {
+      resolution = { kind: 'failed', failure: 'server' };
+    }
+    if (controller.signal.aborted) return null;
+    switch (resolution.kind) {
+      case 'ready':
+        this.snapshot = { ...this.snapshot, weather: { kind: 'used', weather: resolution.weather, placeName: resolution.placeName } };
+        return null;
+      case 'failed':
+        this.snapshot = { ...this.snapshot, weather: { kind: 'skipped', failure: resolution.failure } };
+        return null;
+      case 'cancelled':
+        return { kind: 'cancelled' };
+      case 'off':
+        return { kind: 'failed', failure: 'weather-off', missing: [] };
+      case 'no-location':
+        return { kind: 'failed', failure: 'no-location', missing: [], location: resolution.problem };
+      case 'place-not-found':
+        return { kind: 'failed', failure: 'place-not-found', missing: [], city: resolution.city };
+    }
+  }
+
+  /**
+   * The generator input for this request: the text alone for a plain
+   * request; with the weather in mode `weather`; after a skipped weather,
+   * mode `request` (or `random` when there is no text).
+   */
+  private requestFor(items: ClothingItem[]): OutfitRequestInput {
+    const { request, matchWeather, weather } = this.snapshot;
+    if (!matchWeather) return { request, items };
+    if (weather?.kind === 'used') return { request, items, mode: 'weather', weather: weather.weather };
+    const mode: OutfitMode = request.length > 0 ? 'request' : 'random';
+    return { request, items, mode };
+  }
 
   /** Loads the closet into `this.closet`; null when it could not be read. */
   private async readCloset(): Promise<ClothingItem[] | null> {
@@ -329,10 +428,10 @@ export class StyleSessions {
    * nothing) while the current request is still loading, so a double tap on
    * "Get looks" sends one request.
    */
-  begin(request: string, deps: StyleSessionDeps): StyleSession | null {
+  begin(request: string, deps: StyleSessionDeps, options: StyleRequestOptions = {}): StyleSession | null {
     if (this.session && !this.session.getSnapshot().closed && this.session.loading) return null;
     this.session?.close();
-    const session = new StyleSession(request, deps);
+    const session = new StyleSession(request, deps, options);
     this.session = session;
     void session.start();
     return session;

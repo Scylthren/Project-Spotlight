@@ -8,15 +8,18 @@ import { OUTFIT_FAILURES } from '@/ai/outfit-generator';
 import { describeStyleFailure, STYLE_DATA_NOTICE, type StyleFailure } from '@/data/style-messages';
 import type { LookbookSnapshot } from '@/data/lookbook-store';
 import type { StyleLook, StyleSnapshot, StyleStatus } from '@/data/style-session';
+import { MATCH_WEATHER_TEXT, WEATHER_RESULTS_TEXT } from '@/data/weather-messages';
 import { contrastRatio, themes } from '@/theme';
 
 import { LookCard, type LookSaveProps } from './look-card';
 import { ResultsView } from './results-view';
-import { StylePromptForm } from './style-prompt-form';
+import { StylePromptForm, type MatchWeatherRow } from './style-prompt-form';
 
 const resolve = (ref: string) => `file:///${ref}`;
 
-function Prompt({ recents = [], onSubmit = jest.fn() }: { recents?: string[]; onSubmit?: () => void }) {
+const WEATHER_OFF: MatchWeatherRow = { available: false, on: false, onChange: jest.fn(), onOpenMe: jest.fn() };
+
+function Prompt({ recents = [], onSubmit = jest.fn(), weather = WEATHER_OFF }: { recents?: string[]; onSubmit?: () => void; weather?: MatchWeatherRow }) {
   const [text, setText] = useState('');
   const tooLong = [...text.trim()].length > 200;
   return (
@@ -27,6 +30,7 @@ function Prompt({ recents = [], onSubmit = jest.fn() }: { recents?: string[]; on
       canSubmit={text.trim().length > 0 && !tooLong}
       onSubmit={onSubmit}
       recents={recents}
+      weather={weather}
     />
   );
 }
@@ -173,8 +177,8 @@ describe('LookCard (rendered)', () => {
   });
 });
 
-function snapshot(status: StyleStatus, request = 'Emo vibes'): StyleSnapshot {
-  return { request, status, closed: false };
+function snapshot(status: StyleStatus, request = 'Emo vibes', extra: Partial<StyleSnapshot> = {}): StyleSnapshot {
+  return { request, matchWeather: false, weather: null, status, closed: false, ...extra };
 }
 
 async function renderResults(snap: StyleSnapshot | null, lookbook: Pick<LookbookSnapshot, 'looks' | 'error'> = { looks: [], error: null }) {
@@ -183,6 +187,7 @@ async function renderResults(snap: StyleSnapshot | null, lookbook: Pick<Lookbook
     onCancel: jest.fn(),
     onRetry: jest.fn(),
     onAddPiece: jest.fn(),
+    onOpenMe: jest.fn(),
     onRestyle: jest.fn(),
     onSave: jest.fn(),
     onRate: jest.fn(),
@@ -191,6 +196,31 @@ async function renderResults(snap: StyleSnapshot | null, lookbook: Pick<Lookbook
   await render(<ResultsView snapshot={snap} resolveImageUri={resolve} lookbook={lookbook} bottomInset={0} {...handlers} />);
   return handlers;
 }
+
+describe('StylePromptForm: match today\'s weather (rendered)', () => {
+  it('with Use local weather off, says how to turn it on and links to Me', async () => {
+    const onOpenMe = jest.fn();
+    await render(<Prompt weather={{ ...WEATHER_OFF, onOpenMe }} />);
+    expect(screen.getByText(MATCH_WEATHER_TEXT.label)).toBeTruthy();
+    expect(screen.getByText(MATCH_WEATHER_TEXT.offNote)).toBeTruthy();
+    expect(screen.queryByRole('switch')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: MATCH_WEATHER_TEXT.openMe }));
+    expect(onOpenMe).toHaveBeenCalled();
+  });
+
+  it('with it on, the row is a switch; when on, the text is optional and the forecast notice shows', async () => {
+    const onChange = jest.fn();
+    const { rerender } = await render(<Prompt weather={{ available: true, on: false, onChange, onOpenMe: jest.fn() }} />);
+    await fireEvent.press(screen.getByRole('switch', { name: MATCH_WEATHER_TEXT.label }));
+    expect(onChange).toHaveBeenCalledWith(true);
+    expect(screen.queryByText(MATCH_WEATHER_TEXT.dataNotice)).toBeNull();
+    await rerender(<Prompt weather={{ available: true, on: true, onChange, onOpenMe: jest.fn() }} />);
+    expect(screen.getByRole('switch', { name: MATCH_WEATHER_TEXT.label }).props.accessibilityState).toMatchObject({ checked: true });
+    expect(screen.getByText(MATCH_WEATHER_TEXT.onHint)).toBeTruthy();
+    expect(screen.getByText(MATCH_WEATHER_TEXT.dataNotice)).toBeTruthy();
+    expect(screen.getByText(STYLE_DATA_NOTICE)).toBeTruthy();
+  });
+});
 
 describe('ResultsView (rendered)', () => {
   it('loading: the request as title, a spinner and Cancel', async () => {
@@ -254,14 +284,43 @@ describe('ResultsView (rendered)', () => {
     expect(screen.getByRole('button', { name: action })).toBeTruthy();
   });
 
-  const ACTION_BUTTONS = { retry: 'Try again', 'add-piece': 'Add a piece', 'edit-request': 'Change request', none: 'Back' } as const;
+  const ACTION_BUTTONS = { retry: 'Try again', 'add-piece': 'Add a piece', 'edit-request': 'Change request', 'open-me': 'Open Me', none: 'Back' } as const;
 
-  it.each([...OUTFIT_FAILURES, 'closet-unavailable'] as StyleFailure[])('every failure kind renders its words and button: %s', async (failure) => {
+  it.each([...OUTFIT_FAILURES, 'closet-unavailable', 'weather-off', 'no-location', 'place-not-found'] as StyleFailure[])('every failure kind renders its words and button: %s', async (failure) => {
     const view = describeStyleFailure(failure, ['top', 'bottom', 'dress']);
     await renderResults(snapshot({ kind: 'failed', failure, missing: ['top', 'bottom', 'dress'] }));
     expect(screen.getByText(view.title)).toBeTruthy();
     expect(screen.getByText(view.body)).toBeTruthy();
     expect(screen.getByRole('button', { name: ACTION_BUTTONS[view.action] })).toBeTruthy();
+  });
+
+  it('weather: the line with the place and the Open-Meteo credit above the looks', async () => {
+    const weather = { highC: 18, lowC: 9, rainChance: 60, windKph: 10, conditions: 'rain', intensity: 'light' } as const;
+    await renderResults(
+      snapshot({ kind: 'loading' }, '', { matchWeather: true, weather: { kind: 'used', weather, placeName: 'Leeds, United Kingdom' } }),
+    );
+    expect(screen.getByText(WEATHER_RESULTS_TEXT.title)).toBeTruthy();
+    expect(screen.getByText('Leeds, United Kingdom · 18° / 9° · Light rain · 60% rain')).toBeTruthy();
+    expect(screen.getByText('Weather data by Open-Meteo.com')).toBeTruthy();
+    expect(screen.getByLabelText(/^Weather for Leeds, United Kingdom, high 18 degrees Celsius/)).toBeTruthy();
+  });
+
+  it('weather: checking, then skipped says so plainly', async () => {
+    await renderResults(snapshot({ kind: 'loading', phase: 'weather' }, 'office', { matchWeather: true }));
+    expect(screen.getByText(WEATHER_RESULTS_TEXT.checking)).toBeTruthy();
+    expect(screen.getByText('“office”')).toBeTruthy();
+    await renderResults(snapshot({ kind: 'empty' }, 'office', { matchWeather: true, weather: { kind: 'skipped', failure: 'offline' } }));
+    expect(screen.getByText(WEATHER_RESULTS_TEXT.skipped)).toBeTruthy();
+    expect(screen.queryByText('Weather data by Open-Meteo.com')).toBeNull();
+  });
+
+  it('weather blocks: Open Me goes to the Me tab; the reason is in the body', async () => {
+    const h = await renderResults(snapshot({ kind: 'failed', failure: 'no-location', missing: [], location: 'services-off' }, '', { matchWeather: true }));
+    expect(screen.getByText('Location is off')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Open Me' }));
+    expect(h.onOpenMe).toHaveBeenCalled();
+    await renderResults(snapshot({ kind: 'failed', failure: 'place-not-found', missing: [], city: 'Qwx' }, '', { matchWeather: true }));
+    expect(screen.getByText('No place matches “Qwx”. Check your home city on the Me tab.')).toBeTruthy();
   });
 
   it('cancelled: offers Try again', async () => {

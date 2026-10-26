@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { ChipGroup } from '@/components/chip-group';
-import { Button } from '@/components/ui';
+import { Button, SwitchRow } from '@/components/ui';
 import { textFieldAccessibility } from '@/components/ui/text-field-style';
 import { normalizeRequestText } from '@/core';
 import { STYLE_DATA_NOTICE, STYLE_EXAMPLES, styleRequestCounter, quotedRequest } from '@/data/style-messages';
+import { MATCH_WEATHER_TEXT } from '@/data/weather-messages';
 import { useTheme } from '@/hooks/use-theme';
 
 import { stylePromptLook } from './style-look';
@@ -19,6 +20,17 @@ interface StylePromptFormProps {
   onSubmit: () => void;
   /** Newest first. Hidden when empty. */
   recents: readonly string[];
+  /** "Match today's weather" (slice 5a). */
+  weather: MatchWeatherRow;
+}
+
+export interface MatchWeatherRow {
+  /** "Use local weather" is on (Me tab). Off: the row says how to turn it on. */
+  available: boolean;
+  on: boolean;
+  onChange: (on: boolean) => void;
+  /** Opens the Me tab. */
+  onOpenMe: () => void;
 }
 
 const FIELD_LABEL = 'Describe the look';
@@ -26,10 +38,11 @@ const FIELD_LABEL = 'Describe the look';
 /**
  * The Style screen's body (StylePrompt.dc.html): title, the request box with
  * a counter, the "Try" chips and recent requests (both fill the box), the
- * accent "Get looks" button and the data notice. "Match today's weather" and
- * "Look of the day" come in slice 5.
+ * "Match today's weather" row (slice 5a; when on, the text is optional and
+ * the notice says the forecast is sent too), the accent "Get looks" button
+ * and the data notice. "Look of the day" comes in slice 5b.
  */
-export function StylePromptForm({ text, onChangeText, error, canSubmit, onSubmit, recents }: StylePromptFormProps) {
+export function StylePromptForm({ text, onChangeText, error, canSubmit, onSubmit, recents, weather }: StylePromptFormProps) {
   const theme = useTheme();
   const look = stylePromptLook(theme);
   const [focused, setFocused] = useState(false);
@@ -84,8 +97,24 @@ export function StylePromptForm({ text, onChangeText, error, canSubmit, onSubmit
       </View>
 
       <View style={look.section}>
+        {weather.available ? (
+          <>
+            <SwitchRow tone="ink" label={MATCH_WEATHER_TEXT.label} value={weather.on} onValueChange={weather.onChange} />
+            {weather.on ? <Text style={look.notice}>{MATCH_WEATHER_TEXT.onHint}</Text> : null}
+          </>
+        ) : (
+          <View style={look.weatherOff}>
+            <Text style={look.weatherOffLabel}>{MATCH_WEATHER_TEXT.label}</Text>
+            <Text style={look.notice}>{MATCH_WEATHER_TEXT.offNote}</Text>
+            <Button variant="text" label={MATCH_WEATHER_TEXT.openMe} onPress={weather.onOpenMe} />
+          </View>
+        )}
+      </View>
+
+      <View style={look.section}>
         <Button variant="accent" label="Get looks" onPress={onSubmit} disabled={!canSubmit} />
         <Text style={look.notice}>{STYLE_DATA_NOTICE}</Text>
+        {weather.available && weather.on ? <Text style={look.notice}>{MATCH_WEATHER_TEXT.dataNotice}</Text> : null}
       </View>
 
       {recents.length > 0 ? (

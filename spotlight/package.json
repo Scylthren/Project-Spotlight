@@ -19,6 +19,7 @@
     "expo-image-manipulator": "~58.0.15",
     "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.14",
+    "expo-location": "~58.0.19",
     "expo-router": "~58.0.25",
     "expo-secure-store": "~58.0.2",
     "expo-splash-screen": "~58.0.11",
@@ -57,7 +58,7 @@
     "lint:evals": "cd .. && eslint --no-warn-ignored --max-warnings 0 -c spotlight/eslint.config.js evals",
     "test": "jest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ../evals/tagging/tsconfig.json",
-    "check:functions": "cd ../supabase/functions && deno check tag-item/index.ts generate-outfits/index.ts && deno lint",
+    "check:functions": "cd ../supabase/functions && deno check tag-item/index.ts generate-outfits/index.ts weather/index.ts && deno lint",
     "eval:tagging": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-transform-types ../evals/tagging/cli.ts"
   },
   "private": true,

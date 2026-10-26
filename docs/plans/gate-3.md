@@ -79,6 +79,7 @@ The function drops invalid outfits (after one retry for the whole reply) and ret
 - **Edge cases:** permission denied, then allowed in Settings; location services off; no fix within a timeout (fall back to the last known or the city); Open-Meteo down or rate-limited (looks without weather, said plainly); midnight rollover while the screen is open; travel to another city (new rounded position, new weather); a closet that cannot form a look.
 
 ### Slice 6: Outfit eval
+*Reordered 2026-10-26 (human): runs right after slice 5a, before 5b, and also covers the prompt styling guide and the "Style preferences" setting (see ROADMAP decision "Outfit quality"). Baseline first on the current prompt, then the variants.*
 **Goal:** the validation criterion measured automatically and the "would wear" target measured by the human.
 - `evals/outfits/`: the sample closet per D7 (about 40 items as JSON, committed), 20 requests (agent drafts a mix: seasons, occasions, vibes, a few hard or impossible ones; the human edits), a runner that calls the deployed function, and a report.
 - Automatic: invalid outputs reaching the response (target 0), looks per request, tokens, cost per request, latency p50/p95.

@@ -47,6 +47,7 @@ Every look must follow all of these rules:
 
 How to choose:
 - Fit the request: occasion, mood, weather, season, colors or style it names. Use colors, seasons, formality and the user's own names and tags to judge each piece.
+- When today's weather is given, dress for it: pick layers and fabrics for the high and low temperatures, the wind and the rain chance; "intensity" (light, moderate or heavy) says how hard it drizzles, rains, snows or storms, so heavier weather calls for outerwear and sturdier shoes when the closet has them. Mention the weather briefly in each rationale.
 - The ${MAX_OUTFITS} looks must be clearly different from each other: no two with the same set of pieces, and vary the main pieces (top, bottom or dress) when the closet allows it.
 - If <avoid> lists looks, do not repeat any of them; suggest something different.
 - If the closet cannot really meet the request (for example a formal event and no formal pieces), still give the ${MAX_OUTFITS} closest looks and say briefly in each rationale what is missing.
@@ -77,6 +78,7 @@ function requestBlock(request: string, mode: OutfitMode, weather: WeatherSummary
         rainChancePercent: weather.rainChance,
         windKph: weather.windKph,
         conditions: weather.conditions,
+        ...(weather.intensity ? { intensity: weather.intensity } : {}),
       })}`,
     );
   }

@@ -3,12 +3,15 @@ import { createKvRecentRequestsStore, type RecentRequestsStore } from '@/data/re
 import { StyleSessions } from '@/data/style-session';
 
 import { styleOutfitGenerator } from './outfit-services';
+import { weatherServices, type WeatherServices } from './weather-services';
 
 export interface StyleServices {
   /** The request shown on Results, shared by the Style and Results screens (in memory only). */
   sessions: StyleSessions;
   generator: OutfitGenerator;
   recentRequests: RecentRequestsStore;
+  /** "Match today's weather" (slice 5a). */
+  weather: WeatherServices;
 }
 
 let services: StyleServices | null = null;
@@ -23,6 +26,7 @@ export function styleServices(): StyleServices {
     sessions: new StyleSessions(),
     generator: styleOutfitGenerator(),
     recentRequests: createKvRecentRequestsStore(),
+    weather: weatherServices(),
   };
   return services;
 }

@@ -74,22 +74,24 @@ export const WEATHER_TEMP_MAX_C = 70;
 export const WEATHER_WIND_MAX_KPH = 400;
 
 /**
- * Today's sky, from a fixed list so no free text reaches the prompt. Meant
- * to be mapped from Open-Meteo's daily `weather_code` (WMO code), slice 5:
- * - `clear`: 0 (clear sky), 1 (mainly clear)
- * - `partly-cloudy`: 2
- * - `cloudy`: 3 (overcast)
- * - `fog`: 45, 48 (fog, rime fog)
- * - `drizzle`: 51, 53, 55, 56, 57 (drizzle, freezing drizzle)
- * - `rain`: 61, 63, 65, 66, 67 (rain, freezing rain), 80, 81, 82 (showers)
- * - `snow`: 71, 73, 75, 77 (snow, snow grains), 85, 86 (snow showers)
- * - `thunderstorm`: 95, 96, 99 (with or without hail)
- * Intensity (light or heavy) is left out: `rainChance` and the
- * temperatures carry what matters for dressing. Any other code has no
- * matching value; the mapper should then pick the nearest (or `cloudy`).
+ * Today's sky, from a fixed list so no free text reaches the prompt. The
+ * `weather` function maps Open-Meteo's daily `weather_code` (WMO code) to it
+ * (`weather/wmo.ts`; the full table, with intensity, is in
+ * `docs/api/weather.md`): 0 `clear`; 1, 2 `partly-cloudy`; 3 `cloudy`;
+ * 45, 48 `fog`; 51-57 `drizzle`; 61-67 and 80-82 `rain`; 71-77, 85, 86
+ * `snow`; 95-99 `thunderstorm`.
  */
 export const WEATHER_CONDITIONS = ['clear', 'partly-cloudy', 'cloudy', 'fog', 'drizzle', 'rain', 'snow', 'thunderstorm'] as const;
 export type WeatherCondition = (typeof WEATHER_CONDITIONS)[number];
+
+/**
+ * How hard it drizzles, rains, snows or storms (2026-10-26 decision), also
+ * from the WMO code: e.g. 61 light, 63 moderate, 65 heavy rain. Optional:
+ * absent where the code says nothing about strength (clear, cloudy, fog,
+ * snow grains, an ordinary thunderstorm).
+ */
+export const WEATHER_INTENSITIES = ['light', 'moderate', 'heavy'] as const;
+export type WeatherIntensity = (typeof WEATHER_INTENSITIES)[number];
 
 /** Most outfits in one answer. */
 export const MAX_OUTFITS = 3;
@@ -131,7 +133,7 @@ export interface ClosetItemSummary {
   tags?: string[];
 }
 
-/** Today's weather, summarized by our backend or the app (slice 5). */
+/** Today's weather, summarized by the `weather` function (Gate 3 slice 5a); the app passes it on unchanged. */
 export interface WeatherSummary {
   highC: number;
   lowC: number;
@@ -140,6 +142,8 @@ export interface WeatherSummary {
   windKph: number;
   /** One of WEATHER_CONDITIONS (mapped from a WMO weather code). */
   conditions: WeatherCondition;
+  /** Optional: one of WEATHER_INTENSITIES, when the WMO code gives one. */
+  intensity?: WeatherIntensity;
 }
 
 export interface GenerateOutfitsRequest {
@@ -331,7 +335,12 @@ export function validateWeatherSummary(value: unknown): Validation<WeatherSummar
   if (!isOneOf(WEATHER_CONDITIONS, conditions)) {
     return { ok: false, reason: `weather conditions must be one of ${WEATHER_CONDITIONS.join(', ')}` };
   }
-  return { ok: true, value: { highC, lowC, rainChance, windKph, conditions } };
+  const { intensity } = value;
+  if (intensity === undefined || intensity === null) return { ok: true, value: { highC, lowC, rainChance, windKph, conditions } };
+  if (!isOneOf(WEATHER_INTENSITIES, intensity)) {
+    return { ok: false, reason: `weather intensity must be one of ${WEATHER_INTENSITIES.join(', ')}` };
+  }
+  return { ok: true, value: { highC, lowC, rainChance, windKph, conditions, intensity } };
 }
 
 /**

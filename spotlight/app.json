@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": ["android.permission.ACCESS_FINE_LOCATION"]
     },
     "web": {
       "output": "static",
@@ -42,6 +43,20 @@
         }
       ],
       "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Spotlight uses your approximate location to look up today's weather for outfit suggestions. It is rounded to about 10 km on your phone and sent to our server and Open-Meteo for the forecast. It is never sent to Claude or saved on our server.",
+          "locationAlwaysAndWhenInUsePermission": false,
+          "locationAlwaysPermission": false,
+          "locationFullAccuracyPermission": false,
+          "isIosReducedAccuracyByDefault": true,
+          "motionUsagePermission": false,
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
       [
         "expo-secure-store",
         {

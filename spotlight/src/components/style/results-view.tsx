@@ -12,7 +12,8 @@ import {
   type StyleFailureView,
 } from '@/data/style-messages';
 import type { LookbookSnapshot } from '@/data/lookbook-store';
-import type { StyleLook, StyleSnapshot } from '@/data/style-session';
+import type { SessionWeather, StyleLook, StyleSnapshot } from '@/data/style-session';
+import { weatherAccessibilityLabel, weatherLine, WEATHER_RESULTS_TEXT } from '@/data/weather-messages';
 import { useTheme } from '@/hooks/use-theme';
 
 import { LookCard } from './look-card';
@@ -24,6 +25,8 @@ export interface ResultsHandlers {
   onRetry: () => void;
   /** Opens the Add tab (not enough pieces). */
   onAddPiece: () => void;
+  /** Opens the Me tab (weather off, no location, unknown home city). */
+  onOpenMe: () => void;
   onRestyle: (key: string) => void;
   /** Save (slice 4); a look already saved stays one entry. */
   onSave: (look: StyleLook) => void;
@@ -50,15 +53,18 @@ export function ResultsView({ snapshot, resolveImageUri, lookbook, bottomInset, 
   const status = snapshot?.status;
   const subtitle =
     status?.kind === 'loading'
-      ? 'Finding looks in your closet...'
+      ? status.phase === 'weather'
+        ? WEATHER_RESULTS_TEXT.checking
+        : 'Finding looks in your closet...'
       : status?.kind === 'ready' && status.looks.length > 0
         ? looksCountText(status.looks.length)
         : null;
 
   return (
     <View style={{ flex: 1 }}>
-      <ResultsHeader title={snapshot ? quotedRequest(snapshot.request) : 'Looks'} subtitle={subtitle} onBack={handlers.onBack} />
+      <ResultsHeader title={resultsTitle(snapshot)} subtitle={subtitle} onBack={handlers.onBack} />
       <ScrollView contentContainerStyle={[look.body, { paddingBottom: bottomInset }]}>
+        {snapshot?.weather ? <WeatherNote weather={snapshot.weather} /> : null}
         <ResultsBody snapshot={snapshot} resolveImageUri={resolveImageUri} lookbook={lookbook} handlers={handlers} />
       </ScrollView>
     </View>
@@ -95,7 +101,12 @@ function ResultsBody({
     case 'empty':
       return <StateMessage view={NO_LOOKS_VIEW} handlers={handlers} />;
     case 'failed':
-      return <StateMessage view={describeStyleFailure(status.failure, status.missing)} handlers={handlers} />;
+      return (
+        <StateMessage
+          view={describeStyleFailure(status.failure, status.missing, { location: status.location, city: status.city })}
+          handlers={handlers}
+        />
+      );
     case 'cancelled':
       return <StateMessage view={describeStyleFailure('cancelled')} handlers={handlers} />;
     case 'ready': {
@@ -134,7 +145,36 @@ const ACTION_LABELS: Readonly<Record<Exclude<StyleFailureAction, 'none'>, string
   retry: 'Try again',
   'add-piece': 'Add a piece',
   'edit-request': 'Change request',
+  'open-me': 'Open Me',
 };
+
+/** The request in quotes; a match-weather request with no text is "Today's weather". */
+function resultsTitle(snapshot: StyleSnapshot | null): string {
+  if (!snapshot) return 'Looks';
+  if (snapshot.request.length === 0 && snapshot.matchWeather) return WEATHER_RESULTS_TEXT.title;
+  return quotedRequest(snapshot.request);
+}
+
+/** Above the looks of a match-weather request: the weather line and the Open-Meteo credit, or why there is none. */
+function WeatherNote({ weather }: { weather: SessionWeather }) {
+  const theme = useTheme();
+  const look = resultsLook(theme);
+  if (weather.kind === 'skipped') {
+    return (
+      <Text style={look.weatherSkipped} accessibilityLiveRegion="polite">
+        {WEATHER_RESULTS_TEXT.skipped}
+      </Text>
+    );
+  }
+  return (
+    <View style={look.weatherBlock}>
+      <Text style={look.weatherLine} accessibilityLabel={weatherAccessibilityLabel(weather.weather, weather.placeName)}>
+        {weather.placeName ? `${weather.placeName} · ${weatherLine(weather.weather)}` : weatherLine(weather.weather)}
+      </Text>
+      <Text style={look.weatherCredit}>{WEATHER_RESULTS_TEXT.attribution}</Text>
+    </View>
+  );
+}
 
 function StateMessage({ view, handlers }: { view: StyleFailureView; handlers: ResultsHandlers }) {
   const theme = useTheme();
@@ -144,7 +184,9 @@ function StateMessage({ view, handlers }: { view: StyleFailureView; handlers: Re
       ? handlers.onRetry
       : view.action === 'add-piece'
         ? handlers.onAddPiece
-        : handlers.onBack;
+        : view.action === 'open-me'
+          ? handlers.onOpenMe
+          : handlers.onBack;
   return (
     <View style={look.state} accessibilityLiveRegion="polite">
       <Text style={look.stateTitle} accessibilityRole="header">

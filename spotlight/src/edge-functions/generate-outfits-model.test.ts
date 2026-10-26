@@ -201,6 +201,17 @@ describe('generate-outfits prompt and request', () => {
     expect(text).toContain("dress for today's weather");
     expect(text).toContain('"conditions":"drizzle"');
     expect(buildOutfitPrompt({ request: '', mode: 'random', items: sampleSummaries() }).text).toContain('a surprise');
+    expect(text).not.toContain('intensity');
+  });
+
+  it('passes the weather intensity to the prompt when present, and the system prompt explains it', () => {
+    const weather = { highC: 12, lowC: 4, rainChance: 80, windKph: 20, conditions: 'rain' as const, intensity: 'heavy' as const };
+    const { text } = buildOutfitPrompt({ request: 'office', mode: 'weather', weather, items: sampleSummaries() });
+    expect(text).toContain(
+      'Weather today (JSON): {"highC":12,"lowC":4,"rainChancePercent":80,"windKph":20,"conditions":"rain","intensity":"heavy"}',
+    );
+    expect(OUTFIT_SYSTEM_PROMPT).toContain('"intensity" (light, moderate or heavy)');
+    expect(OUTFIT_SYSTEM_PROMPT).toContain('layers and fabrics');
   });
 
   it('names the model, the budget and the prefilter in docs/api/generate-outfits.md', () => {

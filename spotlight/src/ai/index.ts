@@ -12,3 +12,6 @@ export * from './generate-outfits-contract';
 export * from './closet-summary';
 export * from './outfit-generator';
 export * from './remote-outfit-generator';
+export * from './weather-contract';
+export * from './weather-client';
+export * from './remote-weather-client';

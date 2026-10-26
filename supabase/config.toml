@@ -430,3 +430,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/generate-outfits/deno.json"
 entrypoint = "./functions/generate-outfits/index.ts"
+
+[functions.weather]
+enabled = true
+verify_jwt = false
+import_map = "./functions/weather/deno.json"
+entrypoint = "./functions/weather/index.ts"

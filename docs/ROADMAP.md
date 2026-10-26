@@ -62,6 +62,7 @@ Done when:
 - Saved outfits, a thumbs up or down, and the originating prompt are stored.
 - Loading and failure states exist for slow or failed AI calls.
 - Added 2026-10-23 (human): Look of the day (`Today.dc.html`, "For today" weather mode, "Surprise me" random mode, Shuffle), "Match today's weather" on the Style screen, the "Use local weather" setting, and Lookbook filters by occasion and season. The 7:30 AM notification stays out.
+- Added 2026-10-26 (human): "Style preferences" on the Me tab (personal style rules such as "no heels with jeans"), sent to `generate-outfits` and used by the prompt. The outfit prompt gains a general styling guide.
 
 Human check: run your own 10 requests on your own closet and rate them.
 Design: `StylePrompt.dc.html` (request), `Results.dc.html` (outfits with rationale), `Lookbook.dc.html` (saved outfits). Plus `Today.dc.html`. Only the parts in the criteria above; the mockups' other extras are listed under "Proposed, not approved".
@@ -114,7 +115,7 @@ Shown in the mockups but not in any gate. The human decides; agents don't build 
 - "Pairs well with" on `ItemDetail.dc.html`.
 - From `Results.dc.html`: "Swap piece" ("Restyle" moved to Gate 3, 2026-10-24). (Lookbook occasion filters moved to Gate 3, 2026-10-23.)
 - From `ItemDetail.dc.html`: "Style this piece" (starts a Gate 3 request from one item).
-- From `Profile.dc.html`: the stats row (pieces, saved looks, days styled), "Sizes & fit", "Style preferences", "Export my closet", "Help & feedback", avatar and @username.
+- From `Profile.dc.html`: the stats row (pieces, saved looks, days styled), "Sizes & fit", "Export my closet", "Help & feedback", avatar and @username.
 - A custom in-app camera (`Camera.dc.html`), which would need `expo-camera`.
 
 ## Decisions so far
@@ -157,3 +158,5 @@ Shown in the mockups but not in any gate. The human decides; agents don't build 
 - Gate 3 slice 4 decision (2026-10-24, human): rating an unsaved look on Results saves it (same as Save, no occasion picked); clearing the rating keeps the look saved.
 - Gate 3 slice 4 follow-up decisions (2026-10-24, human approved the recommendations): thumb icons stay as `SymbolView` (Material font, about 1 MB in the Android bundle) rather than text labels; a saved look is kept while any of its pieces remain in the closet (looser than Results, which drops a look once top, bottom and dress are gone). Both match what slice 4 built; no code change.
 - Prefilter count and tab switches (2026-10-24, human): Results does not show items the function's prefilter left out; switching tabs keeps a Results request running (only Back/Cancel aborts).
+- Cleanup slice and slice 5 shape (2026-10-26, human): weather comes from a separate `weather` edge function (Open-Meteo, our function), and the app passes its summary to `generate-outfits`. Slice 5 is split: 5a location, weather, the Me tab setting and "Match today's weather"; 5b Look of the day. Weather keeps intensity: `conditions` stays the fixed list (clear, partly-cloudy, cloudy, fog, drizzle, rain, snow, thunderstorm) plus an optional fixed `intensity` (light, moderate, heavy) mapped from the WMO code. Cleanup defaults stand unless the human objects: rate limits 60/20 per minute per instance, a Supabase gateway 429 maps to `rate-limited`, a new front photo aborts the old tagging request.
+- Outfit quality (2026-10-26, human): looks like heels with jeans prompted a prompt review. Personal rules go in a new "Style preferences" setting (approved for Gate 3, moved out of "Proposed"), not in the general prompt. The slice 6 eval runs right after 5a and before 5b: baseline on the current prompt, then a styling guide (formality, shoe pairing, colour and pattern balance, proportion, fabric and season), a short self-check, higher effort or thinking, and Haiku vs Sonnet 5.5; the human's ratings decide. Defaults unless the human says otherwise: preferences are optional free text up to 300 characters stored on the phone, sent as an optional `preferences` field and treated as data like the request; the Style notice gains a mention (copy for approval). Cost: the human accepts a higher per-request cost in principle (Sonnet or thinking, roughly 5-10x) and picks the model and settings after seeing the slice 6 eval results. Still open: the human's 3-5 example bad looks.

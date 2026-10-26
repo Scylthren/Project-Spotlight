@@ -6,6 +6,9 @@
 import { normalizeOutfitText, OUTFIT_REQUEST_MAX_LENGTH, type OutfitBasePiece } from '@/ai/generate-outfits-contract';
 import type { OutfitFailure } from '@/ai/outfit-generator';
 
+import type { LocationProblem } from './location-provider';
+import { describeWeatherBlock } from './weather-messages';
+
 /** The "Try" chips under the field; a tap fills the field with the text. */
 export const STYLE_EXAMPLES = ['For summer', 'Emo vibes', 'First date', 'Job interview', 'Rainy day'] as const;
 
@@ -47,11 +50,15 @@ export function quotedRequest(request: string): string {
   return `“${request}”`;
 }
 
-/** Why a request has no looks: a generator failure, or the closet could not be read. */
-export type StyleFailure = OutfitFailure | 'closet-unavailable';
+/**
+ * Why a request has no looks: a generator failure, the closet could not be
+ * read, or (match-weather requests, slice 5a) weather is off, there is no
+ * location and no home city, or the home city matched no place.
+ */
+export type StyleFailure = OutfitFailure | 'closet-unavailable' | 'weather-off' | 'no-location' | 'place-not-found';
 
-/** What the Results screen offers after a failure. */
-export type StyleFailureAction = 'retry' | 'add-piece' | 'edit-request' | 'none';
+/** What the Results screen offers after a failure (`open-me`: the Me tab's weather settings). */
+export type StyleFailureAction = 'retry' | 'add-piece' | 'edit-request' | 'open-me' | 'none';
 
 export interface StyleFailureView {
   title: string;
@@ -69,8 +76,24 @@ export function missingPairText(missing: readonly OutfitBasePiece[]): string {
   return 'a top and a bottom';
 }
 
-export function describeStyleFailure(failure: StyleFailure, missing: readonly OutfitBasePiece[] = []): StyleFailureView {
+/** With `no-location`, why; with `place-not-found`, the city. */
+export interface StyleFailureDetail {
+  location?: LocationProblem;
+  city?: string;
+}
+
+export function describeStyleFailure(
+  failure: StyleFailure,
+  missing: readonly OutfitBasePiece[] = [],
+  detail: StyleFailureDetail = {},
+): StyleFailureView {
   switch (failure) {
+    case 'weather-off':
+      return describeWeatherBlock({ kind: 'weather-off' });
+    case 'no-location':
+      return describeWeatherBlock({ kind: 'no-location', problem: detail.location ?? 'unavailable' });
+    case 'place-not-found':
+      return describeWeatherBlock({ kind: 'place-not-found', city: detail.city ?? '' });
     case 'not-enough-items':
       return { title: 'Not enough pieces', body: `Add ${missingPairText(missing)}, or a dress, to get looks.`, action: 'add-piece' };
     case 'offline':

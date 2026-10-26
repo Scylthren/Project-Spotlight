@@ -25,3 +25,8 @@ export function configuredTagItemUrl(): string | null {
 export function configuredGenerateOutfitsUrl(): string | null {
   return functionUrl(process.env.EXPO_PUBLIC_SUPABASE_URL, 'generate-outfits');
 }
+
+/** The weather URL for this build (same inlining rule as `configuredTagItemUrl`). */
+export function configuredWeatherUrl(): string | null {
+  return functionUrl(process.env.EXPO_PUBLIC_SUPABASE_URL, 'weather');
+}

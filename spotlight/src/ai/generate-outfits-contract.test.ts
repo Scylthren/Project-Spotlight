@@ -27,6 +27,7 @@ import {
   validateGenerateOutfitsRequest,
   validateGenerateOutfitsResponse,
   WEATHER_CONDITIONS,
+  WEATHER_INTENSITIES,
   type ClosetItemSummary,
   type WeatherSummary,
 } from './generate-outfits-contract';
@@ -67,8 +68,9 @@ describe('generate-outfits contract drift', () => {
     for (const field of ['id', 'category', 'colors', 'seasons', 'name', 'type', 'pattern', 'material', 'fit', 'formality', 'tags']) {
       expect(doc).toContain(`\`items[].${field}\``);
     }
-    for (const field of ['highC', 'lowC', 'rainChance', 'windKph', 'conditions']) expect(doc).toContain(`\`weather.${field}\``);
+    for (const field of ['highC', 'lowC', 'rainChance', 'windKph', 'conditions', 'intensity']) expect(doc).toContain(`\`weather.${field}\``);
     for (const condition of WEATHER_CONDITIONS) expect(doc).toContain(`\`${condition}\``);
+    for (const intensity of WEATHER_INTENSITIES) expect(doc).toContain(`\`${intensity}\``);
     for (const field of ['outfits[].itemIds', 'outfits[].rationale', 'stub', 'usage', 'omittedItems', 'error.missing']) expect(doc).toContain(`\`${field}\``);
   });
 
@@ -115,7 +117,13 @@ function worstCaseRequest() {
     request: wide(OUTFIT_REQUEST_MAX_LENGTH),
     items,
     mode: 'weather',
-    weather: { ...WEATHER, highC: -12.345678, lowC: -45.678912, conditions: longest(WEATHER_CONDITIONS) },
+    weather: {
+      ...WEATHER,
+      highC: -12.345678,
+      lowC: -45.678912,
+      conditions: longest(WEATHER_CONDITIONS),
+      intensity: longest(WEATHER_INTENSITIES),
+    },
     avoid: Array.from({ length: OUTFIT_MAX_AVOID }, (_, a) =>
       Array.from({ length: OUTFIT_MAX_PIECES }, (_, p) => items[(a * OUTFIT_MAX_PIECES + p) % items.length].id),
     ),
@@ -279,6 +287,10 @@ describe('weather', () => {
     ['padded conditions', { conditions: ' rain ' }],
     ['a WMO code instead of a name', { conditions: 61 }],
     ['missing conditions', { conditions: undefined }],
+    ['an unknown intensity', { intensity: 'extreme' }],
+    ['an intensity in another case', { intensity: 'Heavy' }],
+    ['an empty intensity', { intensity: '' }],
+    ['a numeric intensity', { intensity: 2 }],
   ])('rejects %s', (_name, change) => {
     expect(validateGenerateOutfitsRequest({ request: 'x', items: sampleSummaries(), weather: { ...WEATHER, ...change } }).ok).toBe(false);
   });
@@ -291,6 +303,19 @@ describe('weather', () => {
     }
     const bad = validateGenerateOutfitsRequest({ request: 'x', items: sampleSummaries(), weather: { ...WEATHER, conditions: 'Sunny' } });
     expect(bad).toEqual({ ok: false, reason: `weather conditions must be one of ${WEATHER_CONDITIONS.join(', ')}.` });
+  });
+
+  it('accepts every fixed intensity, keeps it, treats null as absent, and names the list in the error', () => {
+    expect(WEATHER_INTENSITIES).toEqual(['light', 'moderate', 'heavy']);
+    for (const intensity of WEATHER_INTENSITIES) {
+      const result = validateGenerateOutfitsRequest({ request: 'x', items: sampleSummaries(), weather: { ...WEATHER, intensity } });
+      expect(result.ok && result.value.weather).toEqual({ ...WEATHER, intensity });
+    }
+    const nulled = validateGenerateOutfitsRequest({ request: 'x', items: sampleSummaries(), weather: { ...WEATHER, intensity: null } });
+    expect(nulled.ok && nulled.value.weather).toEqual(WEATHER);
+    expect(nulled.ok && nulled.value.weather && 'intensity' in nulled.value.weather).toBe(false);
+    const bad = validateGenerateOutfitsRequest({ request: 'x', items: sampleSummaries(), weather: { ...WEATHER, intensity: 'Light rain' } });
+    expect(bad).toEqual({ ok: false, reason: `weather intensity must be one of ${WEATHER_INTENSITIES.join(', ')}.` });
   });
 });
 
