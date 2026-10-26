@@ -73,6 +73,11 @@ describe('failure words', () => {
     expect(describeStyleFailure('not-configured').action).toBe('none');
   });
 
+  it('tells the user to wait a minute when there were too many requests', () => {
+    expect(describeStyleFailure('rate-limited')).toEqual({ title: 'Too many requests', body: 'Try again in a minute.', action: 'retry' });
+    expect(restyleFailureText('rate-limited')).toBe("Couldn't restyle: too many requests. Try again in a minute.");
+  });
+
   it('has the no-looks and no-other-looks lines', () => {
     expect(NO_LOOKS_VIEW.title).toBe('No looks this time');
     expect(NO_OTHER_LOOKS_TEXT).toBe('No other looks for this request');

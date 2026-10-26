@@ -35,3 +35,19 @@ export class SqlSerialQueue {
     });
   }
 }
+
+const QUEUES = new WeakMap<object, SqlSerialQueue>();
+
+/**
+ * The one queue for a database connection, created on first use. Everything
+ * that uses the connection (the repositories, the maintenance log, photo
+ * references) takes its queue from here, so nothing overlaps.
+ */
+export function sqlQueueFor(connection: object): SqlSerialQueue {
+  let queue = QUEUES.get(connection);
+  if (!queue) {
+    queue = new SqlSerialQueue();
+    QUEUES.set(connection, queue);
+  }
+  return queue;
+}

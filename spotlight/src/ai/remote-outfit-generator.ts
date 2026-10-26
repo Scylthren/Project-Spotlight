@@ -87,6 +87,7 @@ export class RemoteOutfitGenerator implements OutfitGenerator {
       }
 
       if (response.status === 401) return fail('unauthorized');
+      if (response.status === 429) return fail('rate-limited');
       if (response.status !== 200 && response.status !== 422) {
         return fail(response.status === 400 ? 'rejected' : 'server');
       }

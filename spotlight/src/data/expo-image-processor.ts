@@ -16,11 +16,12 @@ import { STORED_IMAGE_JPEG_QUALITY, type ImageProcessor, type ProcessedImage, ty
 import { discardQuietly, type TemporaryFiles } from './temporary-files';
 
 /**
- * Real `ImageProcessor` using expo-image-manipulator's context API (SDK 57)
+ * Real `ImageProcessor` using expo-image-manipulator's context API (SDK 58)
  * and expo-file-system. iOS and Android only.
  *
  * 1. Loads the image. The decoded pixels are upright on both platforms, with
- *    or without a resize (expo-image-manipulator 57.0.21 in node_modules):
+ *    or without a resize. Re-checked for SDK 58 against the sources in
+ *    node_modules (expo-image-manipulator 58.0.15, expo-image-loader 58.0.3):
  *    - iOS: `manipulate()` itself adds ImageFixOrientationTransformer to
  *      every context, before any user transform
  *      (ios/ImageManipulatorModule.swift:13,28), and `renderAsync` returns the
@@ -28,14 +29,17 @@ import { discardQuietly, type TemporaryFiles } from './temporary-files';
  *      and render). The transformer returns a `.up` image either way: a
  *      plain `UIImage(cgImage:)` if already up, else a redraw through
  *      UIGraphicsImageRenderer
- *      (ios/Transformers/ImageFixOrientationTransformer.swift:13-20,
- *      ios/ImageManipulatorUtils.swift:99-108). ImageResizeTransformer also
- *      redraws into a renderer. So `jpegData` (ios/ImageManipulatorUtils.swift:76)
- *      encodes an `.up` image, which carries no non-1 Orientation.
- *    - Android: the image loads through Glide `asBitmap()`
- *      (expo-image-loader android/.../ImageLoaderService.kt:73-77), whose
+ *      (ios/Transformers/ImageFixOrientationTransformer.swift:15-22,
+ *      ios/ImageManipulatorUtils.swift:122-131). ImageResizeTransformer also
+ *      redraws into a renderer. So `jpegData` (ios/ImageManipulatorUtils.swift:99)
+ *      encodes an `.up` image, which carries no non-1 Orientation. SDK 58
+ *      added a downsampled load path (ios/ImageDownsampling.swift) that also
+ *      bakes the orientation in, but it runs only when `manipulate()` gets
+ *      `maxWidth`/`maxHeight`, which this class never passes.
+ *    - Android: without bounds the image loads through Glide `asBitmap()`
+ *      (expo-image-loader android/.../ImageLoaderService.kt:68-80), whose
  *      Downsampler applies the Exif orientation on decode, and
- *      `Bitmap.compress` (android/.../ImageManipulatorModule.kt:123) writes
+ *      `Bitmap.compress` (android/.../ImageManipulatorModule.kt:131) writes
  *      no Exif at all.
  * 2. Resizes only if the longest edge is over the limit, and saves a JPEG
  *    into the cache directory.

@@ -2,6 +2,7 @@ import { makeItem, makePhoto } from './closet-repository.contract';
 import { migrateClosetDatabase } from './closet-schema';
 import { SetPhotoReferences, SqlitePhotoReferences } from './photo-references';
 import { SqliteClosetRepository } from './sqlite-closet-repository';
+import { SqlSerialQueue } from './sql-serial-queue';
 import { NodeSqlDatabase } from './testing/node-sql-database';
 
 const open: NodeSqlDatabase[] = [];
@@ -24,6 +25,29 @@ describe('SqlitePhotoReferences', () => {
 
     await repo.remove('a');
     expect(await refs.isReferenced('closet-images/a-0.jpg')).toBe(false);
+  });
+});
+
+describe('SqlitePhotoReferences on the shared queue', () => {
+  it('waits behind queued repository work, so it sees an item that was being added', async () => {
+    const db = new NodeSqlDatabase();
+    open.push(db);
+    await migrateClosetDatabase(db);
+    const queue = new SqlSerialQueue();
+    const repo = new SqliteClosetRepository(db, undefined, queue);
+    const refs = new SqlitePhotoReferences(db, queue);
+    let release!: () => void;
+    const busy = queue.run(() => new Promise<void>((resolve) => (release = resolve)));
+    const adding = repo.add(makeItem({ id: 'a', photos: [makePhoto('a')] }));
+    const check = refs.isReferenced('closet-images/a-0.jpg');
+    let settled = false;
+    void check.then(() => (settled = true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    release();
+    await busy;
+    await adding;
+    expect(await check).toBe(true);
   });
 });
 

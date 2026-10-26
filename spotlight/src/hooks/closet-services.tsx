@@ -23,7 +23,7 @@ import { startPhotoMetadataBackfill } from '@/data/photo-metadata-backfill';
 import type { MultiPhotoPicker, PhotoPicker } from '@/data/photo-picker';
 import { SqlitePhotoReferences } from '@/data/photo-references';
 import type { OutfitRepository } from '@/data/outfit-repository';
-import { SqlSerialQueue } from '@/data/sql-serial-queue';
+import { sqlQueueFor } from '@/data/sql-serial-queue';
 import { SqliteClosetRepository } from '@/data/sqlite-closet-repository';
 import { SqliteOutfitRepository } from '@/data/sqlite-outfit-repository';
 import type { TemporaryFiles } from '@/data/temporary-files';
@@ -73,8 +73,7 @@ export function ClosetServicesProvider({ children }: { children: ReactNode }) {
   const services = useMemo<ClosetServices>(() => {
     const imageProcessor = new ExpoImageProcessor();
     const photoPicker = new ExpoPhotoPicker();
-    // One queue for every repository on this connection, so their transactions never overlap.
-    const queue = new SqlSerialQueue();
+    const queue = sqlQueueFor(db);
     const outfits = new SqliteOutfitRepository(asSqlDatabase(db), queue);
     return {
       repository: new SqliteClosetRepository(asSqlDatabase(db), undefined, queue),
@@ -98,8 +97,8 @@ export function ClosetServicesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void startPhotoMetadataBackfill({
       files: new ExpoStoredPhotoFiles(),
-      references: new SqlitePhotoReferences(asSqlDatabase(db)),
-      log: new SqliteMaintenanceLog(asSqlDatabase(db)),
+      references: new SqlitePhotoReferences(asSqlDatabase(db), sqlQueueFor(db)),
+      log: new SqliteMaintenanceLog(asSqlDatabase(db), undefined, sqlQueueFor(db)),
     });
   }, [db]);
   return <ClosetServicesContext value={services}>{children}</ClosetServicesContext>;

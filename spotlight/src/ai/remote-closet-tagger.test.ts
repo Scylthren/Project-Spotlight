@@ -104,6 +104,7 @@ describe('RemoteClosetTagger', () => {
   it.each([
     [401, 'unauthorized'],
     [400, 'rejected'],
+    [429, 'rate-limited'],
     [404, 'server'],
     [405, 'server'],
     [500, 'server'],
@@ -164,6 +165,76 @@ describe('RemoteClosetTagger', () => {
     const pending = tagger.tag(CONNECTION_CHECK_IMAGE);
     await jest.advanceTimersByTimeAsync(1000);
     expect(await pending).toEqual({ ok: false, failure: 'timeout' });
+  });
+
+  it('maps the function\'s 429 rate_limited body to rate-limited', async () => {
+    const body = { error: { code: 'rate_limited', message: 'Too many requests. Try again in a minute.' } };
+    const { tagger } = setup({ respond: mockFetch(async () => jsonResponse(429, body)) });
+    expect(await tagger.tag(CONNECTION_CHECK_IMAGE)).toEqual({ ok: false, failure: 'rate-limited' });
+  });
+
+  it('aborts the request and resolves cancelled when the caller\'s signal fires, and clears its timer', async () => {
+    jest.useFakeTimers();
+    const respond = hangingFetch();
+    const { tagger } = setup({ respond });
+    const controller = new AbortController();
+    const pending = tagger.tag(CONNECTION_CHECK_IMAGE, { signal: controller.signal });
+    await jest.advanceTimersByTimeAsync(100);
+    expect(respond.mock.calls[0][1]?.signal?.aborted).toBe(false);
+    controller.abort();
+    expect(await pending).toEqual({ ok: false, failure: 'cancelled' });
+    expect(respond.mock.calls[0][1]?.signal?.aborted).toBe(true);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('resolves cancelled when aborted while the body is still arriving', async () => {
+    const controller = new AbortController();
+    const respond: FetchMock = mockFetch(async (_input, init) => {
+      const signal = init?.signal;
+      return {
+        status: 200,
+        text: () =>
+          new Promise<string>((_resolve, reject) => {
+            signal?.addEventListener('abort', () => reject(new Error('Aborted')));
+          }),
+      } as unknown as Response;
+    });
+    const { tagger } = setup({ respond });
+    const pending = tagger.tag(CONNECTION_CHECK_IMAGE, { signal: controller.signal });
+    await Promise.resolve();
+    await Promise.resolve();
+    controller.abort();
+    expect(await pending).toEqual({ ok: false, failure: 'cancelled' });
+  });
+
+  it('does not send at all when the signal is already aborted (before or after reading the token)', async () => {
+    const { tagger, fetchMock } = setup();
+    expect(await tagger.tag(CONNECTION_CHECK_IMAGE, { signal: AbortSignal.abort() })).toEqual({ ok: false, failure: 'cancelled' });
+    const controller = new AbortController();
+    const store: DevTokenStore = {
+      get: async () => {
+        controller.abort();
+        return TOKEN;
+      },
+      set: async () => undefined,
+      clear: async () => undefined,
+    } as unknown as DevTokenStore;
+    const late = setup({ store });
+    expect(await late.tagger.tag(CONNECTION_CHECK_IMAGE, { signal: controller.signal })).toEqual({ ok: false, failure: 'cancelled' });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(late.fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('a signal that is never aborted changes nothing, and its listener is removed afterwards', async () => {
+    const controller = new AbortController();
+    const remove = jest.spyOn(controller.signal, 'removeEventListener');
+    const { tagger } = setup();
+    expect(await tagger.tag(CONNECTION_CHECK_IMAGE, { signal: controller.signal })).toEqual({
+      ok: true,
+      tags: STUB_TAG_ITEM_RESPONSE.tags,
+      stub: true,
+    });
+    expect(remove).toHaveBeenCalledWith('abort', expect.any(Function));
   });
 
   it('clears its timer after an answer', async () => {

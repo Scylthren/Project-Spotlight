@@ -38,7 +38,7 @@ describe('MockOutfitGenerator', () => {
   });
 
   it('accepts empty text for random and weather requests', async () => {
-    const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'Sunny' };
+    const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'clear' as const };
     expect((await new MockOutfitGenerator().generate({ request: '', mode: 'random', items: closet })).ok).toBe(true);
     expect((await new MockOutfitGenerator().generate({ request: '', mode: 'weather', weather, items: closet })).ok).toBe(true);
     expect(await new MockOutfitGenerator().generate({ request: '', mode: 'weather', items: closet })).toEqual({ ok: false, failure: 'rejected' });

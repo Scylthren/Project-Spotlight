@@ -48,6 +48,10 @@ export function connectionStatusMessage(status: ConnectionStatus): string {
       return 'Timed out. The backend did not answer in time.';
     case 'rejected':
       return 'The backend rejected the test request.';
+    case 'rate-limited':
+      return 'Too many requests. Try again in a minute.';
+    case 'cancelled':
+      return 'The check was cancelled.';
     case 'server':
       return 'The backend had a problem (or the function is not deployed).';
     case 'invalid-response':

@@ -93,6 +93,8 @@ export function describeStyleFailure(failure: StyleFailure, missing: readonly Ou
       return { title: 'Not set up', body: "This build has no server address, so it can't suggest looks.", action: 'none' };
     case 'rejected':
       return { title: "That request can't be sent", body: 'Try shorter or different words.', action: 'edit-request' };
+    case 'rate-limited':
+      return { title: 'Too many requests', body: 'Try again in a minute.', action: 'retry' };
     case 'closet-unavailable':
       return { title: "Couldn't read your closet", body: 'Try again in a moment.', action: 'retry' };
     case 'cancelled':
@@ -133,6 +135,8 @@ export function restyleFailureText(failure: StyleFailure): string {
       return "Couldn't restyle: not connected.";
     case 'not-enough-items':
       return "Couldn't restyle: not enough pieces.";
+    case 'rate-limited':
+      return "Couldn't restyle: too many requests. Try again in a minute.";
     default:
       return "Couldn't restyle. Try again.";
   }

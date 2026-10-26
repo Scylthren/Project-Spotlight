@@ -1,5 +1,6 @@
 import { migrateClosetDatabase } from './closet-schema';
 import { MemoryMaintenanceLog, SqliteMaintenanceLog, type MaintenanceLog } from './maintenance-log';
+import { SqlSerialQueue } from './sql-serial-queue';
 import { NodeSqlDatabase } from './testing/node-sql-database';
 import { joinPath, makeTempDir, removeDir } from './testing/temp-dir';
 
@@ -61,5 +62,51 @@ describe('SqliteMaintenanceLog', () => {
       while (open.length) open.pop()!.close();
       removeDir(dir);
     }
+  });
+});
+
+describe('SqliteMaintenanceLog on the shared queue', () => {
+  function deferred() {
+    let resolve!: () => void;
+    const promise = new Promise<void>((r) => {
+      resolve = r;
+    });
+    return { promise, resolve };
+  }
+
+  it('a mark made while a repository transaction is open waits for it, so that transaction\'s rollback cannot lose it', async () => {
+    const db = await migrated();
+    const queue = new SqlSerialQueue();
+    const log = new SqliteMaintenanceLog(db, undefined, queue);
+    const gate = deferred();
+    const failing = queue.transaction(db, async () => {
+      await gate.promise;
+      throw new Error('repository write failed');
+    });
+    const marked = log.markDone('task-a', 'ok');
+    let markSettled = false;
+    void marked.then(() => (markSettled = true));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(markSettled).toBe(false);
+    gate.resolve();
+    await expect(failing).rejects.toThrow('repository write failed');
+    await marked;
+    expect(await log.isDone('task-a')).toBe(true);
+  });
+
+  it('without the shared queue the same mark lands inside the transaction and is rolled back (why the app shares it)', async () => {
+    const db = await migrated();
+    const queue = new SqlSerialQueue();
+    const log = new SqliteMaintenanceLog(db); // its own queue
+    const gate = deferred();
+    const failing = queue.transaction(db, async () => {
+      await gate.promise;
+      throw new Error('repository write failed');
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await log.markDone('task-a', 'ok');
+    gate.resolve();
+    await expect(failing).rejects.toThrow('repository write failed');
+    expect(await log.isDone('task-a')).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ Suggests up to 3 outfits from the user's closet for a text request ("for summer"
 **Status (Gate 3 slice 3): real looks from Claude.** The function checks the token, the model key, the body and the closet, trims the closet for the prompt (prefilter), asks Claude Haiku 5.5 for 3 looks, checks every look against the composition rules, retries once when none survive, and answers the valid ones (`stub: false`). The deterministic stub (`stubOutfits`) is no longer answered by the function; it stays in the contract for the app's `MockOutfitGenerator`. Slice 2 added `avoid` (Restyle); slice 5 refines `mode` and `weather` (the prompt already passes them on).
 
 - **URL:** `POST https://<project-ref>.supabase.co/functions/v1/generate-outfits` (the app builds it from `EXPO_PUBLIC_SUPABASE_URL`, `configuredGenerateOutfitsUrl()`).
-- **Source:** `supabase/functions/generate-outfits/` (thin Deno entry `index.ts`, logic in `handler.ts`, prefilter in `prefilter.ts`, prompt and schema in `prompt.ts`, the model call in `claude.ts`, reply reading in `model-reply.ts`, composition rules in `outfit-rules.ts`), shared code in `supabase/functions/_shared/` (`dev-token.ts`, `http-body.ts`, the contracts).
+- **Source:** `supabase/functions/generate-outfits/` (thin Deno entry `index.ts`, logic in `handler.ts`, prefilter in `prefilter.ts`, prompt and schema in `prompt.ts`, the model call in `claude.ts`, reply reading in `model-reply.ts`, composition rules in `outfit-rules.ts`), shared code in `supabase/functions/_shared/` (`dev-token.ts`, `http-body.ts`, `claude.ts` for the Messages API call, `rate-limit.ts`, the contracts).
 - **Secrets:** `DEV_TOKEN` (auth, same as tag-item) and `ANTHROPIC_API_KEY` (the model). Both exist only as Supabase function secrets.
 - **Types:** `supabase/functions/_shared/generate-outfits-contract.ts` is the single source of the request and response types, limits, validators and the stub's picks. It imports the shared vocabulary from the sibling `tag-item-contract.ts`. The app keeps a byte-identical copy at `spotlight/src/ai/generate-outfits-contract.ts`; `spotlight/src/ai/generate-outfits-contract.test.ts` fails when they drift, and checks this doc for every error code, mode, field and limit. Edit the supabase file, then copy it.
 - **App client:** `RemoteOutfitGenerator` (`spotlight/src/ai/remote-outfit-generator.ts`) behind the `OutfitGenerator` interface (`outfit-generator.ts`, with `MockOutfitGenerator` and `FakeOutfitGenerator`); the closet is mapped by `toClosetSummaries` (`closet-summary.ts`); `createOutfitGenerator` (`spotlight/src/hooks/outfit-services.ts`) builds the real one. The Style and Results screens use the real one since slice 3 (`styleOutfitGenerator` in the same file); tests use the mock and fake.
@@ -47,7 +47,7 @@ Same as tag-item (see `docs/api/tag-item.md`, "Auth"): `Authorization: Bearer <t
 | `weather.lowC` | number | Today's low in °C, -80 to 70, not above `highC`. |
 | `weather.rainChance` | number | Chance of rain in percent, 0 to 100. |
 | `weather.windKph` | number | Wind in km/h, 0 to 400. |
-| `weather.conditions` | string | Short text ("Light rain"), 1 to 40 characters after trimming. |
+| `weather.conditions` | string | One of `clear`, `partly-cloudy`, `cloudy`, `fog`, `drizzle`, `rain`, `snow`, `thunderstorm` (exactly, lowercase; `WEATHER_CONDITIONS`). A fixed list so no free text reaches the prompt; mapped from Open-Meteo's WMO weather code (table below). |
 | `items` | object[] | The closet: 1 to 300 summaries, ids unique. |
 | `avoid` | string[][], optional | Restyle: looks not to answer again, usually every look already shown for this request. At most 9 looks, each a list of 1 to 9 item ids with no repeats, every id well-formed (the `items[].id` rule). Ids need not be in `items`: a look with a piece the closet no longer has simply never matches. Missing, `null` or `[]` mean none. Any other shape is 400 `bad_request` (message starts `avoid must be`). |
 | `items[].id` | string | The item's id, 1 to 64 characters from `A-Z a-z 0-9 . _ : -` (the app's ids are `<time base36>-<12 random base36>`). Outfits reference items by it. |
@@ -63,6 +63,21 @@ Same as tag-item (see `docs/api/tag-item.md`, "Auth"): `Authorization: Bearer <t
 | `items[].tags` | string[], optional | The user's own tags: at most 10 tags of 1 to 30 characters each, same text rules; the function lowercases them and drops repeats. |
 
 Optional summary fields that are missing or `null` mean "unknown"; the app leaves out what an item does not have. Unknown extra fields (top level or per item) are ignored. Any other rule broken is 400 `bad_request` with a message naming the first bad field (for example `items[3]: unknown category.`).
+
+WMO weather code to `weather.conditions` (slice 5 maps Open-Meteo's daily `weather_code` this way; intensity is left out, `rainChance` and the temperatures carry it):
+
+| WMO code | Meaning | `conditions` |
+| --- | --- | --- |
+| 0, 1 | Clear sky, mainly clear | `clear` |
+| 2 | Partly cloudy | `partly-cloudy` |
+| 3 | Overcast | `cloudy` |
+| 45, 48 | Fog, depositing rime fog | `fog` |
+| 51, 53, 55, 56, 57 | Drizzle, freezing drizzle | `drizzle` |
+| 61, 63, 65, 66, 67, 80, 81, 82 | Rain, freezing rain, rain showers | `rain` |
+| 71, 73, 75, 77, 85, 86 | Snow, snow grains, snow showers | `snow` |
+| 95, 96, 99 | Thunderstorm, with or without hail | `thunderstorm` |
+
+Any other code has no value of its own; the mapper picks the nearest (or `cloudy`).
 
 How the app builds the summaries (`toClosetSummaries`): every item's id, category, palette color ids and seasons, plus its name, attribute values (type, pattern, material, fit, formality) and tags when present. Photos, photo paths, hex values, color and attribute sources, and timestamps are never sent. Control characters become spaces, whitespace collapses, and text is cut to the caps above (an item's own limits are the same, so this only matters for odd data). Each summary is then checked with the contract's `validateClosetItemSummary`; an item that fails (an id outside the id rule, a bad category or season) is left out, so one bad item never blocks the request. A closet still over 300 items sends its 300 most recently updated items (closet order kept). The mapper counts both kinds separately (`omittedInvalid`, `omittedOverCap`); the caller gets the total (`omittedItems`). Choosing among what is sent (prefiltering) is the function's job (see "Model and prompt").
 
@@ -123,6 +138,7 @@ Error bodies: `{ "error": { "code": "<code>", "message": "<text>" } }`, plus `mi
 | 401 | `unauthorized` | Missing, malformed or wrong `Authorization` header. Checked before the body is read. |
 | 400 | `too_large` | `Content-Length` or the actual body is over 650,000 bytes. |
 | 400 | `bad_request` | Body not readable as UTF-8, not JSON, or fails the request rules above (including an empty request in mode `request`, an empty closet, more than 300 items, a repeated id). |
+| 429 | `rate_limited` | More than 20 requests a minute reached this function instance with a valid token (see "Limits and budgets"). Checked right after the token, before the key and the body. Header `Retry-After` gives the seconds until the window ends. |
 | 422 | `not_enough_items` | The request is valid but the closet sent cannot form any outfit: no dress and no top and bottom pair. Checked before any model call (no cost). `error.missing` says what is absent. |
 | 500 | `server_misconfigured` | A well-formed bearer token, but the `DEV_TOKEN` secret is missing or too short, or `ANTHROPIC_API_KEY` is missing or blank (checked after the token, before the body). |
 | 503 | `upstream_rate_limited` | The model provider answered 429. Not retried. |
@@ -136,7 +152,7 @@ An `upstream_*` error on the retry does not replace a readable first reply: the 
 `error.missing` (only with `not_enough_items`): which of `top`, `bottom` and `dress` the closet has none of, in that order. `dress` is always there; `top`, `bottom` or both say what would complete a pair. Examples: only tops gives `["bottom", "dress"]` ("add a bottom, or a dress"); only shoes and accessories gives `["top", "bottom", "dress"]` ("add a top and a bottom, or a dress"). Shoes, outerwear and accessories never cause this error.
 
 ## Limits and budgets
-- Body: at most 650,000 bytes. The largest request the app can send (300 summaries with every field at its cap and 4-byte characters in every text field, a 200-character request, weather, and 9 `avoid` looks of 9 64-character ids) is 569,350 bytes (`generate-outfits-contract.test.ts` builds it); a typical summary is 100 to 300 bytes, so a 300-item closet is usually under 100 KB.
+- Body: at most 650,000 bytes. The largest request the app can send (300 summaries with every field at its cap and 4-byte characters in every text field, a 200-character request, weather with the longest `conditions`, and 9 `avoid` looks of 9 64-character ids) is 569,203 bytes (`generate-outfits-contract.test.ts` builds it); a typical summary is 100 to 300 bytes, so a 300-item closet is usually under 100 KB.
 - Items per request: 1 to 300 summaries.
 - Request text: 1 to 200 characters (0 to 200 in modes `weather` and `random`).
 - `avoid`: at most 9 looks, each 1 to 9 ids (about 6 KB at most).
@@ -146,7 +162,7 @@ An `upstream_*` error on the retry does not replace a readable first reply: the 
 - Function budget (D4): 15 s per call, all model calls within 25 s, and the retry only starts with at least 5 s left (it gets only what is left), so the answer arrives inside the app's 30 s timeout (asserted in `generate-outfits-model.test.ts`).
 - Prompt: at most 120 items reach the model (prefilter).
 - Cost: one text-only model call per request (two with the retry); the smoke run and the outfit eval measure it (`usage`).
-- No rate limit yet (as tag-item; Gate 4 adds per-user limits).
+- Rate limit (crude, best effort, as tag-item; `_shared/rate-limit.ts`): at most 20 requests a minute per function instance, in a fixed window kept in memory. Every request that passes the token check counts (a bad body too); refused and unauthenticated ones do not. Over the limit: 429 `rate_limited` with `Retry-After`. **Not** a per-user or global limit: each instance (isolate) has its own count, and the runtime may run several and restart them at any time. It only caps a runaway loop on one warm instance (20 calls is under $0.01). Gate 4 replaces it with a per-user limit.
 
 ## App failure mapping
 `RemoteOutfitGenerator` never throws; it resolves `{ ok: true, outfits, stub, droppedOutfits, omittedItems }` or one of:
@@ -158,6 +174,7 @@ An `upstream_*` error on the retry does not replace a readable first reply: the 
 | `rejected` | The request fails the contract's `validateGenerateOutfitsRequest` before sending (empty text in mode `request`, over 200 characters, a control character, mode `weather` without weather; no request), or a 400. `MockOutfitGenerator` makes the same checks (`prepareOutfitRequest`). |
 | `no-token` | No token saved on the device, or secure storage could not be read. No request is made. |
 | `unauthorized` | 401. |
+| `rate-limited` | 429 (this function's limit, or the Supabase gateway's). Results shows "Too many requests" and "Try again in a minute." with a Try again button; a failed Restyle says "Couldn't restyle: too many requests. Try again in a minute." |
 | `server` | Any other non-200 status (404 not deployed, 500, 502/503/504 provider trouble, a 422 that is not `not_enough_items`). |
 | `offline` | `fetch` failed before an answer, or the connection dropped while reading. |
 | `timeout` | No complete answer within 30 s (request aborted). |

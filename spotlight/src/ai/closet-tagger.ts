@@ -16,8 +16,10 @@ export interface TagImage {
  * - `offline`: the request never reached the backend (no network, DNS, TLS).
  * - `timeout`: no complete answer in time.
  * - `rejected`: the backend refused the request (400).
+ * - `rate-limited`: the backend said too many requests (429).
  * - `server`: any other status (404 when not deployed, 5xx).
  * - `invalid-response`: a 200 whose body does not match the contract.
+ * - `cancelled`: the caller aborted (it no longer wants the answer).
  */
 export const TAG_FAILURES = [
   'not-configured',
@@ -26,12 +28,19 @@ export const TAG_FAILURES = [
   'offline',
   'timeout',
   'rejected',
+  'rate-limited',
   'server',
   'invalid-response',
+  'cancelled',
 ] as const;
 export type TagFailure = (typeof TAG_FAILURES)[number];
 
 export type TagOutcome = { ok: true; tags: ItemTags; stub: boolean } | { ok: false; failure: TagFailure };
+
+export interface TagOptions {
+  /** Aborting stops the request and resolves `cancelled` (the form closed, or the import was discarded). */
+  signal?: AbortSignal;
+}
 
 /**
  * Suggests tags for a garment photo. Implementations never throw or reject:
@@ -42,7 +51,7 @@ export type TagOutcome = { ok: true; tags: ItemTags; stub: boolean } | { ok: fal
  * function).
  */
 export interface ClosetTagger {
-  tag(image: TagImage): Promise<TagOutcome>;
+  tag(image: TagImage, options?: TagOptions): Promise<TagOutcome>;
 }
 
 /**
@@ -59,17 +68,22 @@ export class MockClosetTagger implements ClosetTagger {
 
 /**
  * Configurable `ClosetTagger` for tests. Each call takes the next queued
- * outcome (or a function returning one), then falls back to `fallback`.
- * `inputs` records every image.
+ * outcome (or a function returning one, given the call's signal), then
+ * falls back to `fallback`. `inputs` records every image and `signals`
+ * every call's signal (undefined when none). A call whose signal is already
+ * aborted resolves `cancelled` without taking from the queue.
  */
 export class FakeClosetTagger implements ClosetTagger {
   readonly inputs: TagImage[] = [];
-  readonly queue: (TagOutcome | (() => Promise<TagOutcome>))[] = [];
+  readonly signals: (AbortSignal | undefined)[] = [];
+  readonly queue: (TagOutcome | ((signal: AbortSignal | undefined) => Promise<TagOutcome>))[] = [];
   fallback: TagOutcome = { ok: false, failure: 'offline' };
 
-  async tag(image: TagImage): Promise<TagOutcome> {
+  async tag(image: TagImage, options: TagOptions = {}): Promise<TagOutcome> {
     this.inputs.push(image);
+    this.signals.push(options.signal);
+    if (options.signal?.aborted) return { ok: false, failure: 'cancelled' };
     const next = this.queue.shift() ?? this.fallback;
-    return typeof next === 'function' ? next() : next;
+    return typeof next === 'function' ? next(options.signal) : next;
   }
 }

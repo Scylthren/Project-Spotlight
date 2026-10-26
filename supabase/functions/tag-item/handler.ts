@@ -2,8 +2,9 @@
  * tag-item request handling, independent of Deno so Jest can test it.
  * `index.ts` adapts a `Request` to `TagItemHttpRequest` and back.
  *
- * Order of checks: method (405), token (401), API key configured (500),
- * body size and shape (400); then the photo goes to the model (`claude.ts`,
+ * Order of checks: method (405), token (401), rate limit (429, see
+ * `_shared/rate-limit.ts`), API key configured (500), body size and shape
+ * (400); then the photo goes to the model (`claude.ts`,
  * prompt in `prompt.ts`, reply checks in `model-reply.ts`).
  * The handler does not parse the body before the token check, but the
  * adapter still reads and discards an unread body before replying
@@ -13,8 +14,10 @@
  * first; a declared Content-Length over the limit is cancelled at once.
  * Nothing here logs the token, the key, the image or the model's reply text.
  */
+import type { ProviderEnv, ProviderError } from '../_shared/claude.ts';
 import { checkDevToken } from '../_shared/dev-token.ts';
 import type { CappedBody } from '../_shared/http-body.ts';
+import type { FixedWindowRateLimiter, RateLimit } from '../_shared/rate-limit.ts';
 import {
   TAG_ITEM_API_VERSION,
   TAG_ITEM_MAX_BODY_BYTES,
@@ -26,7 +29,7 @@ import {
   type TagItemUsage,
 } from '../_shared/tag-item-contract.ts';
 
-import { callTagModel, type ProviderEnv, type ProviderError } from './claude.ts';
+import { callTagModel } from './claude.ts';
 import { EMPTY_TAGS, type ReadTags } from './model-reply.ts';
 import { TAG_MODEL } from './prompt.ts';
 
@@ -71,7 +74,19 @@ export interface TagItemEnv {
   attemptTimeoutMs?: number;
   /** Time for all calls together; defaults to `PROVIDER_BUDGET_MS`. */
   budgetMs?: number;
+  /**
+   * Counts requests that pass the token check. `index.ts` passes one per
+   * instance (`TAG_ITEM_RATE_LIMIT`); none means no limit (tests).
+   */
+  rateLimiter?: FixedWindowRateLimiter;
 }
+
+/**
+ * Best-effort limit per function instance (`_shared/rate-limit.ts`): 60
+ * requests a minute is three full 20-photo imports, far above one person's
+ * use, and caps a runaway loop at about $0.02 a minute per instance (the platform can run several).
+ */
+export const TAG_ITEM_RATE_LIMIT: RateLimit = { limit: 60, windowMs: 60_000 };
 
 /**
  * Time limits for the model calls. The app gives up after 20 s, which also
@@ -102,6 +117,10 @@ export async function handleTagItem(request: TagItemHttpRequest, env: TagItemEnv
   const auth = checkDevToken(request.authorization, env.devToken);
   if (auth === 'misconfigured') return failure(500, 'server_misconfigured', 'The function is not configured.');
   if (auth === 'unauthorized') return failure(401, 'unauthorized', 'Missing or wrong token.');
+  const rate = env.rateLimiter?.take((env.now ?? Date.now)());
+  if (rate && !rate.ok) {
+    return failure(429, 'rate_limited', 'Too many requests. Try again in a minute.', { 'Retry-After': String(rate.retryAfterSeconds) });
+  }
   const apiKey = env.anthropicApiKey?.trim();
   if (!apiKey) return failure(500, 'server_misconfigured', 'The function is not configured.');
 

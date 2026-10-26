@@ -43,6 +43,7 @@ export interface OutfitGenerateOptions {
  * - `not-enough-items`: the closet has no dress and no top and bottom pair
  *   (from the function's 422, or found before sending); `missing` says which.
  * - `cancelled`: the caller aborted.
+ * (`rate-limited`, a 429, is shared with tagging.)
  * `rejected` also covers a request the app itself finds invalid (empty or
  * too-long text), which is not sent.
  */
@@ -53,6 +54,7 @@ export const OUTFIT_FAILURES = [
   'offline',
   'timeout',
   'rejected',
+  'rate-limited',
   'server',
   'invalid-response',
   'not-enough-items',

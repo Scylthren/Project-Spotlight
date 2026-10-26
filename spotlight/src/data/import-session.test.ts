@@ -1,4 +1,4 @@
-import type { ClosetTagger, TagImage, TagOutcome } from '@/ai/closet-tagger';
+import type { ClosetTagger, TagImage, TagOptions, TagOutcome } from '@/ai/closet-tagger';
 import type { ItemTags } from '@/ai/tag-item-contract';
 import { userColor } from '@/core';
 import { garmentPhoto, inBox, rgb } from '@/core/testing/synthetic-images';
@@ -67,11 +67,14 @@ class ScriptedTagger implements ClosetTagger {
   readonly answers = new Map<string, TagOutcome | Promise<TagOutcome>>();
   fallback: TagOutcome = { ok: false, failure: 'offline' };
   readonly calls: string[] = [];
+  /** Each call's signal, by photo URI. */
+  readonly signals = new Map<string, AbortSignal | undefined>();
   inFlight = 0;
   maxInFlight = 0;
 
-  async tag(image: TagImage): Promise<TagOutcome> {
+  async tag(image: TagImage, options: TagOptions = {}): Promise<TagOutcome> {
     this.calls.push(image.base64);
+    this.signals.set(image.base64, options.signal);
     this.inFlight += 1;
     this.maxInFlight = Math.max(this.maxInFlight, this.inFlight);
     try {
@@ -438,6 +441,40 @@ describe('ImportSession', () => {
       answer.resolve(TOP);
       await done;
       expect(session.getSnapshot().drafts.map((d) => d.photo.uri)).toEqual([uri(2)]);
+    });
+
+    it('discarding aborts every tagging request still running, and the import ends without waiting for them', async () => {
+      const { tagger, deps } = setup();
+      tagger.answers.set(uri(1), TOP);
+      // Never answer: only the abort can end these.
+      for (const n of [2, 3, 4]) tagger.answers.set(uri(n), new Promise<TagOutcome>(() => undefined));
+      const session = new ImportSession(photos(4), deps);
+      const done = session.start();
+      await flush();
+      expect(tagger.calls).toEqual([uri(1), uri(2), uri(3), uri(4)]);
+      expect(tagger.signals.get(uri(2))?.aborted).toBe(false);
+      await session.discard();
+      for (const n of [2, 3, 4]) expect(tagger.signals.get(uri(n))?.aborted).toBe(true);
+      await expect(done).resolves.toBeUndefined();
+      expect(session.getSnapshot()).toMatchObject({ closed: true, drafts: [] });
+    });
+
+    it('removing a draft aborts only its own tagging request; the others still apply', async () => {
+      const { tagger, deps } = setup();
+      const second = deferred<TagOutcome>();
+      tagger.answers.set(uri(1), new Promise<TagOutcome>(() => undefined));
+      tagger.answers.set(uri(2), second.promise);
+      const session = new ImportSession(photos(2), deps);
+      const done = session.start();
+      await flush();
+      await session.remove(session.getSnapshot().drafts[0].id);
+      expect(tagger.signals.get(uri(1))?.aborted).toBe(true);
+      expect(tagger.signals.get(uri(2))?.aborted).toBe(false);
+      second.resolve(TOP);
+      await done;
+      const [left] = session.getSnapshot().drafts;
+      expect(left.photo.uri).toBe(uri(2));
+      expect(describeDraftStatus(left)).toBe('Suggested');
     });
 
     it('discarding twice deletes each photo once', async () => {

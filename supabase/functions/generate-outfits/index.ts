@@ -10,8 +10,12 @@
  * handler logs one line per model call and one per answer (counts only).
  */
 import { finishBody, readCapped, type ByteReader } from '../_shared/http-body.ts';
+import { FixedWindowRateLimiter } from '../_shared/rate-limit.ts';
 
-import { handleGenerateOutfits } from './handler.ts';
+import { GENERATE_OUTFITS_RATE_LIMIT, handleGenerateOutfits } from './handler.ts';
+
+/** One per instance (isolate), kept across requests: a best-effort cap, not a per-user limit (see `_shared/rate-limit.ts`). */
+const rateLimiter = new FixedWindowRateLimiter(GENERATE_OUTFITS_RATE_LIMIT);
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
 
@@ -27,7 +31,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         contentLength,
         readBody: (maxBytes) => readCapped(bodyReader(), maxBytes),
       },
-      { devToken: Deno.env.get('DEV_TOKEN'), anthropicApiKey: Deno.env.get('ANTHROPIC_API_KEY') },
+      { devToken: Deno.env.get('DEV_TOKEN'), anthropicApiKey: Deno.env.get('ANTHROPIC_API_KEY'), rateLimiter },
     );
     await finishBody(bodyReader(), contentLength);
     return new Response(JSON.stringify(result.body), { status: result.status, headers: result.headers });

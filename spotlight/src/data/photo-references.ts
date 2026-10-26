@@ -1,4 +1,5 @@
 import type { SqlDatabase } from './sql-database';
+import { SqlSerialQueue } from './sql-serial-queue';
 
 /**
  * Read-only check of whether any closet item still uses a stored photo.
@@ -11,12 +12,23 @@ export interface PhotoReferences {
   isReferenced(ref: string): Promise<boolean>;
 }
 
-/** `PhotoReferences` over the `item_photos` table. A single read; never writes. */
+/**
+ * `PhotoReferences` over the `item_photos` table. A single read; never
+ * writes. Runs through the connection's shared `SqlSerialQueue`, so it never
+ * reads a half-written item from inside a repository's open transaction
+ * (it waits for the commit). Pass the queue the repositories use. Not for
+ * use inside a queued task (the queue is not re-entrant).
+ */
 export class SqlitePhotoReferences implements PhotoReferences {
-  constructor(private readonly db: SqlDatabase) {}
+  constructor(
+    private readonly db: SqlDatabase,
+    private readonly queue: SqlSerialQueue = new SqlSerialQueue(),
+  ) {}
 
-  async isReferenced(ref: string): Promise<boolean> {
-    return (await this.db.getFirstAsync('SELECT 1 AS used FROM item_photos WHERE storage_path = ? LIMIT 1', [ref])) !== null;
+  isReferenced(ref: string): Promise<boolean> {
+    return this.queue.run(
+      async () => (await this.db.getFirstAsync('SELECT 1 AS used FROM item_photos WHERE storage_path = ? LIMIT 1', [ref])) !== null,
+    );
   }
 }
 

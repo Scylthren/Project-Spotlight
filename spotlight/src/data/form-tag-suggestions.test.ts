@@ -461,6 +461,136 @@ describe('FormTagSuggestions: category, seasons, "No suggestions", one request p
   });
 });
 
+describe('cancelling abandoned tagging requests', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('suggestFromPhoto: an abort ends the call at once with no suggestion, aborts the tagger\'s request, and is not reported', async () => {
+    const tagger = new FakeClosetTagger();
+    tagger.queue.push(() => new Promise<TagOutcome>(() => undefined));
+    const errors: unknown[] = [];
+    const controller = new AbortController();
+    const pending = suggestFromPhoto('x', { tagger, imageSource: new FixedTagImageSource() }, { signal: controller.signal, onError: (e) => errors.push(e) });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(tagger.signals[0]?.aborted).toBe(false);
+    controller.abort();
+    expect(await pending).toBeNull();
+    expect(tagger.signals[0]?.aborted).toBe(true);
+    expect(errors).toEqual([]);
+  });
+
+  it('suggestFromPhoto: an already aborted signal reads no photo and sends nothing', async () => {
+    const tagger = new FakeClosetTagger();
+    const imageSource = new FixedTagImageSource();
+    expect(await suggestFromPhoto('x', { tagger, imageSource }, { signal: AbortSignal.abort() })).toBeNull();
+    expect(imageSource.reads).toEqual([]);
+    expect(tagger.inputs).toEqual([]);
+  });
+
+  it('suggestFromPhoto: aborted while the photo is being prepared, the photo is never sent', async () => {
+    const tagger = new FakeClosetTagger();
+    const image = deferred<Awaited<ReturnType<TagImageSource['read']>>>();
+    const errors: unknown[] = [];
+    const controller = new AbortController();
+    const pending = suggestFromPhoto('x', { tagger, imageSource: { read: () => image.promise } }, { signal: controller.signal, onError: (e) => errors.push(e) });
+    controller.abort();
+    expect(await pending).toBeNull();
+    image.resolve(await new FixedTagImageSource().read('x'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(tagger.inputs).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+
+  it('suggestFromPhoto: a timeout also aborts the tagger\'s request', async () => {
+    jest.useFakeTimers();
+    const tagger = new FakeClosetTagger();
+    tagger.queue.push(() => new Promise<TagOutcome>(() => undefined));
+    const pending = suggestFromPhoto('x', { tagger, imageSource: new FixedTagImageSource() }, { timeoutMs: 50, onError: () => undefined });
+    await jest.advanceTimersByTimeAsync(50);
+    expect(await pending).toBeNull();
+    expect(tagger.signals[0]?.aborted).toBe(true);
+  });
+
+  it('the form aborts the running request when it closes, is cleared, or gets a new front photo, and never shows "No suggestions" for it', async () => {
+    const { form, tagger, suggestions } = setup();
+    const hang = () => new Promise<TagOutcome>(() => undefined);
+
+    tagger.queue.push(hang);
+    const first = suggestions.frontPhotoPicked('draft-1', 'a');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    form.front = 'draft-2';
+    tagger.queue.push(hang);
+    const second = suggestions.frontPhotoPicked('draft-2', 'b');
+    await first;
+    expect(tagger.signals[0]?.aborted).toBe(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    suggestions.reset();
+    await second;
+    expect(tagger.signals[1]?.aborted).toBe(true);
+
+    tagger.queue.push(hang);
+    const third = suggestions.frontPhotoPicked('draft-2', 'c');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    suggestions.cancel();
+    form.active = false;
+    await third;
+    expect(tagger.signals[2]?.aborted).toBe(true);
+    expect(form.none).not.toContain(true);
+  });
+
+  it('closing the form aborts the real HTTP request (remote tagger), and saving still works', async () => {
+    const fetchSignals: (AbortSignal | undefined)[] = [];
+    const tagger = new RemoteClosetTagger({
+      url: 'https://example.supabase.co/functions/v1/tag-item',
+      tokenStore: new InMemoryDevTokenStore('5b'.repeat(32)),
+      fetch: ((_input: RequestInfo | URL, init?: RequestInit) => {
+        fetchSignals.push(init?.signal ?? undefined);
+        return new Promise<Response>((_resolve, reject) => init?.signal?.addEventListener('abort', () => reject(new Error('Aborted'))));
+      }) as typeof fetch,
+    });
+    const form: FakeForm = {
+      attributes: EMPTY_ATTRIBUTE_FIELDS,
+      categorySeason: categorySeasonFields(null, []),
+      front: 'draft-1',
+      colors: [],
+      suggesting: [],
+      none: [],
+      active: true,
+    };
+    const suggestions = new FormTagSuggestions({ tagger, imageSource: new FixedTagImageSource() }, hostFor(form), { onError: () => undefined });
+    const running = suggestions.frontPhotoPicked('draft-1', 'file:///photo.jpg');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetchSignals).toHaveLength(1);
+    expect(fetchSignals[0]?.aborted).toBe(false);
+
+    const repository = new InMemoryClosetRepository();
+    const saved = await addClosetItem(
+      {
+        ...EMPTY_ITEM_FORM,
+        category: 'top',
+        seasons: ['summer'],
+        colors: [{ paletteId: 'black', hex: '#111111', source: 'user' }],
+        photos: [{ kind: 'picked', id: 'draft-1', role: 'front', isPrimary: true, uri: 'file:///photo.jpg' }],
+      },
+      {
+        repository,
+        imageStore: new MemoryImageStore(),
+        imageProcessor: new FakeImageProcessor(),
+        temporaryFiles: new RecordingTemporaryFiles(),
+        newId: () => 'saved-while-tagging',
+      },
+    );
+    expect(saved.ok).toBe(true);
+
+    suggestions.cancel();
+    form.active = false;
+    await running;
+    expect(fetchSignals[0]?.aborted).toBe(true);
+    expect(form.none).not.toContain(true);
+  });
+});
+
 describe('toPhotoSuggestions', () => {
   it('ignores the colors of a stub answer and keeps real ones (at most three, unique)', () => {
     expect(toPhotoSuggestions({ ...NO_TAGS, colors: ['navy'] }, true).colors).toEqual([]);

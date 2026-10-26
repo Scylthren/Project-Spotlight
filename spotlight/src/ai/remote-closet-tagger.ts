@@ -1,6 +1,6 @@
 import type { DevTokenStore } from '@/data/dev-token-store';
 
-import type { ClosetTagger, TagFailure, TagImage, TagOutcome } from './closet-tagger';
+import type { ClosetTagger, TagFailure, TagImage, TagOptions, TagOutcome } from './closet-tagger';
 import { validateTagItemResponse, type TagItemRequest } from './tag-item-contract';
 
 /** Long enough for a model call in slice 3; the stub answers in well under a second. */
@@ -19,8 +19,10 @@ export interface RemoteClosetTaggerOptions {
  * `ClosetTagger` that calls the tag-item edge function with plain `fetch`
  * (decision D5). Never throws: missing configuration, a missing token, a
  * network error, a timeout and an unexpected answer all resolve a typed
- * failure. The token goes only into the Authorization header; it is never
- * logged or included in a failure.
+ * failure. The caller's `signal` aborts the request (`cancelled`), so a
+ * closed form or a discarded import does not leave it running. The token
+ * goes only into the Authorization header; it is never logged or included
+ * in a failure.
  */
 export class RemoteClosetTagger implements ClosetTagger {
   private readonly fetchImpl: typeof fetch;
@@ -31,8 +33,9 @@ export class RemoteClosetTagger implements ClosetTagger {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TAG_TIMEOUT_MS;
   }
 
-  async tag(image: TagImage): Promise<TagOutcome> {
+  async tag(image: TagImage, { signal }: TagOptions = {}): Promise<TagOutcome> {
     const { url, tokenStore } = this.options;
+    if (signal?.aborted) return fail('cancelled');
     if (!url) return fail('not-configured');
 
     let token: string | null;
@@ -42,14 +45,19 @@ export class RemoteClosetTagger implements ClosetTagger {
       token = null;
     }
     if (!token) return fail('no-token');
+    if (signal?.aborted) return fail('cancelled');
 
     const request: TagItemRequest = { imageBase64: image.base64, contentType: image.contentType };
     const controller = new AbortController();
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
+    let stopped: 'timeout' | 'cancelled' | null = null;
+    const stop = (reason: 'timeout' | 'cancelled') => {
+      stopped ??= reason;
       controller.abort();
-    }, this.timeoutMs);
+    };
+    const onAbort = () => stop('cancelled');
+    signal?.addEventListener('abort', onAbort);
+    const timer = setTimeout(() => stop('timeout'), this.timeoutMs);
+    const lost = (): TagOutcome => fail(stopped ?? 'offline');
 
     try {
       let response: Response;
@@ -65,20 +73,22 @@ export class RemoteClosetTagger implements ClosetTagger {
           signal: controller.signal,
         });
       } catch {
-        return fail(timedOut ? 'timeout' : 'offline');
+        return lost();
       }
 
       if (response.status === 401) return fail('unauthorized');
       if (response.status === 400) return fail('rejected');
+      if (response.status === 429) return fail('rate-limited');
       if (response.status !== 200) return fail('server');
 
       let text: string;
       try {
         text = await response.text();
       } catch {
-        // Reading the body can also time out or lose the connection.
-        return fail(timedOut ? 'timeout' : 'offline');
+        // Reading the body can also time out, be cancelled or lose the connection.
+        return lost();
       }
+      if (stopped) return lost();
       let body: unknown;
       try {
         body = JSON.parse(text);
@@ -90,6 +100,7 @@ export class RemoteClosetTagger implements ClosetTagger {
       return { ok: true, tags: valid.value.tags, stub: valid.value.stub };
     } finally {
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
     }
   }
 }

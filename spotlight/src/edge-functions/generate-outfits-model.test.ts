@@ -12,7 +12,7 @@ import {
   ANTHROPIC_MESSAGES_URL,
   ANTHROPIC_VERSION,
   classifyProviderStatus,
-} from '../../../supabase/functions/generate-outfits/claude.ts';
+} from '../../../supabase/functions/_shared/claude.ts';
 import {
   handleGenerateOutfits,
   PROVIDER_ATTEMPT_TIMEOUT_MS,
@@ -196,10 +196,10 @@ describe('generate-outfits prompt and request', () => {
   });
 
   it('describes random and weather modes and the weather (never coordinates)', () => {
-    const weather = { highC: 12, lowC: 4, rainChance: 80, windKph: 20, conditions: 'Light rain' };
+    const weather = { highC: 12, lowC: 4, rainChance: 80, windKph: 20, conditions: 'drizzle' as const };
     const { text } = buildOutfitPrompt({ request: '', mode: 'weather', weather, items: sampleSummaries() });
     expect(text).toContain("dress for today's weather");
-    expect(text).toContain('"conditions":"Light rain"');
+    expect(text).toContain('"conditions":"drizzle"');
     expect(buildOutfitPrompt({ request: '', mode: 'random', items: sampleSummaries() }).text).toContain('a surprise');
   });
 

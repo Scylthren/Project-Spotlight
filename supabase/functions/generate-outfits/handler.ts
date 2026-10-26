@@ -4,8 +4,8 @@
  * API: `docs/api/generate-outfits.md`.
  *
  * Order of checks, as in tag-item: method (405), token (401; 500 when the
- * secret is unusable), model key (500), body size, JSON and shape (400),
- * then whether the closet can form any outfit (422 `not_enough_items`,
+ * secret is unusable), rate limit (429, `_shared/rate-limit.ts`), model
+ * key (500), body size, JSON and shape (400), then whether the closet can form any outfit (422 `not_enough_items`,
  * before any model call). Then (Gate 3 slice 3) the closet is trimmed for
  * the prompt (`prefilter.ts`), the model is asked for looks (`prompt.ts`,
  * `claude.ts`, `model-reply.ts`), and every look is checked by the
@@ -17,6 +17,7 @@
  * request text, the closet, ids or the model's reply: one line per model
  * call and one per answer, counts only.
  */
+import type { ProviderEnv, ProviderError } from '../_shared/claude.ts';
 import { checkDevToken } from '../_shared/dev-token.ts';
 import {
   GENERATE_OUTFITS_API_VERSION,
@@ -32,8 +33,9 @@ import {
   type ValidGenerateOutfitsRequest,
 } from '../_shared/generate-outfits-contract.ts';
 import type { CappedBody } from '../_shared/http-body.ts';
+import type { FixedWindowRateLimiter, RateLimit } from '../_shared/rate-limit.ts';
 
-import { callOutfitModel, logOutfitCall, type ProviderEnv, type ProviderError } from './claude.ts';
+import { callOutfitModel, logOutfitCall } from './claude.ts';
 import { readOutfitReply } from './model-reply.ts';
 import { indexCloset, validateOutfits, type OutfitValidation } from './outfit-rules.ts';
 import { prefilterCloset } from './prefilter.ts';
@@ -68,7 +70,19 @@ export interface GenerateOutfitsEnv {
   attemptTimeoutMs?: number;
   /** Time for all calls together; defaults to `PROVIDER_BUDGET_MS`. */
   budgetMs?: number;
+  /**
+   * Counts requests that pass the token check. `index.ts` passes one per
+   * instance (`GENERATE_OUTFITS_RATE_LIMIT`); none means no limit (tests).
+   */
+  rateLimiter?: FixedWindowRateLimiter;
 }
+
+/**
+ * Best-effort limit per function instance (`_shared/rate-limit.ts`): 20
+ * requests a minute is a Restyle every 3 seconds, far above one person's
+ * use, and caps a runaway loop at under $0.01 a minute per instance (the platform can run several).
+ */
+export const GENERATE_OUTFITS_RATE_LIMIT: RateLimit = { limit: 20, windowMs: 60_000 };
 
 /**
  * Time limits for the model calls (Gate 3 decision D4). The app gives up
@@ -112,6 +126,10 @@ export async function handleGenerateOutfits(
   const auth = checkDevToken(request.authorization, env.devToken);
   if (auth === 'misconfigured') return failure(500, 'server_misconfigured', 'The function is not configured.');
   if (auth === 'unauthorized') return failure(401, 'unauthorized', 'Missing or wrong token.');
+  const rate = env.rateLimiter?.take((env.now ?? Date.now)());
+  if (rate && !rate.ok) {
+    return failure(429, 'rate_limited', 'Too many requests. Try again in a minute.', { 'Retry-After': String(rate.retryAfterSeconds) });
+  }
   const apiKey = env.anthropicApiKey?.trim();
   if (!apiKey) return failure(500, 'server_misconfigured', 'The function is not configured.');
 

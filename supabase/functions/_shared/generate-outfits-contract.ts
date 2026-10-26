@@ -72,7 +72,24 @@ export type OutfitMode = (typeof OUTFIT_MODES)[number];
 export const WEATHER_TEMP_MIN_C = -80;
 export const WEATHER_TEMP_MAX_C = 70;
 export const WEATHER_WIND_MAX_KPH = 400;
-export const WEATHER_CONDITIONS_MAX_LENGTH = 40;
+
+/**
+ * Today's sky, from a fixed list so no free text reaches the prompt. Meant
+ * to be mapped from Open-Meteo's daily `weather_code` (WMO code), slice 5:
+ * - `clear`: 0 (clear sky), 1 (mainly clear)
+ * - `partly-cloudy`: 2
+ * - `cloudy`: 3 (overcast)
+ * - `fog`: 45, 48 (fog, rime fog)
+ * - `drizzle`: 51, 53, 55, 56, 57 (drizzle, freezing drizzle)
+ * - `rain`: 61, 63, 65, 66, 67 (rain, freezing rain), 80, 81, 82 (showers)
+ * - `snow`: 71, 73, 75, 77 (snow, snow grains), 85, 86 (snow showers)
+ * - `thunderstorm`: 95, 96, 99 (with or without hail)
+ * Intensity (light or heavy) is left out: `rainChance` and the
+ * temperatures carry what matters for dressing. Any other code has no
+ * matching value; the mapper should then pick the nearest (or `cloudy`).
+ */
+export const WEATHER_CONDITIONS = ['clear', 'partly-cloudy', 'cloudy', 'fog', 'drizzle', 'rain', 'snow', 'thunderstorm'] as const;
+export type WeatherCondition = (typeof WEATHER_CONDITIONS)[number];
 
 /** Most outfits in one answer. */
 export const MAX_OUTFITS = 3;
@@ -121,8 +138,8 @@ export interface WeatherSummary {
   /** Percent, 0 to 100. */
   rainChance: number;
   windKph: number;
-  /** Short text ("Light rain"), 1 to 40 characters. */
-  conditions: string;
+  /** One of WEATHER_CONDITIONS (mapped from a WMO weather code). */
+  conditions: WeatherCondition;
 }
 
 export interface GenerateOutfitsRequest {
@@ -310,8 +327,10 @@ export function validateWeatherSummary(value: unknown): Validation<WeatherSummar
   if (lowC > highC) return { ok: false, reason: 'weather lowC must not be above highC' };
   if (!isNumberIn(rainChance, 0, 100)) return { ok: false, reason: 'weather rainChance must be 0 to 100' };
   if (!isNumberIn(windKph, 0, WEATHER_WIND_MAX_KPH)) return { ok: false, reason: `weather windKph must be 0 to ${WEATHER_WIND_MAX_KPH}` };
-  const conditions = readText(value.conditions, 1, WEATHER_CONDITIONS_MAX_LENGTH);
-  if (conditions === null) return { ok: false, reason: `weather conditions must be 1 to ${WEATHER_CONDITIONS_MAX_LENGTH} characters` };
+  const { conditions } = value;
+  if (!isOneOf(WEATHER_CONDITIONS, conditions)) {
+    return { ok: false, reason: `weather conditions must be one of ${WEATHER_CONDITIONS.join(', ')}` };
+  }
   return { ok: true, value: { highC, lowC, rainChance, windKph, conditions } };
 }
 

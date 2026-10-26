@@ -57,6 +57,7 @@
     "lint:evals": "cd .. && eslint --no-warn-ignored --max-warnings 0 -c spotlight/eslint.config.js evals",
     "test": "jest",
     "typecheck": "tsc --noEmit && tsc --noEmit -p ../evals/tagging/tsconfig.json",
+    "check:functions": "cd ../supabase/functions && deno check tag-item/index.ts generate-outfits/index.ts && deno lint",
     "eval:tagging": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-transform-types ../evals/tagging/cli.ts"
   },
   "private": true,

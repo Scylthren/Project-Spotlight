@@ -55,8 +55,14 @@ export const TAG_SUGGESTION_TIMEOUT_MS = 30_000;
 
 export interface SuggestOptions {
   timeoutMs?: number;
-  /** Told about swallowed failures (for a dev warning). */
+  /** Told about swallowed failures (for a dev warning). Not told about a cancel. */
   onError?: (error: unknown) => void;
+  /**
+   * The caller no longer wants the answer (form closed, photo replaced,
+   * import discarded): the tagger's request is aborted and the call
+   * resolves null at once. Not an error.
+   */
+  signal?: AbortSignal;
 }
 
 /**
@@ -90,36 +96,47 @@ export function toPhotoSuggestions(tags: ItemTags, stub: boolean): PhotoSuggesti
 
 /**
  * Asks the tagger about a photo. Resolves to the suggestions, or null for "no
- * suggestion" (any tagger failure, a thrown error, or a timeout). Never
- * rejects, so a failure can never block saving.
+ * suggestion" (any tagger failure, a thrown error, a timeout, or a cancel).
+ * Never rejects, so a failure can never block saving. On a timeout or a
+ * cancel (`signal`) the tagger's request is aborted too, so it does not keep
+ * running (and uploading) for an answer nobody will use; a photo already
+ * being prepared finishes, but is not sent.
  */
 export async function suggestFromPhoto(
   photoUri: string,
   deps: { tagger: ClosetTagger; imageSource: TagImageSource },
-  { timeoutMs = TAG_SUGGESTION_TIMEOUT_MS, onError }: SuggestOptions = {},
+  { timeoutMs = TAG_SUGGESTION_TIMEOUT_MS, onError, signal }: SuggestOptions = {},
 ): Promise<PhotoSuggestions | null> {
+  if (signal?.aborted) return null;
+  const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<'timeout'>((resolve) => {
+  let onAbort: (() => void) | undefined;
+  const stopped = new Promise<'timeout' | 'cancelled'>((resolve) => {
     timer = setTimeout(() => resolve('timeout'), timeoutMs);
+    onAbort = () => resolve('cancelled');
+    signal?.addEventListener('abort', onAbort);
   });
   const work = (async () => {
     const image = await deps.imageSource.read(photoUri);
-    const outcome = await deps.tagger.tag(image);
+    if (controller.signal.aborted) return null;
+    const outcome = await deps.tagger.tag(image, { signal: controller.signal });
     return outcome.ok ? toPhotoSuggestions(outcome.tags, outcome.stub) : null;
   })();
   try {
-    const result = await Promise.race([work, timeout]);
-    if (result === 'timeout') {
+    const result = await Promise.race([work, stopped]);
+    if (result === 'timeout' || result === 'cancelled') {
+      controller.abort();
       work.catch(() => undefined);
-      report(onError, new Error(`tag suggestion timed out after ${timeoutMs} ms`));
+      if (result === 'timeout') report(onError, new Error(`tag suggestion timed out after ${timeoutMs} ms`));
       return null;
     }
     return result;
   } catch (error) {
-    report(onError, error);
+    if (!signal?.aborted) report(onError, error);
     return null;
   } finally {
     clearTimeout(timer);
+    if (onAbort) signal?.removeEventListener('abort', onAbort);
   }
 }
 

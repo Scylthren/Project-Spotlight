@@ -289,8 +289,10 @@ function newDraft(photo: PickedLibraryPhoto, newId: () => string): ImportDraft {
  *   `addClosetItem` (so photos are downscaled, re-encoded and stripped the
  *   same way). A draft that fails stays with its reasons; the others are
  *   saved. A second call while one runs is ignored.
- * - `discard` (the user cancels) drops every draft and deletes the
- *   temporary copies; results that arrive later are ignored.
+ * - `discard` (the user cancels) drops every draft, aborts every tagging
+ *   request still running (`AbortSignal`; not shown as a failure) and
+ *   deletes the temporary copies; results that arrive later are ignored.
+ *   `remove` aborts that draft's request the same way.
  *
  * Subscribe with `subscribe`/`getSnapshot` (React's useSyncExternalStore).
  */
@@ -302,6 +304,8 @@ export class ImportSession {
   private started: Promise<void> | null = null;
   /** Drafts already handed to `discard` cleanup, so no file is discarded twice. */
   private readonly released = new Set<string>();
+  /** Running tagging requests by draft id, aborted when the draft is removed or the import discarded. */
+  private readonly tagging = new Map<string, AbortController>();
 
   constructor(
     photos: readonly PickedLibraryPhoto[],
@@ -392,6 +396,7 @@ export class ImportSession {
     const draft = this.draft(id);
     if (!draft) return;
     this.update({ drafts: this.snapshot.drafts.filter((d) => d.id !== id) });
+    this.tagging.get(id)?.abort();
     await this.release(draft);
   }
 
@@ -451,6 +456,7 @@ export class ImportSession {
   async discard(): Promise<void> {
     if (this.snapshot.closed) return;
     this.update({ closed: true });
+    for (const controller of this.tagging.values()) controller.abort();
     if (!this.snapshot.saving) await this.releaseAll();
   }
 
@@ -472,9 +478,16 @@ export class ImportSession {
     const detect = detectItemColors(uri, this.deps.isolator, this.deps.detectOptions).then((detected) =>
       this.applyDetected(draft.id, detected),
     );
-    const suggest = suggestFromPhoto(uri, { tagger: this.deps.tagger, imageSource: this.deps.imageSource }, this.deps.suggestOptions).then(
-      (result) => this.applySuggestions(draft.id, result),
-    );
+    const controller = new AbortController();
+    this.tagging.set(draft.id, controller);
+    const suggest = suggestFromPhoto(
+      uri,
+      { tagger: this.deps.tagger, imageSource: this.deps.imageSource },
+      { ...this.deps.suggestOptions, signal: controller.signal },
+    ).then((result) => {
+      this.tagging.delete(draft.id);
+      this.applySuggestions(draft.id, result);
+    });
     await Promise.all([detect, suggest]);
   }
 

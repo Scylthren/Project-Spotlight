@@ -39,6 +39,7 @@ Run all of these from the `spotlight/` folder (the Expo app), not the repo root.
 - Dev server: `npx expo start`
 - Typecheck: `npx tsc --noEmit` (also `npm run typecheck`)
 - Lint: `npm run lint` (runs `expo lint`, ESLint flat config in `eslint.config.js`)
+- Edge functions: `npm run check:functions` (`deno check` on both function entrypoints and `deno lint` in `supabase/functions/`; needs Deno 2 installed, not part of `npm test`)
 - Unit tests: `npm test` (Jest with the `jest-expo` preset; config in `package.json`). Single file: `npm test -- src/core/clothing-item.test.ts`
 - `spotlight/tsconfig.json` lists `compilerOptions.types` explicitly (`jest`, `expo/types`). Any new global `@types/*` package must be added there or its globals will not be visible.
 - Tagging eval: `npm run eval:tagging -- <init|check|run|score>` (see `evals/tagging/README.md`). `run` calls the deployed function, costs money, needs macOS (`sips`) and the dev token. `npm run typecheck` and `npm run lint` also cover `evals/`.

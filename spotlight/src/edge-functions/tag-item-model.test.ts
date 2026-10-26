@@ -7,7 +7,7 @@ import {
   ANTHROPIC_MESSAGES_URL,
   ANTHROPIC_VERSION,
   classifyProviderStatus,
-} from '../../../supabase/functions/tag-item/claude.ts';
+} from '../../../supabase/functions/_shared/claude.ts';
 import {
   handleTagItem,
   PROVIDER_ATTEMPT_TIMEOUT_MS,

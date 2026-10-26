@@ -115,8 +115,8 @@ describe('prefilter scoring', () => {
   });
 
   it('reads seasons from the weather', () => {
-    const hot = { highC: 30, lowC: 20, rainChance: 0, windKph: 5, conditions: 'Sunny' };
-    const cold = { highC: 3, lowC: -4, rainChance: 0, windKph: 5, conditions: 'Snow' };
+    const hot = { highC: 30, lowC: 20, rainChance: 0, windKph: 5, conditions: 'clear' as const };
+    const cold = { highC: 3, lowC: -4, rainChance: 0, windKph: 5, conditions: 'snow' as const };
     expect([...requestHints('', hot).seasons]).toEqual(['summer']);
     expect([...requestHints('', cold).seasons]).toEqual(['winter']);
   });

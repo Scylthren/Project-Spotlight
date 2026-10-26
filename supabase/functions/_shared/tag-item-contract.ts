@@ -140,6 +140,8 @@ export const TAG_ITEM_ERROR_CODES = [
   'method_not_allowed',
   'bad_request',
   'too_large',
+  /** Too many requests to this function instance in the current minute (429, best effort; see the API doc). */
+  'rate_limited',
   'server_misconfigured',
   'internal',
   /** The model provider is down, overloaded (5xx, 529) or unreachable. */

@@ -147,7 +147,7 @@ describe('handleGenerateOutfits', () => {
   });
 
   it('accepts weather and random modes', async () => {
-    const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'Sunny' };
+    const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'clear' };
     for (const body of [
       { request: '', items: sampleSummaries(), mode: 'random' },
       { request: '', items: sampleSummaries(), mode: 'weather', weather },

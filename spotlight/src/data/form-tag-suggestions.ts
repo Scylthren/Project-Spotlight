@@ -49,9 +49,14 @@ export interface TagSuggestionHost {
  *   fills them.
  * - One request per photo: a second call for the photo already being tagged
  *   is ignored.
+ * - A request nobody will use is aborted (`AbortSignal`): when a new front
+ *   photo replaces it, when the form is cleared (`reset`) and when the form
+ *   closes (`cancel`). The abort is not a failure: nothing is shown for it,
+ *   and it never touches saving.
  */
 export class FormTagSuggestions {
   private current: string | null = null;
+  private controller: AbortController | null = null;
 
   constructor(
     private readonly deps: { tagger: ClosetTagger; imageSource: TagImageSource },
@@ -67,12 +72,16 @@ export class FormTagSuggestions {
   /** Suggests tags for front photo draft `id`. Resolves when done; never rejects. */
   async frontPhotoPicked(id: string, uri: string): Promise<void> {
     if (!this.host.isActive() || this.current === id) return;
+    this.abortRunning();
+    const controller = new AbortController();
+    this.controller = controller;
     this.current = id;
     this.host.setAttributes(clearSuggestedAttributes(this.host.attributes()));
     this.host.setCategorySeason(clearSuggestedCategorySeason(this.host.categorySeason()));
     this.host.setNoSuggestions(false);
     this.host.setSuggesting(true);
-    const result = await suggestFromPhoto(uri, this.deps, this.options);
+    const result = await suggestFromPhoto(uri, this.deps, { ...this.options, signal: controller.signal });
+    if (this.controller === controller) this.controller = null;
     if (this.current !== id || !this.host.isActive()) return; // superseded or cancelled; whoever did that owns the flag
     this.current = null;
     this.host.setSuggesting(false);
@@ -87,8 +96,9 @@ export class FormTagSuggestions {
     if (isEmptySuggestion(result)) this.host.setNoSuggestions(true);
   }
 
-  /** The form was cleared: drops the running request. */
+  /** The form was cleared: aborts and drops the running request. */
   reset(): void {
+    this.abortRunning();
     this.current = null;
     if (this.host.isActive()) {
       this.host.setSuggesting(false);
@@ -96,8 +106,14 @@ export class FormTagSuggestions {
     }
   }
 
-  /** The form closed. */
+  /** The form closed: aborts the running request. */
   cancel(): void {
+    this.abortRunning();
     this.current = null;
+  }
+
+  private abortRunning(): void {
+    this.controller?.abort();
+    this.controller = null;
   }
 }

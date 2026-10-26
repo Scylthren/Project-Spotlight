@@ -3,7 +3,7 @@
 Suggests tags for one garment photo. Since Gate 2 slice 3 the function sends the image to Claude (model `claude-haiku-5-5`, ROADMAP D3) with a fixed prompt and a JSON schema, validates the reply, and answers `stub: false`. (Slices 1 and 2 returned a fixed stub; the app's `MockClosetTagger` still returns that stub in tests.)
 
 - **URL:** `POST https://<project-ref>.supabase.co/functions/v1/tag-item` (the app builds it from `EXPO_PUBLIC_SUPABASE_URL`).
-- **Source:** `supabase/functions/tag-item/` (thin Deno entry `index.ts`, logic in `handler.ts`, the model call in `claude.ts`, the fixed prompt and JSON schema in `prompt.ts`, reply checks in `model-reply.ts`), shared code in `supabase/functions/_shared/`.
+- **Source:** `supabase/functions/tag-item/` (thin Deno entry `index.ts`, logic in `handler.ts`, the model call and its log line in `claude.ts` (the fetch, timeout and status mapping are shared, `_shared/claude.ts`), the fixed prompt and JSON schema in `prompt.ts`, reply checks in `model-reply.ts`), shared code in `supabase/functions/_shared/`.
 - **Secrets:** `DEV_TOKEN` (auth, below) and `ANTHROPIC_API_KEY` (the model key). Both exist only as Supabase function secrets.
 - **Types:** `supabase/functions/_shared/tag-item-contract.ts` is the single source of the request and response types, limits and validators. The app keeps a byte-identical copy at `spotlight/src/ai/tag-item-contract.ts`; `spotlight/src/ai/tag-item-contract.test.ts` fails when they drift. Edit the supabase file, then copy it.
 - **App client:** `RemoteClosetTagger` (`spotlight/src/ai/remote-closet-tagger.ts`), behind the `ClosetTagger` interface.
@@ -95,6 +95,7 @@ Error bodies: `{ "error": { "code": "<code>", "message": "<text>" } }`. Messages
 | --- | --- | --- |
 | 405 | `method_not_allowed` | Any method other than POST (also OPTIONS; the app is native, no CORS). Header `Allow: POST`. Checked first. |
 | 401 | `unauthorized` | Missing, malformed or wrong `Authorization` header (also when the secret is misconfigured). Checked before the body is parsed. |
+| 429 | `rate_limited` | More than 60 requests a minute reached this function instance with a valid token (see "Limits"). Checked right after the token, before the key and the body. Header `Retry-After` gives the seconds until the window ends. |
 | 400 | `too_large` | `Content-Length` or the actual body is over 2,100,000 bytes. |
 | 400 | `bad_request` | Body not readable as UTF-8, not JSON, or fails the request rules above. |
 | 500 | `server_misconfigured` | A well-formed bearer token, but the `DEV_TOKEN` secret is missing or too short, or the `ANTHROPIC_API_KEY` secret is missing or blank (checked after the token, before the body is parsed; there is no stub fallback). |
@@ -113,7 +114,7 @@ The `upstream_*` messages are fixed text; the provider's own error message is ne
 - Model time (function): each call at most 8 s, all calls (the first and the one retry) at most 16 s; the retry starts only with at least 3 s left. This keeps the answer inside the app's timeout.
 - Client timeout (app): 20 seconds, then the app reports "timed out".
 - Cost: about one Haiku call per photo (two when the reply needs the retry); tokens per call are in the logs, and the totals per answer are in `usage`.
-- No rate limit yet, for authorized or unauthenticated calls (risk noted in `docs/plans/gate-2.md`).
+- Rate limit (crude, best effort; `_shared/rate-limit.ts`): at most 60 requests a minute per function instance, in a fixed window kept in memory. Every request that passes the token check counts (a bad body too); refused ones and unauthenticated ones do not. Over the limit: 429 `rate_limited` with `Retry-After`. It is **not** a per-user limit and not global: the hosted runtime can run several instances (isolates) at once and start fresh ones at any time, each with its own count, so the real ceiling is higher and unknown. It only stops one warm instance from calling the model in a runaway loop (60 calls is about $0.02). Gate 4 replaces it with a per-user limit. Unauthenticated calls are still unlimited (they never reach the model, but can make the function read up to 8 MB each, see above).
 
 ## App failure mapping
 `RemoteClosetTagger` never throws; it resolves one of:
@@ -124,10 +125,12 @@ The `upstream_*` messages are fixed text; the provider's own error message is ne
 | `no-token` | No token saved on the device, or secure storage could not be read. No request is made. |
 | `unauthorized` | 401. |
 | `rejected` | 400. |
+| `rate-limited` | 429 (the form shows "No suggestions", like any failure). |
 | `server` | Any other non-200 status (404 not deployed, 500 misconfigured, 502/503/504 provider trouble). |
 | `offline` | `fetch` failed before an answer (no network, DNS, TLS), or the connection dropped while reading. |
 | `timeout` | No complete answer within the timeout (request aborted). |
 | `invalid-response` | 200 with a body that is not JSON or fails `validateTagItemResponse`. |
+| `cancelled` | The caller's `AbortSignal` fired (request aborted): the Add/Edit form closed or replaced its photo, or the import was discarded or the draft removed. Not shown to the user and never blocks saving. |
 
 ## Logging
 One JSON line per model call, for cost and latency: `{"fn":"tag-item","event":"provider_call","model","attempt","status","stop_reason","input_tokens","output_tokens","latency_ms","outcome","problems"?}`. `status` is the HTTP status, or `network_error` / `timeout`; `outcome` is `ok`, `partial`, `malformed:<reason>`, or the provider error; `problems` lists invalid field names only, never values. The function never logs headers, the token, the key, the image or the reply text. An unexpected error logs only `tag-item: unexpected error`.

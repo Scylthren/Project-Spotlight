@@ -1,5 +1,6 @@
 import { InMemoryDevTokenStore, type DevTokenStore } from '@/data/dev-token-store';
 
+import { FixedWindowRateLimiter } from '../../../supabase/functions/_shared/rate-limit.ts';
 import { handleGenerateOutfits, type GenerateOutfitsEnv } from '../../../supabase/functions/generate-outfits/handler.ts';
 import { modelReply } from '../edge-functions/testing/model-fakes';
 
@@ -111,7 +112,7 @@ describe('RemoteOutfitGenerator', () => {
 
   it('sends mode and weather when given', async () => {
     const { generator, fetchMock } = setup();
-    const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'Sunny' };
+    const weather = { highC: 20, lowC: 10, rainChance: 0, windKph: 5, conditions: 'clear' as const };
     await generator.generate({ request: '', items: closet, mode: 'weather', weather });
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ request: '', mode: 'weather', weather });
   });
@@ -236,6 +237,7 @@ describe('RemoteOutfitGenerator', () => {
   it.each([
     [401, 'unauthorized'],
     [400, 'rejected'],
+    [429, 'rate-limited'],
     [404, 'server'],
     [405, 'server'],
     [500, 'server'],
@@ -246,6 +248,23 @@ describe('RemoteOutfitGenerator', () => {
   ])('maps status %i to %s', async (status, failure) => {
     const { generator } = setup({ respond: mockFetch(async () => jsonResponse(status, { error: { code: 'x' } })) });
     expect(await generator.generate({ request: 'x', items: closet })).toEqual({ ok: false, failure });
+  });
+
+  it('maps the function\'s own rate limit (429 rate_limited) to rate-limited, then works again', async () => {
+    let clock = 0;
+    const env = { ...functionEnv([{ items: ['i1', 'i2', 'i3'], rationale: 'Easy.' }]), now: () => clock, rateLimiter: new FixedWindowRateLimiter({ limit: 1, windowMs: 60_000 }) };
+    const respond = mockFetch(async (_input, init) => {
+      const result = await handleGenerateOutfits(
+        { method: 'POST', authorization: `Bearer ${TOKEN}`, contentLength: null, readBody: async () => ({ ok: true, text: String(init?.body) }) },
+        env,
+      );
+      return jsonResponse(result.status, result.body);
+    });
+    const { generator } = setup({ respond });
+    expect((await generator.generate({ request: 'one', items: closet })).ok).toBe(true);
+    expect(await generator.generate({ request: 'two', items: closet })).toEqual({ ok: false, failure: 'rate-limited' });
+    clock += 60_000;
+    expect((await generator.generate({ request: 'three', items: closet })).ok).toBe(true);
   });
 
   it.each([

@@ -35,7 +35,8 @@ export function multiSelectOptions(limit: number): ImagePickerOptions {
 
 /**
  * Real `PhotoPicker` using the system photo library UI or camera UI.
- * Per the SDK 57 docs, the library needs no permission prompt for images;
+ * Per the SDK 58 docs (expo-image-picker 58.0.10, `launchImageLibraryAsync`:
+ * permission needed "on iOS 10 only"), the library needs no permission prompt;
  * the camera always needs camera permission, requested here first. (If it
  * was already denied, the request returns at once without a prompt.)
  * The camera does not work on the iOS Simulator; that shows up as 'error'.
