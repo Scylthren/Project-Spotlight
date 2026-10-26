@@ -3,6 +3,7 @@ import { WEATHER_CONDITIONS, WEATHER_INTENSITIES, type WeatherSummary } from '@/
 import {
   conditionsText,
   describeWeatherBlock,
+  fahrenheit,
   LOCATION_INTRO,
   MATCH_WEATHER_TEXT,
   weatherAccessibilityLabel,
@@ -14,10 +15,19 @@ import {
 const DAY: WeatherSummary = { highC: 18.4, lowC: 8.6, rainChance: 60, windKph: 15, conditions: 'rain', intensity: 'light' };
 
 describe('weather line', () => {
-  it('reads "18° / 9° · Light rain · 60% rain", adding Windy for strong wind', () => {
-    expect(weatherLine(DAY)).toBe('18° / 9° · Light rain · 60% rain');
-    expect(weatherLine({ ...DAY, windKph: 30, conditions: 'clear', intensity: undefined, rainChance: 0 })).toBe('18° / 9° · Clear · 0% rain · Windy');
-    expect(weatherLine({ ...DAY, highC: -2, lowC: -11 })).toBe('-2° / -11° · Light rain · 60% rain');
+  it('converts Celsius to rounded Fahrenheit', () => {
+    expect(fahrenheit(0)).toBe(32);
+    expect(fahrenheit(100)).toBe(212);
+    expect(fahrenheit(-40)).toBe(-40);
+    expect(fahrenheit(37)).toBe(99);
+    expect(fahrenheit(18)).toBe(64);
+    expect(fahrenheit(-20)).toBe(-4);
+  });
+
+  it('reads "65° / 47° · Light rain · 60% rain" in Fahrenheit, adding Windy for strong wind', () => {
+    expect(weatherLine(DAY)).toBe('65° / 47° · Light rain · 60% rain');
+    expect(weatherLine({ ...DAY, windKph: 30, conditions: 'clear', intensity: undefined, rainChance: 0 })).toBe('65° / 47° · Clear · 0% rain · Windy');
+    expect(weatherLine({ ...DAY, highC: -2, lowC: -11 })).toBe('28° / 12° · Light rain · 60% rain');
   });
 
   it('names every condition and intensity', () => {
@@ -33,7 +43,7 @@ describe('weather line', () => {
 
   it('has a spoken version with the place', () => {
     expect(weatherAccessibilityLabel(DAY, 'Leeds, United Kingdom')).toBe(
-      'Weather for Leeds, United Kingdom, high 18 degrees Celsius, low 9, light rain, 60 percent chance of rain',
+      'Weather for Leeds, United Kingdom, high 65 degrees Fahrenheit, low 47, light rain, 60 percent chance of rain',
     );
     expect(weatherAccessibilityLabel({ ...DAY, windKph: 40 })).toMatch(/^Today's weather, .*, windy$/);
   });

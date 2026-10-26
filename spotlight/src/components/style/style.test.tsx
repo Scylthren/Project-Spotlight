@@ -300,9 +300,9 @@ describe('ResultsView (rendered)', () => {
       snapshot({ kind: 'loading' }, '', { matchWeather: true, weather: { kind: 'used', weather, placeName: 'Leeds, United Kingdom' } }),
     );
     expect(screen.getByText(WEATHER_RESULTS_TEXT.title)).toBeTruthy();
-    expect(screen.getByText('Leeds, United Kingdom · 18° / 9° · Light rain · 60% rain')).toBeTruthy();
+    expect(screen.getByText('Leeds, United Kingdom · 64° / 48° · Light rain · 60% rain')).toBeTruthy();
     expect(screen.getByText('Weather data by Open-Meteo.com')).toBeTruthy();
-    expect(screen.getByLabelText(/^Weather for Leeds, United Kingdom, high 18 degrees Celsius/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Weather for Leeds, United Kingdom, high 64 degrees Fahrenheit/)).toBeTruthy();
   });
 
   it('weather: checking, then skipped says so plainly', async () => {

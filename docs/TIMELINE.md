@@ -42,9 +42,14 @@ _Last updated: 2026-10-26 by orchestrator (slice 5a reviewed and committed; wait
 ## Log
 Newest first.
 
+### 2026-10-26 — Fahrenheit display; secret-scan fix
+- Human: show temperatures in Fahrenheit. `fahrenheit()` in `data/weather-messages.ts` converts on the phone for the Results line and screen-reader label; contract, function and prompt stay Celsius. Tests updated to the °F values plus a conversion test.
+- `758fb91` failed the repo secret scan: the 5a log line quoted the Supabase secret-key prefix (wording, not a key). Reworded. Lesson: re-run `npm test` after editing docs, before committing.
+- Evidence: tsc, lint pass; `npm test` 131 suites, 2375 tests.
+
 ### 2026-10-26 — Slice 5a reviewed and committed
 - architect-reviewer (Sonnet): PASS WITH NOTES, no must-fix. Applied: Android coarse location only, aligned iOS permission string. Server cache already documented.
-- Orchestrator: tsc, lint, `check:functions` pass; `npm test` 131 suites, 2374 tests; three contract `cmp` identical; ios and android export with `LC_ALL=C grep -a`: control string "Get looks" found, 0 `sk-ant`, 0 `api.anthropic.com`, 0 Open-Meteo API hosts, 0 service_role/sb_secret_. `expo config --type introspect` shows the new strings and the blocked permission. Committed and pushed.
+- Orchestrator: tsc, lint, `check:functions` pass; `npm test` 131 suites, 2374 tests; three contract `cmp` identical; ios and android export with `LC_ALL=C grep -a`: control string "Get looks" found, 0 `sk-ant`, 0 `api.anthropic.com`, 0 Open-Meteo API hosts, 0 service-role or Supabase secret-key prefixes. `expo config --type introspect` shows the new strings and the blocked permission. Committed and pushed.
 
 ### 2026-10-26 — Gate 3 slice 5a (location, weather, Match today's weather), built and deployed (implementer)
 - Built as in Current state. Decisions for the human: WMO choices (1 partly-cloudy; freezing variants; 77/95/96 no intensity; 99 heavy); `{lat,lon}` over-precision rejected not rounded; weather rate limit 30/min; city 1-80 chars; weather failure runs without weather (mode `request`, `random` if no text) while off / no location / unknown city stop with an Open Me view; intro once per session; Celsius only; iOS reduced accuracy by default; weather row on the Style screen is session-only (default off).

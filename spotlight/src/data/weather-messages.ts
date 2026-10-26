@@ -1,7 +1,7 @@
 /**
  * Every new line of text for weather (Gate 3 slice 5a), in one place:
  * DRAFTS for the human to approve (privacy wording especially). Also the
- * weather line on Results ("18° / 9° · Light rain · 60% rain"). Plain data
+ * weather line on Results ("64° / 48° · Light rain · 60% rain"). Plain data
  * and functions, tested; screens only show them.
  *
  * The location permission strings shown by the OS are in `app.json`
@@ -75,10 +75,18 @@ export function conditionsText(conditions: WeatherCondition, intensity?: Weather
 /** Wind from this speed (km/h) adds "Windy". */
 export const WINDY_FROM_KPH = 30;
 
-/** "18° / 9° · Light rain · 60% rain" (· Windy); temperatures in °C, rounded. */
+/**
+ * °C (the contract's unit, also what the function and the prompt use) to °F,
+ * rounded. The app shows Fahrenheit only (human, 2026-10-26).
+ */
+export function fahrenheit(celsius: number): number {
+  return Math.round((celsius * 9) / 5 + 32);
+}
+
+/** "64° / 48° · Light rain · 60% rain" (· Windy); temperatures in °F, rounded. */
 export function weatherLine(weather: WeatherSummary): string {
   const parts = [
-    `${Math.round(weather.highC)}° / ${Math.round(weather.lowC)}°`,
+    `${fahrenheit(weather.highC)}° / ${fahrenheit(weather.lowC)}°`,
     conditionsText(weather.conditions, weather.intensity),
     `${Math.round(weather.rainChance)}% rain`,
   ];
@@ -90,7 +98,7 @@ export function weatherLine(weather: WeatherSummary): string {
 export function weatherAccessibilityLabel(weather: WeatherSummary, placeName: string | null = null): string {
   const parts = [
     ...(placeName ? [`Weather for ${placeName}`] : ["Today's weather"]),
-    `high ${Math.round(weather.highC)} degrees Celsius, low ${Math.round(weather.lowC)}`,
+    `high ${fahrenheit(weather.highC)} degrees Fahrenheit, low ${fahrenheit(weather.lowC)}`,
     conditionsText(weather.conditions, weather.intensity).toLowerCase(),
     `${Math.round(weather.rainChance)} percent chance of rain`,
   ];
